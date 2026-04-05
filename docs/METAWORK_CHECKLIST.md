@@ -22,11 +22,11 @@ Use this checklist during active development to keep project docs current.
 - [ ] explanation boundary changed
 
 ## Docs to touch
-- `PROJECT_STATUS.md`
-- `PROJECT_MAP.md`
-- `DATA_CONTRACTS.md`
-- `WORKSTREAM_DECISIONS.md`
-- `DASHBOARD_DESIGN.md`
+- `01-overview-and-current-status.md`
+- `02-project-map.md`
+- `04-data-contracts.md`
+- `05-workstream-decisions.md`
+- `03-dashboard-design.md`
 
 ## Rule
 Do this during the work, not after the work.

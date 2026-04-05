@@ -7,11 +7,11 @@
 - `run_daemon.sh` — local helper for running the server/daemon flow
 
 ## Docs
-- `docs/PROJECT_STATUS.md` — current status and active refactor notes
-- `docs/PROJECT_MAP.md` — this file
-- `docs/DASHBOARD_DESIGN.md` — layout and table/chart interaction rules
-- `docs/DATA_CONTRACTS.md` — important endpoint and payload notes
-- `docs/WORKSTREAM_DECISIONS.md` — durable module/product decisions
+- `docs/01-overview-and-current-status.md` — current status and active refactor notes
+- `docs/02-project-map.md` — this file
+- `docs/03-dashboard-design.md` — layout and table/chart interaction rules
+- `docs/04-data-contracts.md` — important endpoint and payload notes
+- `docs/05-workstream-decisions.md` — durable module/product decisions
 
 ## Main UI module structure
 - `welcome-home`

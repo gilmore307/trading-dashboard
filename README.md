@@ -68,9 +68,9 @@ Default local server:
 
 Start with:
 - `docs/README.md`
-- `docs/PROJECT_STATUS.md`
-- `docs/PROJECT_MAP.md`
-- `docs/DASHBOARD_DESIGN.md`
-- `docs/DATA_CONTRACTS.md`
-- `docs/WORKSTREAM_DECISIONS.md`
+- `docs/01-overview-and-current-status.md`
+- `docs/02-project-map.md`
+- `docs/03-dashboard-design.md`
+- `docs/04-data-contracts.md`
+- `docs/05-workstream-decisions.md`
 - `TODO.md`
