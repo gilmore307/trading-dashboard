@@ -74,6 +74,12 @@ Start with:
 - `docs/02-upstream-boundaries-and-intake.md`
 - `docs/03-report-schema-and-bundle-layout.md`
 - `docs/04-dashboard-handoff-contract.md`
+- `docs/05-upstream-source-inventory.md`
+- `docs/06-intake-contract.md`
+- `docs/07-report-taxonomy.md`
+- `docs/08-report-id-window-and-provenance.md`
+- `docs/09-repo-by-repo-migration-plan.md`
+- `docs/10-open-questions-and-next-doc-work.md`
 - `TODO.md`
 
 ## Current phase
