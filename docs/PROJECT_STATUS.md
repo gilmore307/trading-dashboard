@@ -1,39 +1,38 @@
-# trading-dashboard Project Status
+# Project Status
 
 _Last updated: 2026-04-05_
 
-## 1. Goal
+## Goal
 
 Build a website dashboard/workspace for the trading system that is split into clear modules:
-1. **Welcome** as the top-level entry
-2. **Historical Backtest** as the module entry/control center
-3. **Trading Performance** as the trading-and-return layer
-4. **Market State Analysis** as the state/cluster interpretation layer
-5. later parameter-focused sections kept separate from both
+- **Welcome** as the top-level entry
+- **Historical Backtest** as the module entry/control center
+- **Trading Performance** as the trading-and-return layer
+- **Market State Analysis** as the state/cluster interpretation layer
+- later parameter-focused sections kept separate from both
 
-## 2. Current repo direction
+## Current repo direction
 
-Current rule:
-- `trading-dashboard` is dashboard-only
-- trading repos keep their own output/report generation responsibilities
-- this repo focuses on UI/server/data-contract/dictionary work only
+`trading-dashboard` is dashboard-only.
+Trading repos keep their own output/report generation responsibilities.
+This repo focuses on UI/server/data-contract/dictionary work only.
 
 The current implementation baseline comes from the old `ops-dashboard` code/content.
 
-## 3. Current state
+## Current state
 
 The dashboard is in an active restructuring phase.
 
 Recent major direction changes:
-1. the repo was reset from the abandoned `trading-report` idea back to a dashboard-only direction
-2. the site no longer treats Trading Performance as the top-level landing page
-3. a Welcome page and a Historical Backtest module homepage were introduced
-4. instrument choice is being moved into the Historical Backtest control page instead of being forced by Trading Performance page entry
-5. Trading Performance and Market State Analysis are being separated more cleanly so state-interpretation content stops leaking into the trading-performance layer
+- the repo was reset from the abandoned `trading-report` idea back to a dashboard-only direction
+- the site no longer treats Trading Performance as the top-level landing page
+- a Welcome page and a Historical Backtest module homepage were introduced
+- instrument choice is being moved into the Historical Backtest control page instead of being forced by Trading Performance page entry
+- Trading Performance and Market State Analysis are being separated more cleanly so state-interpretation content stops leaking into the trading-performance layer
 
-## 4. What is already implemented
+## What is already implemented
 
-### 4.1 Navigation / module structure
+### Navigation / module structure
 - Welcome page exists
 - Historical Backtest module homepage exists
 - Trading Performance exists under Historical Backtest
@@ -42,7 +41,7 @@ Recent major direction changes:
   - State Transitions
   - State Explanation
 
-### 4.2 Trading Performance work
+### Trading Performance work
 - Strategy Variants workspace exists as a unified cross-family page
 - Composite / Routing supports selector-driven views
 - Trading Performance now has a dedicated `Best Trading Choice by Cluster` block fed from formal cluster evaluation payloads
@@ -50,7 +49,7 @@ Recent major direction changes:
 - MA variant-id mismatch handling was added in the front end so MA variant curves can render despite summary/curve naming differences
 - hover popovers were removed; dictionary access is click-to-open only
 
-### 4.3 Historical Backtest control page
+### Historical Backtest control page
 - Historical Backtest now acts as the control center before entering Trading Performance
 - instrument selection has been converted from dropdown intent toward a single-select table
 - instrument rows now target meaningful selection-help data such as start date, end date, granularity, and row count instead of raw implementation-path fields
@@ -61,40 +60,40 @@ Recent major direction changes:
 - strategy selection now constrains which family dashboards get loaded for Trading Performance
 - loading logic has begun moving toward incremental reuse for still-selected families while clearing caches for families that were explicitly deselected
 
-### 4.4 Market State Analysis work
+### Market State Analysis work
 - overview/separation/explanation page skeletons exist
 - state module can load independently of Trading Performance
 - State Explanation has a dedicated controlled sample instrument selector because explanation is allowed to project anonymized states onto a real market sample
 - second-module design rule is now clearer: Market State Analysis stays anonymized at the module level, but State Explanation is allowed to use a controlled real-market projection instrument
 
-### 4.5 Dictionary / terminology work
+### Dictionary / terminology work
 - dashboard dictionary coverage was expanded substantially
 - display terms now increasingly map to mother keys instead of one-key-per-item sprawl
 - family-level variant code mother keys now exist for MA / Donchian / Bollinger
 - parameter region labels now map to a mother `parameter_region_code` explanation
 
-## 5. Current known issues / unfinished work
+## Current known issues / unfinished work
 
-### 5.1 Historical Backtest UX
+### Historical Backtest UX
 - instrument selection table still needs more polished selection-help fields beyond the first pass of start/end date, granularity, and row count
 - strategy selection table still needs more aggregated cross-instrument metrics (for example return / win rate rolled up across all instruments)
 - loading experience still needs smarter incremental reuse when changing strategy selection
 - current incremental reuse is only a first pass; deselected families are cleared from cache and same-instrument selected families can be reused, but there is more room to reduce reload cost
 - server process stability/hot-reload reliability has intermittently caused the UI to show stale content unless the local server is restarted
 
-### 5.2 Trading Performance data flow
+### Trading Performance data flow
 - load path is still heavier than ideal because large payloads are parsed in-browser
 - progress bar is stage-based rather than true byte-level progress
 - family equity curves now need to stay scoped to the selected-family set at Load time rather than a single monolithic all-family fetch
 - family variant dashboard artifacts are moving to split directory outputs (`summary.json`, `composite.json`, `variants/<variant>.json`) so the workflow stays small-file-first going forward instead of repeatedly growing one family blob
 - retained-data policy is also being tightened: keep summary records for all tested variants, but keep full heavy artifacts only for top variants worth deep inspection (currently top 5 per cluster within each family)
 
-### 5.3 Market State Analysis depth
+### Market State Analysis depth
 - State Explanation now has a first real path: dedicated payload + K-line main chart + parameter subchart stack
 - representative-window selection and explanation quality still need refinement and validation against the running UI
 - State Transitions remains mostly placeholder
 
-## 6. Immediate next priorities
+## Immediate next priorities
 
 1. finish Historical Backtest as the true control center for instrument + strategy selection + artifact visibility + progress
 2. continue refining instrument/strategy selection tables so they help the user choose scope rather than merely exposing controls
@@ -102,9 +101,9 @@ Recent major direction changes:
 4. continue filling Market State Analysis with real content, especially State Explanation
 5. keep docs under `docs/` current as the structure evolves
 
-## 7. Detailed decisions that must stay aligned with implementation
+## Detailed decisions that must stay aligned with implementation
 
-### 7.1 Historical Backtest homepage
+### Historical Backtest homepage
 - this page is now the pre-load control center for Trading Performance
 - instrument selection should stay as a single-select table
 - strategy selection should stay as a multi-select table
@@ -112,14 +111,14 @@ Recent major direction changes:
 - the final load/execute card should carry the current selection summary and progress state
 - progress should appear only after load begins
 
-### 7.2 Trading Performance load behavior
+### Trading Performance load behavior
 - load should be explicitly user-triggered from Historical Backtest instead of auto-triggered by entering Trading Performance
 - the load boundary is the Load button, not page navigation
 - during one Load, family equity curves should be fetched once for the currently selected families and then reused across page navigation without re-fetching
 - instrument changes are a stronger reset boundary than family selection changes
 - family-variant dashboard cache may still be trimmed by selected family scope, but page-to-page navigation within the loaded scope must not trigger new equity-curve loads
 
-### 7.3 Module boundary
+### Module boundary
 - Trading Performance should answer trading questions
 - Market State Analysis should answer state/cluster interpretation questions
 - cluster best family / cluster best variant belong to Trading Performance because they answer how to trade a cluster

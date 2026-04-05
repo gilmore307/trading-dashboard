@@ -1,26 +1,25 @@
-# trading-dashboard Docs
+# trading-dashboard docs
 
-This folder holds project meta-work for `trading-dashboard`.
+This docs tree is the canonical home for the `trading-dashboard` repository documentation.
 
-## 1. Current doc set
+`trading-dashboard` is the website dashboard/UI repository for the trading system.
+It owns dashboard structure, page/module behavior, local server/adaptation work, dashboard-facing data contracts, and shared dictionary/display metadata used by the UI.
 
-1. `README.md` — this index
-2. `PROJECT_STATUS.md` — current project state, recent changes, and next priorities
-3. `PROJECT_MAP.md` — code/data/layout map for the dashboard project
-4. `DASHBOARD_DESIGN.md` — page and interaction design rules
-5. `DATA_CONTRACTS.md` — key payloads, endpoints, and front-end expectations
-6. `WORKSTREAM_DECISIONS.md` — durable product and interaction decisions
-7. `METAWORK_CHECKLIST.md` — dashboard meta-work maintenance checklist
+## Read in workflow order
 
-## 2. Operating rule
-
-During active dashboard work, update these docs continuously rather than waiting until closeout.
-
-## 3. Reading order
-
-Use this order by default:
 1. `PROJECT_STATUS.md`
 2. `PROJECT_MAP.md`
 3. `DASHBOARD_DESIGN.md`
 4. `DATA_CONTRACTS.md`
 5. `WORKSTREAM_DECISIONS.md`
+
+## Core operating model
+
+- trading repos keep their own output/report generation responsibilities
+- `trading-dashboard` consumes those outputs for visualization
+- `trading-dashboard` owns the website dashboard surface, not upstream trading logic
+
+## Consolidation note
+
+This doc set is intentionally workflow-first.
+The goal is to keep the repo readable top-down without scattering dashboard direction across too many thin notes.
