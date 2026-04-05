@@ -8,18 +8,18 @@ Repository chain:
 - `trading-model` -> offline model/ranking/policy outputs
 - `trading-execution` -> runtime/live execution outputs
 - `trading-manager` -> orchestration/run manifests across the stack
-- `trading-report` -> cross-repo report assembly and downstream visualization handoff
+- `trading-report` -> cross-repo report assembly, dashboard-facing data layers, and visualization surface
 
 ## What this repository does
 
-`trading-report` is the single downstream report layer.
+`trading-report` is the single downstream reporting-and-visualization repo.
 It is responsible for:
 - collecting machine-readable output/manifests from upstream trading repos
 - normalizing them into one shared reporting contract
 - assembling cross-repo report bundles
-- generating report-ready datasets and summary artifacts
-- preserving report lineage so dashboard consumers know which upstream artifacts were used
-- handing the final report surface to downstream visualization layers such as `ops-dashboard`
+- generating dashboard-ready detail/overview datasets
+- preserving report lineage so consumers know which upstream artifacts were used
+- hosting the visualization surface and lightweight serving/adaptation layer for those reporting outputs
 
 ## What this repository does not do
 
@@ -29,13 +29,12 @@ It is responsible for:
 - model-training or ranking internals
 - live execution internals
 - cross-repo scheduling/timing policy
-- dashboard presentation logic itself
 
 In other words:
 - upstream repos produce outputs
 - `trading-manager` decides when workflows run
-- `trading-report` turns upstream outputs into unified reports
-- `ops-dashboard` visualizes those unified reports
+- `trading-report` turns upstream outputs into unified detail/overview/report layers
+- `trading-report` also hosts the visualization surface for those layers
 
 ## Core architecture rule
 
@@ -80,6 +79,9 @@ Start with:
 - `docs/08-report-id-window-and-provenance.md`
 - `docs/09-repo-by-repo-migration-plan.md`
 - `docs/10-open-questions-and-next-doc-work.md`
+- `docs/11-ops-dashboard-merge-rationale.md`
+- `docs/12-merged-repo-scope.md`
+- `docs/13-dashboard-first-design-for-trading-data.md`
 - `TODO.md`
 
 ## Current phase

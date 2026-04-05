@@ -22,6 +22,18 @@
 - [x] document repo-by-repo migration plan
 - [ ] define first concrete execution-review report example bundle
 - [ ] define first concrete workflow report example bundle
+- [x] define dashboard-first design for the `trading-data` coverage surface
+- [ ] define the first canonical `trading-data` overview matrix payload shape
+- [ ] define the first canonical `trading-data` detail-table payload shape
+
+## Repo merge direction
+
+- [x] document the rationale for merging `ops-dashboard` into `trading-report`
+- [x] redefine `trading-report` as the merged reporting + visualization repo
+- [ ] inventory the exact files/docs/assets to migrate from `ops-dashboard`
+- [ ] migrate `ops-dashboard` docs, dictionary assets, UI shell, and server/adaptation layer into `trading-report`
+- [ ] update all producer-repo references so `trading-report` replaces `ops-dashboard` as the downstream visualization home
+- [ ] retire `ops-dashboard` after migration is complete
 
 ## Migration direction
 
