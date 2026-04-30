@@ -15,7 +15,7 @@ read artifacts/manifests/signals -> adapt for presentation -> render dashboard v
 - Dashboard consumes existing outputs; it does not recompute upstream truth.
 - Dashboard actions must not mutate strategy/model/execution state unless a future explicit contract allows it.
 - Visualization should preserve provenance links to manifests and artifacts.
-- Shared fields, statuses, type values, helpers, and reusable templates must come from `trading-main`.
+- Shared fields, statuses, type values, helpers, and reusable templates must come from `trading-manager`.
 - Runtime outputs must be written outside Git-tracked source paths.
 - Cross-repository handoffs should use accepted request, artifact, manifest, and ready-signal contracts.
 
