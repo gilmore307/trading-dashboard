@@ -39,9 +39,9 @@ This closeout does not enable or claim:
 - manager dispatch;
 - broker order/fill/account lifecycle.
 
-## Deferred Beyond This Closeout
+## Not Current Historical-Training Scope
 
-Future dashboard work should begin only when a concrete reviewed output surface exists:
+There are no active dashboard work items for the current no-broker historical-training preparation boundary. Future dashboard work should begin only when a concrete reviewed output surface exists:
 
 - first implementation slice and UI boundary;
 - package/source/test layout;
@@ -50,7 +50,7 @@ Future dashboard work should begin only when a concrete reviewed output surface 
 - storage path/reference requirements for rendered artifacts;
 - any future mutation/interaction contract, if explicitly accepted.
 
-These are not blockers for closing the current presentation-boundary phase.
+These are not blockers for current historical training.
 
 ## Acceptance Evidence
 
