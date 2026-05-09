@@ -11,5 +11,6 @@ This directory is the authoritative documentation spine for `trading-dashboard`.
 - `04_task.md` — current task state, queued work, blockers, and recently accepted work.
 - `05_decision.md` — ratified repository decisions.
 - `06_memory.md` — durable local continuity that does not fit narrower docs.
+- `07_dashboard_closeout.md` — current presentation-boundary phase closeout receipt.
 
 Do not place generated data, artifacts, notebooks, logs, credentials, or implementation outputs in this directory.

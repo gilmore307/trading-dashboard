@@ -12,7 +12,7 @@ It does not own component responsibilities outside that boundary, global contrac
 docs/        Repository scope, context, workflow, acceptance, task, decisions, and local memory.
 ```
 
-Source, scripts, tests, and package layout are intentionally not created yet. Add them only after the component contracts, storage expectations, and first implementation slice are explicit. When implementation begins, use `src/` for importable/reusable code, `scripts/` for executable maintenance or operational entrypoints, and `tests/` for first-party tests; `scripts/` may import `src/`, but `src/` must not import `scripts/`.
+Source, scripts, tests, and package layout are intentionally not created yet. Add them only after the component contracts, storage expectations, and first implementation slice are explicit. When implementation begins, use `src/` for importable/reusable code, `scripts/` for executable maintenance or operational entrypoints, and `tests/` for first-party tests; `scripts/` may import `src/`, but `src/` must not import `scripts/`. `docs/07_dashboard_closeout.md` records the current presentation-boundary closeout; it does not enable dashboard runtime or trading actions.
 
 ## Docs Spine
 
@@ -25,6 +25,7 @@ docs/
   04_task.md
   05_decision.md
   06_memory.md
+  07_dashboard_closeout.md
 ```
 
 ## Platform Dependencies
