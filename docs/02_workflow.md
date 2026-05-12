@@ -29,4 +29,4 @@ Upstream inputs and downstream outputs should be described by artifact reference
 
 ## Not Current Historical-Training Scope
 
-Dashboard implementation is intentionally outside the no-broker historical-training run. The exact first implementation slice, request/read-model shape, artifact/manifest/ready-signal schema interactions, shared storage references, test harness, fixture policy, and package layout should be accepted only after stable training evidence exists to display.
+Dashboard runtime/UI implementation remains outside the no-broker historical-training run. The first accepted implementation slice is limited to read-only adapters over storage-hosted dashboard read-model `latest.json` files; it does not create UI pages, provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.

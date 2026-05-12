@@ -10,9 +10,12 @@ It does not own component responsibilities outside that boundary, global contrac
 
 ```text
 docs/        Repository scope, context, workflow, acceptance, task, decisions, local memory, and information architecture.
+scripts/     Executable dashboard helper entrypoints.
+src/         Importable read-only dashboard adapters.
+tests/       First-party dashboard adapter tests.
 ```
 
-Source, scripts, tests, and package layout are intentionally not created yet. Add them only after the component contracts, storage expectations, and first implementation slice are explicit. When implementation begins, use `src/` for importable/reusable code, `scripts/` for executable maintenance or operational entrypoints, and `tests/` for first-party tests; `scripts/` may import `src/`, but `src/` must not import `scripts/`. `docs/07_dashboard_closeout.md` records the current presentation-boundary closeout; it does not enable dashboard runtime or trading actions.
+The first implementation slice is a read-only storage-hosted read-model adapter. It does not create dashboard runtime/UI, provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes. `src/` owns reusable code, `scripts/` owns executable entrypoints, and `tests/` owns verification; `scripts/` may import `src/`, but `src/` must not import `scripts/`. `docs/07_dashboard_closeout.md` records the presentation-boundary closeout.
 
 ## Docs Spine
 
@@ -37,3 +40,10 @@ docs/
 - `trading-manager` owns control-plane orchestration and lifecycle routing.
 
 Any new global helper, reusable template, shared field, status, type, config key, or vocabulary discovered here must be routed back to `trading-manager` before other repositories depend on it.
+
+## Verification
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests
+python3 -m compileall -q src scripts
+```

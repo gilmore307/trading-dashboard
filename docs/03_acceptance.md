@@ -51,7 +51,14 @@ find docs -maxdepth 1 -type f | sort
 find . -maxdepth 2 -type f | sort
 ```
 
-Once implementation exists, acceptance must add appropriate commands for unit tests, fixture tests, lint/type checks, schema validation, and artifact/manifest/ready-signal validation as applicable.
+Current implementation verification:
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests
+python3 -m compileall -q src scripts
+```
+
+Future runtime/UI slices must add appropriate fixture tests, lint/type checks, schema validation, and artifact/manifest/ready-signal validation as applicable.
 
 ## Required Review Evidence
 

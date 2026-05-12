@@ -2,9 +2,9 @@
 
 ## Active Tasks
 
-- No runtime/UI implementation is active yet. The owner-facing information architecture, storage-hosted read-model contract set, registry route, storage physical-layout boundary, and first refreshable historical progress read model are accepted.
+- First read-only adapter slice is implemented: dashboard can read storage-hosted dashboard read-model `latest.json` files and project them into UI-ready view dictionaries.
 
-`trading-dashboard` is ready for a future first runtime slice only after a reviewed UI/package/test plan is accepted. Runtime/code implementation remains deferred; the dashboard must consume storage-hosted summaries rather than raw internals.
+Runtime/UI implementation remains deferred. The dashboard must continue consuming storage-hosted summaries rather than raw internals.
 
 ## Historical-Training Todo Status
 
@@ -15,15 +15,15 @@
 
 These items are intentionally outside the current no-broker historical-training run and must not be treated as active dashboard work items:
 
-- first dashboard runtime implementation;
-- package/source/test layout before implementation begins;
+- first dashboard runtime/UI implementation;
 - primary pages exposing maintenance internals, model intermediate artifacts, manager request payloads, run manifests, ready signals, raw receipts, or daemon implementation details;
 - new read-model surfaces beyond the accepted initial/parked set before their presentation contract, storage layout, and registry route are accepted;
 - dashboard-originated requests, provider calls, model activation, broker execution, or account mutation.
 
 ## Recently Accepted
 
-- Added the first refreshable dashboard read model: `trading-manager` builds `historical_task_progress_summary_v1` from read-only scheduler/status evidence, and `trading-storage` can refresh/materialize it through a storage-owned wrapper plus reviewed systemd service/timer templates. Dashboard read adapters and dashboard UI remain future work.
+- Added the first dashboard read adapter: `src/trading_dashboard/read_models.py` and `scripts/read_models/read_latest_dashboard_read_model.py` read storage-hosted `latest.json` summaries, starting with `historical_task_progress_summary_v1`, without raw internal table access or side effects.
+- Added the first refreshable dashboard read model: `trading-manager` builds `historical_task_progress_summary_v1` from read-only scheduler/status evidence, and `trading-storage` can refresh/materialize it through a storage-owned wrapper plus reviewed systemd service/timer templates. Dashboard UI remains future work.
 - Registered the storage-side dashboard read-model materializer through `trading-manager`: producer-supplied summaries can now be validated and materialized by `trading-storage` into snapshot/latest/schema/index files.
 - Registered the dashboard summary/read-model contract names through `trading-manager` and accepted the initial storage physical layout/validation boundary in `trading-storage/docs/97_dashboard_summary_layout.md`.
 - Closed the current presentation-boundary phase in `docs/07_dashboard_closeout.md`: downstream-only display role, provenance-preserving expectation, no dashboard-originated trading actions, and deferred implementation-layout policy are accepted. No dashboard runtime, provider call, manager dispatch, model activation, broker execution, or account mutation is enabled by this closeout.

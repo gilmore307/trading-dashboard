@@ -178,3 +178,29 @@ Semantic ownership does not move to storage: task/scheduler/promotion summary se
 - `trading-storage` defines the initial physical layout and validation boundary in `trading-storage/docs/97_dashboard_summary_layout.md`.
 - Shared summary contract names are routed through `trading-manager` registry migration `344_register_dashboard_read_model_contracts.sql` before cross-repository implementation depends on them.
 - The first implementation slice should request/consume storage-hosted summaries rather than raw component internals.
+
+
+## D008 - First dashboard implementation is a storage read adapter
+
+Date: 2026-05-12
+Status: Accepted
+
+### Context
+
+`historical_task_progress_summary_v1` now has a manager-owned semantic producer and a storage-owned refresh/materialization wrapper. The dashboard needs a first implementation slice that can consume this accepted summary without becoming a runtime UI, workflow controller, raw artifact browser, or storage writer.
+
+### Decision
+
+The first dashboard implementation slice is a read-only adapter over storage-hosted dashboard read-model `latest.json` files:
+
+- importable module: `src/trading_dashboard/read_models.py`;
+- executable helper: `scripts/read_models/read_latest_dashboard_read_model.py`;
+- first consumed contract: `historical_task_progress_summary_v1`.
+
+The adapter reads only accepted `storage/dashboard/read_models/<contract_type>/latest.json` summaries, validates the common dashboard envelope shape, and projects the payload into a UI-ready dictionary. It does not query raw manager/model/data/execution/storage internals and does not perform provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.
+
+### Consequences
+
+- Future UI/runtime pages should consume this adapter boundary or a successor with the same storage-hosted read-model discipline.
+- Missing `latest.json` is surfaced as a read-adapter error rather than silently fabricating dashboard values.
+- Additional dashboard contracts can reuse the adapter after their semantic producer and storage materialization path are accepted.
