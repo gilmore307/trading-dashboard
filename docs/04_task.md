@@ -2,7 +2,7 @@
 
 ## Active Tasks
 
-- First website slice is implemented: Vite + React + TypeScript renders a public read-only Tasks / Historical Modeling page from `historical_task_progress_summary_v1`, with the left navigation as the only page-switching entry point plus read-only manual refresh, one-minute automatic polling, and in-view diagnostics expansion.
+- First website slice is implemented: Vite + React + TypeScript renders a public read-only Tasks / Historical Modeling page from `historical_task_progress_summary_v1`, with the left navigation as the only page-switching entry point plus read-only manual refresh, WebSocket streaming with HTTP fallback polling, and in-view diagnostics expansion.
 - Dashboard continues consuming storage-hosted summaries rather than raw internals.
 
 ## Historical-Training Todo Status

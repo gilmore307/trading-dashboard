@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HistoricalProgressVisual, MetricCard, StageStackedBar, StatusPill } from './components';
 import { formatTimestamp, startCase } from './format';
-import { fetchLatestReadModel } from './readModels';
+import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
 import type { DashboardReadModel, HistoricalTaskProgressChartPayload } from './types';
 import './styles.css';
 
@@ -88,6 +88,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<ViewId>('status');
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
+  const [streamStatus, setStreamStatus] = useState<ReadModelStreamStatus>('connecting');
 
   const loadReadModel = useCallback((signal?: AbortSignal) => {
     setLoading(true);
@@ -109,12 +110,27 @@ function App() {
   useEffect(() => {
     const controller = new AbortController();
     loadReadModel(controller.signal);
-    const intervalId = window.setInterval(() => {
-      void loadReadModel();
+    let hasLivePayload = false;
+    const socket = openLatestReadModelSocket(HISTORICAL_TASK_PROGRESS, {
+      onSnapshot: (payload) => {
+        hasLivePayload = true;
+        setReadModel(payload);
+        setError(null);
+        setLoading(false);
+        setLastRefresh(new Date().toISOString());
+      },
+      onStatus: setStreamStatus,
+      onError: (message) => {
+        if (!hasLivePayload) setError(message);
+      },
+    });
+    const fallbackIntervalId = window.setInterval(() => {
+      if (socket.readyState !== WebSocket.OPEN) void loadReadModel();
     }, 60_000);
     return () => {
       controller.abort();
-      window.clearInterval(intervalId);
+      socket.close();
+      window.clearInterval(fallbackIntervalId);
     };
   }, [loadReadModel]);
 
@@ -213,7 +229,7 @@ function App() {
             <div className="eyebrow">{startCase(activeView)} / Historical Modeling</div>
             <h1>Historical Task Progress</h1>
             <p>
-              Public, read-only progress from storage-hosted dashboard summaries. Use the left navigation to inspect different slices; this page auto-refreshes every minute.
+              Public, read-only progress from storage-hosted dashboard summaries. Use the left navigation to inspect different slices; live updates stream over WebSocket with HTTP fallback.
             </p>
           </div>
           <div className="hero-actions">
@@ -245,6 +261,7 @@ function App() {
                 <span>Generated {formatTimestamp(readModel.generated_at_utc)}</span>
                 <span>Source {readModel.source_system}</span>
                 <span>Freshness {startCase(readModel.freshness.status)}</span>
+                <span>Stream {startCase(streamStatus)}</span>
                 <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
               </div>
             </section>

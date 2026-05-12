@@ -3,9 +3,70 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vite';
+import { WebSocketServer, type WebSocket } from 'ws';
 
 const DEFAULT_STORAGE_ROOT = '/root/projects/trading-storage/storage';
 const SAFE_CONTRACT_RE = /^[a-z][a-z0-9_]*_v[0-9]+$/;
+
+function storageRoot(): string {
+  return process.env.TRADING_DASHBOARD_STORAGE_ROOT ?? DEFAULT_STORAGE_ROOT;
+}
+
+function latestReadModelPath(contractType: string): string {
+  return path.join(storageRoot(), 'dashboard', 'read_models', contractType, 'latest.json');
+}
+
+function readLatestPayload(contractType: string): string {
+  return fs.readFileSync(latestReadModelPath(contractType), 'utf8');
+}
+
+function sendReadModelSnapshot(socket: WebSocket, contractType: string): void {
+  const latestPath = latestReadModelPath(contractType);
+  try {
+    const payload = JSON.parse(readLatestPayload(contractType));
+    socket.send(JSON.stringify({
+      type: 'read_model_snapshot',
+      contract_type: contractType,
+      payload,
+      sent_at_utc: new Date().toISOString(),
+    }));
+  } catch (error) {
+    socket.send(JSON.stringify({
+      type: 'read_model_error',
+      contract_type: contractType,
+      latest_path: latestPath,
+      error: error instanceof Error ? error.message : 'unknown read-model websocket error',
+      sent_at_utc: new Date().toISOString(),
+    }));
+  }
+}
+
+function attachReadModelSocket(socket: WebSocket, contractType: string): void {
+  let lastMtimeMs = -1;
+  const pushIfChanged = () => {
+    try {
+      const mtimeMs = fs.statSync(latestReadModelPath(contractType)).mtimeMs;
+      if (mtimeMs === lastMtimeMs) return;
+      lastMtimeMs = mtimeMs;
+      sendReadModelSnapshot(socket, contractType);
+    } catch {
+      sendReadModelSnapshot(socket, contractType);
+    }
+  };
+  pushIfChanged();
+  const watchInterval = setInterval(pushIfChanged, 1_000);
+  const heartbeatInterval = setInterval(() => {
+    socket.send(JSON.stringify({
+      type: 'read_model_heartbeat',
+      contract_type: contractType,
+      sent_at_utc: new Date().toISOString(),
+    }));
+  }, 30_000);
+  socket.on('close', () => {
+    clearInterval(watchInterval);
+    clearInterval(heartbeatInterval);
+  });
+}
 
 function dashboardReadModelApi(): Plugin {
   return {
@@ -19,13 +80,12 @@ function dashboardReadModelApi(): Plugin {
           res.end(JSON.stringify({ error: 'unknown read-model route' }));
           return;
         }
-        const storageRoot = process.env.TRADING_DASHBOARD_STORAGE_ROOT ?? DEFAULT_STORAGE_ROOT;
-        const latestPath = path.join(storageRoot, 'dashboard', 'read_models', match[1], 'latest.json');
+        const latestPath = latestReadModelPath(match[1]);
         try {
-          const payload = fs.readFileSync(latestPath, 'utf8');
+          const payload = readLatestPayload(match[1]);
           res.setHeader('content-type', 'application/json; charset=utf-8');
           res.end(payload);
-        } catch (error) {
+        } catch {
           res.statusCode = 404;
           res.setHeader('content-type', 'application/json; charset=utf-8');
           res.end(JSON.stringify({
@@ -34,6 +94,16 @@ function dashboardReadModelApi(): Plugin {
             latest_path: latestPath,
           }));
         }
+      });
+
+      const wss = new WebSocketServer({ noServer: true });
+      server.httpServer?.on('upgrade', (request, socket, head) => {
+        const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+        const match = pathname.match(/^\/ws\/read-models\/([a-z][a-z0-9_]*_v[0-9]+)\/latest$/);
+        if (!match || !SAFE_CONTRACT_RE.test(match[1])) return;
+        wss.handleUpgrade(request, socket, head, (webSocket) => {
+          attachReadModelSocket(webSocket, match[1]);
+        });
       });
     },
   };
