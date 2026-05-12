@@ -159,19 +159,18 @@ function App() {
         </section>
         <HistoricalProgressVisual chart={chart} />
         <section className="detail-grid">
-          <section className="panel clickable-card" role="button" tabIndex={0} onClick={() => setActiveView('tasks')} onKeyDown={(event) => event.key === 'Enter' && setActiveView('tasks')}>
+          <section className="panel">
             <div className="panel-heading">Next Expected System Action</div>
             <p className="next-action">{startCase(chart.next_expected_system_action)}</p>
-            <div className="muted">Blocker: {startCase(chart.blocker_category)} · Click to inspect task progress</div>
+            <div className="muted">Blocker: {startCase(chart.blocker_category)}</div>
           </section>
-          <section className="panel clickable-card" role="button" tabIndex={0} onClick={() => setActiveView('diagnostics')} onKeyDown={(event) => event.key === 'Enter' && setActiveView('diagnostics')}>
+          <section className="panel">
             <div className="panel-heading">Diagnostic Refs</div>
             <div className="chips">
               {readModel.diagnostic_refs.length ? readModel.diagnostic_refs.map((ref, index) => (
                 <span className="chip" key={index}>{safeRefLabel(ref, `diagnostic_${index + 1}`)}</span>
               )) : <span className="muted">None</span>}
             </div>
-            <div className="muted card-cta">Click to open read-only diagnostics</div>
           </section>
         </section>
       </>
@@ -232,10 +231,10 @@ function App() {
         {readModel ? (
           <>
             <section className="summary-card">
-              <button className="summary-click" type="button" onClick={() => setActiveView('status')}>
+              <div>
                 <div className="eyebrow">{readModel.contract_type}</div>
                 <h2>{readModel.summary}</h2>
-              </button>
+              </div>
               <div className="summary-meta">
                 <span>Generated {formatTimestamp(readModel.generated_at_utc)}</span>
                 <span>Source {readModel.source_system}</span>

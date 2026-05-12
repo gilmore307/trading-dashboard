@@ -90,13 +90,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .primary-action { border: 1px solid rgba(125, 211, 252, .42); color: #e0f2fe; background: linear-gradient(135deg, rgba(14, 165, 233, .28), rgba(34, 197, 94, .13)); border-radius: 999px; padding: 10px 15px; font-weight: 850; cursor: pointer; box-shadow: 0 12px 30px rgba(14, 165, 233, .14); }
 .primary-action:hover { border-color: rgba(165, 243, 252, .7); transform: translateY(-1px); }
 .primary-action:disabled { cursor: progress; opacity: .65; transform: none; }
-.summary-click { border: 0; background: transparent; color: inherit; padding: 0; text-align: left; cursor: pointer; }
-.summary-click h2 { transition: color .16s ease; }
-.summary-click:hover h2 { color: #bfdbfe; }
 .metric-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.clickable-card { cursor: pointer; transition: border-color .16s ease, transform .16s ease, background .16s ease; }
-.clickable-card:hover, .clickable-card:focus { outline: none; border-color: rgba(125, 211, 252, .42); transform: translateY(-2px); background: linear-gradient(180deg, rgba(30, 41, 59, .86), rgba(15, 23, 42, .6)); }
-.card-cta { margin-top: 14px; color: #7dd3fc; font-weight: 750; }
 .diagnostic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .interactive-panel { min-height: 260px; }
 .click-list { display: grid; gap: 8px; }
@@ -113,4 +107,3 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
   .hero-actions { flex-wrap: wrap; }
   .metric-grid.three, .diagnostic-grid { grid-template-columns: 1fr; }
 }
-.clickable-card::after { content: 'Open →'; display: inline-block; margin-top: 14px; color: #7dd3fc; font-weight: 900; }
