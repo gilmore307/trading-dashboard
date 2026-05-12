@@ -14,7 +14,7 @@ Instead, each page should consume a small storage-hosted summary contract design
 raw internal evidence -> upstream/component aggregation -> trading-storage materialized dashboard summary -> chart-first UI
 ```
 
-`trading-storage` now has the first materialization helper for the storage step: `scripts/dashboard/materialize_read_model.py` validates a producer-supplied common envelope and writes snapshot/latest/schema/index files under the accepted `storage/dashboard/` layout. It does not generate semantic summaries, refresh jobs, adapters, or UI pages.
+`trading-storage` now has the first materialization and refresh helpers for the storage step: `scripts/dashboard/materialize_read_model.py` validates a producer-supplied common envelope, and `scripts/dashboard/refresh_historical_task_progress_read_model.py` runs the manager-owned historical progress producer before writing snapshot/latest/schema/index files under the accepted `storage/dashboard/` layout. It does not create dashboard adapters or UI pages.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -115,7 +115,7 @@ The alert page is an owner-actionable issue queue, not a log viewer.
 
 Purpose: support the Historical Modeling subtab under Tasks.
 
-Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Storage materialization remains `trading-storage` responsibility.
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Storage materialization and refresh orchestration are handled by `trading-storage/scripts/dashboard/refresh_historical_task_progress_read_model.py`; storage also carries reviewed systemd service/timer templates for periodic refresh.
 
 Owner-facing fields:
 

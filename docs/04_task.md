@@ -2,7 +2,7 @@
 
 ## Active Tasks
 
-- No runtime/UI implementation is active yet. The owner-facing information architecture, storage-hosted read-model contract set, registry route, and storage physical-layout boundary are accepted.
+- No runtime/UI implementation is active yet. The owner-facing information architecture, storage-hosted read-model contract set, registry route, storage physical-layout boundary, and first refreshable historical progress read model are accepted.
 
 `trading-dashboard` is ready for a future first runtime slice only after a reviewed UI/package/test plan is accepted. Runtime/code implementation remains deferred; the dashboard must consume storage-hosted summaries rather than raw internals.
 
@@ -23,7 +23,7 @@ These items are intentionally outside the current no-broker historical-training 
 
 ## Recently Accepted
 
-- Added the first semantic summary producer: `trading-manager` can now build `historical_task_progress_summary_v1` from read-only scheduler/status evidence. Refresh jobs, dashboard read adapters, and dashboard UI remain future work.
+- Added the first refreshable dashboard read model: `trading-manager` builds `historical_task_progress_summary_v1` from read-only scheduler/status evidence, and `trading-storage` can refresh/materialize it through a storage-owned wrapper plus reviewed systemd service/timer templates. Dashboard read adapters and dashboard UI remain future work.
 - Registered the storage-side dashboard read-model materializer through `trading-manager`: producer-supplied summaries can now be validated and materialized by `trading-storage` into snapshot/latest/schema/index files.
 - Registered the dashboard summary/read-model contract names through `trading-manager` and accepted the initial storage physical layout/validation boundary in `trading-storage/docs/97_dashboard_summary_layout.md`.
 - Closed the current presentation-boundary phase in `docs/07_dashboard_closeout.md`: downstream-only display role, provenance-preserving expectation, no dashboard-originated trading actions, and deferred implementation-layout policy are accepted. No dashboard runtime, provider call, manager dispatch, model activation, broker execution, or account mutation is enabled by this closeout.
