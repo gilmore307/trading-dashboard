@@ -7,9 +7,11 @@
 Acceptance focuses on:
 
 - repository boundary clarity;
+- owner-facing information architecture clarity;
 - workflow clarity;
 - compatibility with `trading-manager` contracts and registry rules;
 - compatibility with `trading-storage` where durable artifacts are involved;
+- clear separation between user-facing summaries and internal maintenance/intermediate artifacts;
 - absence of committed generated outputs, logs, notebooks, credentials, and secrets;
 - evidence-backed tests once code exists.
 
@@ -23,7 +25,8 @@ Documentation changes are acceptable when they:
 - preserve separation between scope, context, workflow, acceptance, task, decision, and memory;
 - route global helper, template, field, status, type, and shared vocabulary changes to `trading-manager`;
 - mark unresolved contract/storage/runtime questions as open gaps;
-- avoid pretending implementation choices are settled before evidence exists.
+- avoid pretending implementation choices are settled before evidence exists;
+- keep internal maintenance and intermediate-artifact surfaces out of primary navigation unless explicitly accepted.
 
 ### For Implementation Changes
 

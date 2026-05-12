@@ -2,7 +2,7 @@
 
 ## Why This Repository Exists
 
-The trading platform is split across multiple repositories so each major responsibility has a clear owner. `trading-dashboard` exists because displays already-produced trading outputs through dashboards, endpoints, and visualization adapters without becoming an upstream source of truth.
+The trading platform is split across multiple repositories so each major responsibility has a clear owner. `trading-dashboard` exists because Chentong needs a concise owner-facing summary of system posture, model posture, realtime signal posture, and trading performance. It displays already-produced trading outputs through dashboards, charts, and explanation adapters without becoming an upstream source of truth or internal maintenance console.
 
 ## Related Systems
 
@@ -15,7 +15,7 @@ The trading platform is split across multiple repositories so each major respons
 | `trading-strategy` | Produces strategy research and backtest artifacts. |
 | `trading-model` | Produces offline model/state research outputs and verdicts. |
 | `trading-execution` | Consumes promoted decisions for paper/live execution. |
-| `trading-dashboard` | Presents already-produced outputs and evidence. |
+| `trading-dashboard` | Presents owner-facing summaries over already-produced outputs, while hiding internal maintenance machinery by default. |
 
 ## Expected External Interfaces
 

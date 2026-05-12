@@ -12,5 +12,6 @@ This directory is the authoritative documentation spine for `trading-dashboard`.
 - `05_decision.md` — ratified repository decisions.
 - `06_memory.md` — durable local continuity that does not fit narrower docs.
 - `07_dashboard_closeout.md` — current presentation-boundary phase closeout receipt.
+- `08_information_architecture.md` — owner-facing dashboard navigation, page boundaries, and profile/drilldown rules.
 
 Do not place generated data, artifacts, notebooks, logs, credentials, or implementation outputs in this directory.
