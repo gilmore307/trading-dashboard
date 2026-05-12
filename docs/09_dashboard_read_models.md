@@ -2,25 +2,25 @@
 
 ## Purpose
 
-This document defines the owner-facing summary/read-model surfaces that `trading-dashboard` should consume.
+This document defines the owner-facing summary/read-model surfaces that `trading-dashboard` should consume from `trading-storage`.
 
 The dashboard must not build primary pages directly from raw control-plane internals such as manager requests, run manifests, artifact refs, ready-signal rows, raw receipts, daemon logs, registry SQL history, storage lifecycle internals, or execution adapter records.
 
-Instead, each page should consume a small summary contract designed for owner-facing status, charts, alerts, explanations, and drilldowns.
+Instead, each page should consume a small storage-hosted summary contract designed for owner-facing status, charts, alerts, explanations, and drilldowns.
 
 ## Core Rule
 
 ```text
-raw internal evidence -> upstream/component aggregation -> dashboard read model -> chart-first UI
+raw internal evidence -> upstream/component aggregation -> trading-storage materialized dashboard summary -> chart-first UI
 ```
 
-The dashboard reads the read model. It does not become the component that interprets every raw operational table.
+The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
 Raw evidence may appear only through an issue-focused diagnostic drilldown for a visible status, blocker, alert, model issue, signal issue, or performance anomaly.
 
 ## Shared Read-Model Envelope
 
-Every dashboard read model should include these common fields where applicable:
+Every storage-hosted dashboard read model should include these common fields where applicable:
 
 | Field | Purpose |
 |---|---|
@@ -37,7 +37,7 @@ Every dashboard read model should include these common fields where applicable:
 
 ## Initial Implementation Read Models
 
-The first dashboard implementation should target these owner-facing surfaces before any deep diagnostics or parked realtime/performance pages.
+The first dashboard implementation should target these owner-facing surfaces, read from `trading-storage`, before any deep diagnostics or parked realtime/performance pages.
 
 ### `current_system_status_summary_v1`
 
@@ -323,3 +323,16 @@ The first dashboard runtime slice should prioritize:
 5. Registry Dictionary / hover profiles.
 
 Realtime Trading Signals and Trading Performance Summary should remain parked until mature evidence exists.
+
+## Storage Home
+
+Dashboard summary/read-model outputs belong in `trading-storage` as the durable/materialized home. This keeps the dashboard read-only and prevents it from directly coupling to raw manager/model/data/execution internals.
+
+Responsibilities split as follows:
+
+- `trading-storage` owns physical placement, retention, backup, restore, archive, materialized snapshot history, and lifecycle treatment for dashboard summaries.
+- `trading-manager`, `trading-model`, `trading-execution`, `trading-data`, and `trading-storage` each own the semantics of summaries for their domains.
+- `trading-dashboard` owns presentation only.
+- `trading-manager` remains the registry/governance route for shared contract names before implementation.
+
+The companion storage-side design contract is `trading-storage/docs/96_dashboard_read_models.md`.

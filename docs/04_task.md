@@ -2,7 +2,7 @@
 
 ## Active Tasks
 
-- Define the owner-facing dashboard information architecture, product boundary, and read-model contracts before implementation.
+- Define the owner-facing dashboard information architecture, product boundary, storage-hosted read-model contracts, and summary ownership boundaries before implementation.
 
 `trading-dashboard` is moving from inactive presentation-boundary closeout into documentation-only page-structure design. Runtime/code implementation remains deferred until the first owner-facing read-model slice is explicitly accepted.
 
@@ -18,7 +18,7 @@ These items are intentionally outside the current no-broker historical-training 
 - first dashboard runtime implementation;
 - package/source/test layout before implementation begins;
 - primary pages exposing maintenance internals, model intermediate artifacts, manager request payloads, run manifests, ready signals, raw receipts, or daemon implementation details;
-- read-model surfaces over owner-facing current status, task progress, model posture, realtime signals, or trading performance before their presentation contract is accepted in `docs/09_dashboard_read_models.md`;
+- read-model surfaces over owner-facing current status, task progress, model posture, realtime signals, or trading performance before their presentation contract is accepted in `docs/09_dashboard_read_models.md` and storage-home boundary is accepted in `trading-storage/docs/96_dashboard_read_models.md`;
 - dashboard-originated requests, provider calls, model activation, broker execution, or account mutation.
 
 ## Recently Accepted

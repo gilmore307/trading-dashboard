@@ -135,7 +135,7 @@ The dashboard could accidentally become a complex internal-table UI if it reads 
 
 ### Decision
 
-Dashboard pages must consume owner-facing summary/read-model contracts. `docs/09_dashboard_read_models.md` owns the initial contract set:
+Dashboard pages must consume owner-facing summary/read-model contracts materialized in `trading-storage`. `docs/09_dashboard_read_models.md` owns the dashboard-side initial contract set, and `trading-storage/docs/96_dashboard_read_models.md` owns the storage-home boundary:
 
 - `current_system_status_summary_v1`;
 - `alert_exception_summary_v1`;
@@ -151,7 +151,30 @@ Advanced diagnostics may only be entered from a visible owner-facing issue such 
 
 ### Consequences
 
-- First implementation should build against summary/read-model outputs, not raw control-plane tables.
+- First implementation should build against storage-hosted summary/read-model outputs, not raw control-plane tables.
 - Raw evidence remains available only as issue-focused diagnostic support.
 - Storage lifecycle appears through Current Status and Alerts unless it becomes a daily owner-facing concern.
 - Realtime Signals and Trading Performance must distinguish unavailable/shadow/paper/live states clearly and must not fabricate mature metrics before evidence exists.
+
+
+## D007 - Dashboard summaries live in trading-storage
+
+Date: 2026-05-12
+Status: Accepted
+
+### Context
+
+Chentong clarified that the dashboard summary/read-model outputs should live in the storage repository. This preserves the dashboard as a read-only presentation layer and gives durable summaries a clear persistence, retention, backup, restore, and lifecycle owner.
+
+### Decision
+
+`trading-storage` is the durable/materialized home for dashboard summary/read-model outputs. The dashboard reads these storage-hosted summaries instead of coupling directly to raw manager, model, data, execution, registry, daemon, receipt, or artifact internals.
+
+Semantic ownership does not move to storage: task/scheduler/promotion summary semantics remain with `trading-manager`; model metric semantics remain with `trading-model`; realtime/execution semantics remain with `trading-execution`; provider/data semantics remain with `trading-data`; storage owns persistence/lifecycle and storage-health summary semantics.
+
+### Consequences
+
+- `trading-dashboard` remains presentation-only and read-only.
+- `trading-storage` must define physical layout, retention, restore, and lifecycle treatment before implementation.
+- Shared summary contract names must be routed through `trading-manager` registry before cross-repository implementation depends on them.
+- The first implementation slice should request/consume storage-hosted summaries rather than raw component internals.
