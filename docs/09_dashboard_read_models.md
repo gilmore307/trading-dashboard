@@ -115,6 +115,8 @@ The alert page is an owner-actionable issue queue, not a log viewer.
 
 Purpose: support the Historical Modeling subtab under Tasks.
 
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Storage materialization remains `trading-storage` responsibility.
+
 Owner-facing fields:
 
 - current month or active historical window;
