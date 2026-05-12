@@ -109,7 +109,13 @@ function App() {
   useEffect(() => {
     const controller = new AbortController();
     loadReadModel(controller.signal);
-    return () => controller.abort();
+    const intervalId = window.setInterval(() => {
+      void loadReadModel();
+    }, 60_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(intervalId);
+    };
   }, [loadReadModel]);
 
   const chart = useMemo(() => {
@@ -207,7 +213,7 @@ function App() {
             <div className="eyebrow">{startCase(activeView)} / Historical Modeling</div>
             <h1>Historical Task Progress</h1>
             <p>
-              Public, read-only progress from storage-hosted dashboard summaries. Click the left navigation or the cards below to inspect different slices.
+              Public, read-only progress from storage-hosted dashboard summaries. Use the left navigation to inspect different slices; this page auto-refreshes every minute.
             </p>
           </div>
           <div className="hero-actions">
