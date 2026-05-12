@@ -20,7 +20,7 @@ A narrow component boundary prevents hidden coupling and keeps cross-repository 
 ### Consequences
 
 - Implementation work must stay inside the accepted component role.
-- Shared names and contracts must route through `trading-main`.
+- Shared names and contracts must route through `trading-manager`.
 - Generated outputs and secrets must stay out of Git.
 
 
@@ -43,7 +43,7 @@ A narrow component boundary prevents hidden coupling and keeps cross-repository 
 ### Consequences
 
 - Implementation work must stay inside the accepted component role.
-- Shared names and contracts must route through `trading-main`.
+- Shared names and contracts must route through `trading-manager`.
 - Generated outputs and secrets must stay out of Git.
 
 
@@ -66,7 +66,7 @@ A narrow component boundary prevents hidden coupling and keeps cross-repository 
 ### Consequences
 
 - Implementation work must stay inside the accepted component role.
-- Shared names and contracts must route through `trading-main`.
+- Shared names and contracts must route through `trading-manager`.
 - Generated outputs and secrets must stay out of Git.
 
 ## D004 - Current presentation-boundary phase is closed
@@ -175,6 +175,6 @@ Semantic ownership does not move to storage: task/scheduler/promotion summary se
 ### Consequences
 
 - `trading-dashboard` remains presentation-only and read-only.
-- `trading-storage` must define physical layout, retention, restore, and lifecycle treatment before implementation.
-- Shared summary contract names must be routed through `trading-manager` registry before cross-repository implementation depends on them.
+- `trading-storage` defines the initial physical layout and validation boundary in `trading-storage/docs/97_dashboard_summary_layout.md`.
+- Shared summary contract names are routed through `trading-manager` registry migration `344_register_dashboard_read_model_contracts.sql` before cross-repository implementation depends on them.
 - The first implementation slice should request/consume storage-hosted summaries rather than raw component internals.

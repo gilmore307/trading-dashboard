@@ -2,9 +2,9 @@
 
 ## Active Tasks
 
-- Define the owner-facing dashboard information architecture, product boundary, storage-hosted read-model contracts, and summary ownership boundaries before implementation.
+- No runtime/UI implementation is active yet. The owner-facing information architecture, storage-hosted read-model contract set, registry route, and storage physical-layout boundary are accepted.
 
-`trading-dashboard` is moving from inactive presentation-boundary closeout into documentation-only page-structure design. Runtime/code implementation remains deferred until the first owner-facing read-model slice is explicitly accepted.
+`trading-dashboard` is ready for a future first runtime slice only after a reviewed UI/package/test plan is accepted. Runtime/code implementation remains deferred; the dashboard must consume storage-hosted summaries rather than raw internals.
 
 ## Historical-Training Todo Status
 
@@ -18,11 +18,12 @@ These items are intentionally outside the current no-broker historical-training 
 - first dashboard runtime implementation;
 - package/source/test layout before implementation begins;
 - primary pages exposing maintenance internals, model intermediate artifacts, manager request payloads, run manifests, ready signals, raw receipts, or daemon implementation details;
-- read-model surfaces over owner-facing current status, task progress, model posture, realtime signals, or trading performance before their presentation contract is accepted in `docs/09_dashboard_read_models.md` and storage-home boundary is accepted in `trading-storage/docs/96_dashboard_read_models.md`;
+- new read-model surfaces beyond the accepted initial/parked set before their presentation contract, storage layout, and registry route are accepted;
 - dashboard-originated requests, provider calls, model activation, broker execution, or account mutation.
 
 ## Recently Accepted
 
+- Registered the dashboard summary/read-model contract names through `trading-manager` and accepted the initial storage physical layout/validation boundary in `trading-storage/docs/97_dashboard_summary_layout.md`.
 - Closed the current presentation-boundary phase in `docs/07_dashboard_closeout.md`: downstream-only display role, provenance-preserving expectation, no dashboard-originated trading actions, and deferred implementation-layout policy are accepted. No dashboard runtime, provider call, manager dispatch, model activation, broker execution, or account mutation is enabled by this closeout.
 - Created initial `trading-dashboard` docs spine and repository boundary.
 - Added initial `.gitignore` for local environments, generated outputs, logs, and secrets.

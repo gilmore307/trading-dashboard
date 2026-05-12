@@ -28,7 +28,7 @@ Documentation changes are acceptable when they:
 - mark unresolved contract/storage/runtime questions as open gaps;
 - avoid pretending implementation choices are settled before evidence exists;
 - keep internal maintenance and intermediate-artifact surfaces out of primary navigation unless explicitly accepted;
-- document any new dashboard read model in `docs/09_dashboard_read_models.md` before implementation consumes it.
+- document any new dashboard read model in `docs/09_dashboard_read_models.md`, route its shared name through `trading-manager`, and ensure `trading-storage` has a storage layout/schema boundary before implementation consumes it.
 
 ### For Implementation Changes
 
