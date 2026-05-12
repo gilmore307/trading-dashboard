@@ -14,6 +14,8 @@ Instead, each page should consume a small storage-hosted summary contract design
 raw internal evidence -> upstream/component aggregation -> trading-storage materialized dashboard summary -> chart-first UI
 ```
 
+`trading-storage` now has the first materialization helper for the storage step: `scripts/dashboard/materialize_read_model.py` validates a producer-supplied common envelope and writes snapshot/latest/schema/index files under the accepted `storage/dashboard/` layout. It does not generate semantic summaries, refresh jobs, adapters, or UI pages.
+
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
 Raw evidence may appear only through an issue-focused diagnostic drilldown for a visible status, blocker, alert, model issue, signal issue, or performance anomaly.

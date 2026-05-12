@@ -23,6 +23,7 @@ These items are intentionally outside the current no-broker historical-training 
 
 ## Recently Accepted
 
+- Registered the storage-side dashboard read-model materializer through `trading-manager`: producer-supplied summaries can now be validated and materialized by `trading-storage` into snapshot/latest/schema/index files. Semantic summary producers, refresh jobs, dashboard read adapters, and dashboard UI remain future work.
 - Registered the dashboard summary/read-model contract names through `trading-manager` and accepted the initial storage physical layout/validation boundary in `trading-storage/docs/97_dashboard_summary_layout.md`.
 - Closed the current presentation-boundary phase in `docs/07_dashboard_closeout.md`: downstream-only display role, provenance-preserving expectation, no dashboard-originated trading actions, and deferred implementation-layout policy are accepted. No dashboard runtime, provider call, manager dispatch, model activation, broker execution, or account mutation is enabled by this closeout.
 - Created initial `trading-dashboard` docs spine and repository boundary.
