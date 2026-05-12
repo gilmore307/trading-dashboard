@@ -27,6 +27,7 @@ docs/
   06_memory.md
   07_dashboard_closeout.md
   08_information_architecture.md
+  09_dashboard_read_models.md
 ```
 
 ## Platform Dependencies

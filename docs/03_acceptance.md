@@ -12,6 +12,7 @@ Acceptance focuses on:
 - compatibility with `trading-manager` contracts and registry rules;
 - compatibility with `trading-storage` where durable artifacts are involved;
 - clear separation between user-facing summaries and internal maintenance/intermediate artifacts;
+- dashboard consumption of accepted owner-facing summary/read-model contracts rather than raw internal control-plane tables as primary UI inputs;
 - absence of committed generated outputs, logs, notebooks, credentials, and secrets;
 - evidence-backed tests once code exists.
 
@@ -26,7 +27,8 @@ Documentation changes are acceptable when they:
 - route global helper, template, field, status, type, and shared vocabulary changes to `trading-manager`;
 - mark unresolved contract/storage/runtime questions as open gaps;
 - avoid pretending implementation choices are settled before evidence exists;
-- keep internal maintenance and intermediate-artifact surfaces out of primary navigation unless explicitly accepted.
+- keep internal maintenance and intermediate-artifact surfaces out of primary navigation unless explicitly accepted;
+- document any new dashboard read model in `docs/09_dashboard_read_models.md` before implementation consumes it.
 
 ### For Implementation Changes
 

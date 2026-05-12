@@ -13,5 +13,6 @@ This directory is the authoritative documentation spine for `trading-dashboard`.
 - `06_memory.md` — durable local continuity that does not fit narrower docs.
 - `07_dashboard_closeout.md` — current presentation-boundary phase closeout receipt.
 - `08_information_architecture.md` — owner-facing dashboard navigation, page boundaries, and profile/drilldown rules.
+- `09_dashboard_read_models.md` — owner-facing summary/read-model contracts and diagnostic access rules.
 
 Do not place generated data, artifacts, notebooks, logs, credentials, or implementation outputs in this directory.

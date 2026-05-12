@@ -2,7 +2,7 @@
 
 ## Active Tasks
 
-- Define the owner-facing dashboard information architecture and product boundary before implementation.
+- Define the owner-facing dashboard information architecture, product boundary, and read-model contracts before implementation.
 
 `trading-dashboard` is moving from inactive presentation-boundary closeout into documentation-only page-structure design. Runtime/code implementation remains deferred until the first owner-facing read-model slice is explicitly accepted.
 
@@ -18,7 +18,7 @@ These items are intentionally outside the current no-broker historical-training 
 - first dashboard runtime implementation;
 - package/source/test layout before implementation begins;
 - primary pages exposing maintenance internals, model intermediate artifacts, manager request payloads, run manifests, ready signals, raw receipts, or daemon implementation details;
-- read-model surfaces over owner-facing current status, task progress, model posture, realtime signals, or trading performance before their presentation contract is accepted;
+- read-model surfaces over owner-facing current status, task progress, model posture, realtime signals, or trading performance before their presentation contract is accepted in `docs/09_dashboard_read_models.md`;
 - dashboard-originated requests, provider calls, model activation, broker execution, or account mutation.
 
 ## Recently Accepted
@@ -38,3 +38,15 @@ These items are intentionally outside the current no-broker historical-training 
 - Registry Dictionary — read-only searchable explanation surface for accepted fields, terms, statuses, contracts, configs, and scripts.
 
 Registry-backed field profiles remain contextual hover/detail explanations for visible fields and can link into the Registry Dictionary.
+
+## First Implementation Candidate
+
+The first runtime slice should target only:
+
+1. Current Status;
+2. Alerts and Exceptions;
+3. Tasks;
+4. Models summary;
+5. Registry Dictionary / hover profiles.
+
+Realtime Trading Signals and Trading Performance Summary remain parked until mature realtime/trading evidence exists.

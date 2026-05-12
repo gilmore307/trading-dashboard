@@ -122,3 +122,36 @@ Registry-backed field profiles remain useful as contextual hover/detail explanat
 - Implementation must not turn `trading-dashboard` into a general artifact browser, registry editor, maintenance console, or workflow controller. The Registry Dictionary is read-only explanation, and Alerts/Exceptions are owner-facing issue summaries.
 - First implementation slice should consume owner-facing summary/read-model outputs, not raw internal control-plane tables as primary UI content.
 - Advanced diagnostics must stay issue-focused and secondary.
+
+
+## D006 - Dashboard consumes owner-facing read models, not raw internals
+
+Date: 2026-05-12
+Status: Accepted
+
+### Context
+
+The dashboard could accidentally become a complex internal-table UI if it reads directly from manager requests, run manifests, artifact refs, ready-signal rows, raw receipts, daemon internals, execution adapter records, storage lifecycle internals, or raw registry SQL history. Chentong wants a summary surface that explains system/model/trading posture and highlights actionable problems, not an internal maintenance console.
+
+### Decision
+
+Dashboard pages must consume owner-facing summary/read-model contracts. `docs/09_dashboard_read_models.md` owns the initial contract set:
+
+- `current_system_status_summary_v1`;
+- `alert_exception_summary_v1`;
+- `historical_task_progress_summary_v1`;
+- `realtime_task_progress_summary_v1`;
+- `model_layer_readiness_summary_v1`;
+- `model_promotion_posture_summary_v1`;
+- `registry_dictionary_profile_v1`.
+
+Future realtime/performance/storage lifecycle summaries are parked until mature evidence exists.
+
+Advanced diagnostics may only be entered from a visible owner-facing issue such as an alert, blocked task, model blocker, degraded signal, performance anomaly, or stale dashboard data warning. There must not be a global artifact browser, receipt browser, log viewer, control-plane table browser, raw registry-row browser, or daemon internals explorer as a primary surface.
+
+### Consequences
+
+- First implementation should build against summary/read-model outputs, not raw control-plane tables.
+- Raw evidence remains available only as issue-focused diagnostic support.
+- Storage lifecycle appears through Current Status and Alerts unless it becomes a daily owner-facing concern.
+- Realtime Signals and Trading Performance must distinguish unavailable/shadow/paper/live states clearly and must not fabricate mature metrics before evidence exists.
