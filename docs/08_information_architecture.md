@@ -4,7 +4,7 @@
 
 The dashboard is a concise owner-facing summary surface for understanding system posture, model posture, realtime signal posture, and trading performance.
 
-It is not an internal maintenance console, artifact explorer, registry browser, or workflow-control surface.
+It is not an internal maintenance console, artifact explorer, registry editor, or workflow-control surface. A curated registry dictionary is allowed as an explanation surface for accepted system vocabulary.
 
 ## Design Principles
 
@@ -13,7 +13,7 @@ It is not an internal maintenance console, artifact explorer, registry browser, 
 - Owner-facing status, not internal implementation noise.
 - Read-only presentation by default.
 - Every displayed metric should have a clear source and human-readable explanation.
-- Registry-backed field profiles should explain visible dashboard fields in context, not expose the whole registry as a primary user surface.
+- Registry-backed field profiles should explain visible dashboard fields in context. A curated registry dictionary may also exist for search/reference, but it must stay explanatory rather than operational.
 
 ## Primary Navigation
 
@@ -28,6 +28,7 @@ Visible content should include:
 - key system service state;
 - historical scheduler / realtime monitor status at summary level;
 - current blockers that affect modeling, signals, or trading visibility;
+- alert summary by severity and unresolved count;
 - safety-gate posture only when it affects user-facing readiness.
 
 Preferred visuals:
@@ -46,7 +47,37 @@ Hidden by default:
 - request/run/artifact row dumps;
 - maintenance-only checks unless they affect user-facing readiness.
 
-### 2. Tasks
+### 2. Alerts and Exceptions
+
+Purpose: answer “What needs attention, and what should I look at first?”
+
+Visible content should include:
+
+- active unresolved alerts;
+- severity and affected area;
+- first-seen / last-seen / age;
+- concise cause category;
+- suggested owner/system next action;
+- whether the issue blocks modeling, realtime signals, or trading performance visibility.
+
+Preferred visuals:
+
+- severity cards;
+- alert timeline;
+- affected-system heatmap;
+- open/resolved trend chart;
+- blocker impact matrix.
+
+Hidden by default:
+
+- raw logs;
+- stack traces;
+- internal receipt dumps;
+- low-level daemon details.
+
+Diagnostic details may be reachable only from a specific alert when they help resolve that alert.
+
+### 3. Tasks
 
 Purpose: answer “What important work is underway, complete, blocked, or waiting?”
 
@@ -80,7 +111,7 @@ Hidden by default:
 
 Those internals may be reachable only through an advanced diagnostic drawer when a visible task is failed or blocked.
 
-### 3. Models
+### 4. Models
 
 Purpose: answer “What do the eight models currently look like, how recently were they updated, and how well are they performing?”
 
@@ -120,7 +151,7 @@ Hidden by default:
 - internal request/control-plane records;
 - implementation logs.
 
-### 4. Realtime Trading Signals
+### 5. Realtime Trading Signals
 
 Purpose: answer “What is being monitored now, and what signals are present?”
 
@@ -142,7 +173,7 @@ Hidden by default:
 - capture fixtures;
 - raw stream events unless needed for a visible incident.
 
-### 5. Trading Performance Summary
+### 6. Trading Performance Summary
 
 Purpose: answer “How is realtime trading performing?”
 
@@ -163,6 +194,35 @@ Hidden by default:
 - raw fills unless needed for explanation;
 - reconciliation implementation details.
 
+### 7. Registry Dictionary
+
+Purpose: answer “What does this system term, field, status, contract, or script name mean?”
+
+Visible content should include:
+
+- searchable accepted registry vocabulary;
+- concise term/field/contract/status explanations;
+- source repository and canonical path where useful;
+- accepted value ranges or status vocabularies;
+- last-updated metadata when useful;
+- links back to pages where the term appears.
+
+Preferred visuals:
+
+- search-first dictionary layout;
+- kind filters;
+- related-term graph for high-value concepts;
+- compact profile cards.
+
+Hidden by default:
+
+- registry maintenance/migration internals;
+- raw SQL migration history;
+- editor controls;
+- rows irrelevant to visible dashboard concepts unless searched explicitly.
+
+The registry dictionary is read-only and explanatory. It must not become the canonical registry editor or a replacement for `trading-manager` registry governance.
+
 ## Registry Field Profiles
 
 The dashboard should support contextual field profiles for visible registry-backed fields.
@@ -176,11 +236,11 @@ Hover profile content should be concise:
 - accepted value range or status vocabulary where useful;
 - link to advanced registry detail when needed.
 
-The full registry should not be a primary main tab by default. Registry details are an explanation layer behind visible dashboard fields.
+The registry dictionary may be a primary utility tab, but registry profiles should remain concise and user-facing. Full raw registry rows are secondary details, not the default display.
 
 ## Advanced Diagnostics Boundary
 
-Advanced diagnostic drawers may exist, but only to explain a user-facing status, blocker, model issue, signal issue, or performance anomaly.
+Advanced diagnostic drawers may exist, but only to explain a user-facing status, blocker, alert, model issue, signal issue, or performance anomaly.
 
 They should not turn the dashboard into a general maintenance UI. Internal artifacts, manifests, ready signals, request payloads, storage lifecycle receipts, and daemon implementation details stay hidden unless they directly explain a visible owner-facing problem.
 
