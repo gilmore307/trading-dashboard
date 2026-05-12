@@ -218,7 +218,7 @@ The read-model pipeline is now concrete enough to stop discussing the dashboard 
 
 The first website/runtime slice uses Vite + React + TypeScript and implements one read-only page: Tasks / Historical Modeling / Historical Task Progress.
 
-The page consumes `historical_task_progress_summary_v1` through the dashboard read-model boundary and the local Vite development API, which reads `trading-storage/storage/dashboard/read_models/<contract_type>/latest.json`. The page displays status, freshness, current month, active stage, provider/lock posture, progress, stage counts, optional stage coverage, next expected system action, blocker category, and diagnostic refs. It includes public read-only interactivity: clickable navigation, quick view switches, refresh, diagnostics expansion, and a JSON API link.
+The page consumes `historical_task_progress_summary_v1` through the dashboard read-model boundary and the local Vite development API, which reads `trading-storage/storage/dashboard/read_models/<contract_type>/latest.json`. The page displays status, freshness, current month, active stage, provider/lock posture, progress, stage counts, optional stage coverage, next expected system action, blocker category, and diagnostic refs. It includes public read-only interactivity: clickable navigation, refresh, diagnostics expansion, and clickable summary/detail cards.
 
 ### Consequences
 

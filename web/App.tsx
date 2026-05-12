@@ -243,12 +243,6 @@ function App() {
                 <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
               </div>
             </section>
-            <section className="action-strip" aria-label="Quick read-only dashboard actions">
-              <button className={activeView === 'status' ? 'quick-action active' : 'quick-action'} type="button" onClick={() => setActiveView('status')}>Overview</button>
-              <button className={activeView === 'tasks' ? 'quick-action active' : 'quick-action'} type="button" onClick={() => setActiveView('tasks')}>Open task details</button>
-              <button className={activeView === 'diagnostics' ? 'quick-action active' : 'quick-action'} type="button" onClick={() => setActiveView('diagnostics')}>Open diagnostics</button>
-              <a className="quick-action link-action" href={`/api/read-models/${HISTORICAL_TASK_PROGRESS}/latest`} target="_blank" rel="noreferrer">View JSON API</a>
-            </section>
             {renderMainView()}
           </>
         ) : null}

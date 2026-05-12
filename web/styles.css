@@ -113,8 +113,4 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
   .hero-actions { flex-wrap: wrap; }
   .metric-grid.three, .diagnostic-grid { grid-template-columns: 1fr; }
 }
-.action-strip { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.quick-action { border: 1px solid rgba(148, 163, 184, .22); border-radius: 999px; padding: 10px 14px; color: #dbeafe; background: rgba(15, 23, 42, .66); font-weight: 850; cursor: pointer; text-decoration: none; box-shadow: 0 10px 24px rgba(0,0,0,.12); }
-.quick-action:hover, .quick-action.active { border-color: rgba(125, 211, 252, .64); background: linear-gradient(135deg, rgba(37, 99, 235, .34), rgba(14, 165, 233, .16)); transform: translateY(-1px); }
-.link-action { color: #a7f3d0; border-color: rgba(52, 211, 153, .28); }
 .clickable-card::after { content: 'Open →'; display: inline-block; margin-top: 14px; color: #7dd3fc; font-weight: 900; }
