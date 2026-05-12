@@ -8,7 +8,7 @@ export interface DashboardReadModel {
   status: string;
   severity?: Severity;
   summary: string;
-  chart_payload: HistoricalTaskProgressChartPayload | Record<string, unknown> | unknown[];
+  chart_payload: HistoricalTaskProgressChartPayload | CurrentSystemStatusChartPayload | Record<string, unknown> | unknown[];
   profile_refs: unknown[];
   issue_refs: unknown[];
   diagnostic_refs: unknown[];
@@ -31,6 +31,50 @@ export interface StageCoveragePayload {
   failed_count?: number;
   accepted_failed_count?: number;
   can_unlock_downstream?: boolean;
+}
+
+export interface CurrentSystemServicePayload {
+  unit: string;
+  active_state: string;
+  enabled_state?: string;
+  substate?: string;
+  healthy?: boolean;
+}
+
+export interface CurrentSystemReadModelFreshnessPayload {
+  contract_type: string;
+  exists: boolean;
+  status: string;
+  age_seconds?: number | null;
+  generated_at_utc?: string | null;
+  payload_status?: string | null;
+  stale_after_seconds?: number | null;
+}
+
+export interface CurrentSystemStatusChartPayload {
+  server?: {
+    hostname?: string;
+    uptime_seconds?: number;
+    load_average_1m?: number;
+    load_average_5m?: number;
+    load_average_15m?: number;
+    memory_total_mb?: number;
+    memory_available_mb?: number;
+    storage_total_gb?: number;
+    storage_available_gb?: number;
+  };
+  api?: {
+    http_latest_route?: string;
+    websocket_latest_route?: string;
+    status?: string;
+  };
+  services?: CurrentSystemServicePayload[];
+  read_models?: CurrentSystemReadModelFreshnessPayload[];
+  refresh?: {
+    timer_unit?: string;
+    cadence_seconds?: number;
+    status?: string;
+  };
 }
 
 export interface HistoricalTaskProgressChartPayload {

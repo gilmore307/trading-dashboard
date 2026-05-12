@@ -226,3 +226,24 @@ The page consumes `historical_task_progress_summary_v1` through the dashboard re
 - No dashboard-originated provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes are allowed.
 - Other primary tabs may appear in navigation as accepted/parked states, but they should not fabricate missing summaries.
 - Future pages should reuse storage-hosted dashboard read models and avoid raw internal tables as primary UI input.
+
+## D010 - Current Status is infrastructure status, not model progress
+
+Date: 2026-05-12
+Status: Accepted
+
+### Context
+
+Chentong clarified that the Current Status page should show server/API/system-service infrastructure posture, including dashboard refresh/read timestamps and status. It should not be another model-progress page.
+
+### Decision
+
+Current Status consumes `current_system_status_summary_v1`. The summary is storage-owned and covers server resources, dashboard API routes, systemd service/timer state, dashboard read-model freshness, and refresh cadence. Model workflow progress stays on Tasks through `historical_task_progress_summary_v1`.
+
+The left navigation remains the only page-switching entry point. Main Current Status content is informational and read-only.
+
+### Consequences
+
+- Dashboard Current Status does not query raw manager/model/data/execution internals.
+- Infrastructure status is published through storage-hosted read models before the dashboard renders it.
+- WebSocket streaming remains read-only and streams storage-hosted snapshots only.

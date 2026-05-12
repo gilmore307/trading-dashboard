@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HistoricalProgressVisual, MetricCard, StageStackedBar, StatusPill } from './components';
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
-import type { DashboardReadModel, HistoricalTaskProgressChartPayload } from './types';
+import type { CurrentSystemStatusChartPayload, DashboardReadModel, HistoricalTaskProgressChartPayload } from './types';
 import './styles.css';
 
+const CURRENT_SYSTEM_STATUS = 'current_system_status_summary_v1';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary_v1';
 
 type ViewId = 'status' | 'tasks' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
@@ -83,21 +84,25 @@ function PlaceholderView({ title, description }: { title: string; description: s
 }
 
 function App() {
-  const [readModel, setReadModel] = useState<DashboardReadModel | null>(null);
+  const [currentStatusModel, setCurrentStatusModel] = useState<DashboardReadModel | null>(null);
+  const [historicalModel, setHistoricalModel] = useState<DashboardReadModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<ViewId>('status');
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
   const [streamStatus, setStreamStatus] = useState<ReadModelStreamStatus>('connecting');
 
-  const loadReadModel = useCallback((signal?: AbortSignal) => {
+  const applyReadModel = useCallback((payload: DashboardReadModel) => {
+    if (payload.contract_type === CURRENT_SYSTEM_STATUS) setCurrentStatusModel(payload);
+    if (payload.contract_type === HISTORICAL_TASK_PROGRESS) setHistoricalModel(payload);
+    setError(null);
+    setLastRefresh(new Date().toISOString());
+  }, []);
+
+  const loadReadModel = useCallback((contractType: string, signal?: AbortSignal) => {
     setLoading(true);
-    return fetchLatestReadModel(HISTORICAL_TASK_PROGRESS, signal)
-      .then((payload) => {
-        setReadModel(payload);
-        setError(null);
-        setLastRefresh(new Date().toISOString());
-      })
+    return fetchLatestReadModel(contractType, signal)
+      .then(applyReadModel)
       .catch((problem: Error) => {
         if (problem.name === 'AbortError' || signal?.aborted) return;
         setError(problem.message);
@@ -105,49 +110,105 @@ function App() {
       .finally(() => {
         if (!signal?.aborted) setLoading(false);
       });
-  }, []);
+  }, [applyReadModel]);
 
   useEffect(() => {
     const controller = new AbortController();
-    loadReadModel(controller.signal);
+    void loadReadModel(CURRENT_SYSTEM_STATUS, controller.signal);
+    void loadReadModel(HISTORICAL_TASK_PROGRESS, controller.signal);
     let hasLivePayload = false;
-    const socket = openLatestReadModelSocket(HISTORICAL_TASK_PROGRESS, {
+    const sockets = [CURRENT_SYSTEM_STATUS, HISTORICAL_TASK_PROGRESS].map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         hasLivePayload = true;
-        setReadModel(payload);
-        setError(null);
+        applyReadModel(payload);
         setLoading(false);
-        setLastRefresh(new Date().toISOString());
       },
       onStatus: setStreamStatus,
       onError: (message) => {
         if (!hasLivePayload) setError(message);
       },
-    });
+    }));
     const fallbackIntervalId = window.setInterval(() => {
-      if (socket.readyState !== WebSocket.OPEN) void loadReadModel();
+      sockets.forEach((socket, index) => {
+        if (socket.readyState !== WebSocket.OPEN) void loadReadModel(index === 0 ? CURRENT_SYSTEM_STATUS : HISTORICAL_TASK_PROGRESS);
+      });
     }, 60_000);
     return () => {
       controller.abort();
-      socket.close();
+      sockets.forEach((socket) => socket.close());
       window.clearInterval(fallbackIntervalId);
     };
-  }, [loadReadModel]);
+  }, [applyReadModel, loadReadModel]);
 
+  const activeReadModel = activeView === 'status' ? currentStatusModel : historicalModel;
   const chart = useMemo(() => {
-    if (!readModel || !isHistoricalChart(readModel.chart_payload)) return {} as HistoricalTaskProgressChartPayload;
-    return readModel.chart_payload;
-  }, [readModel]);
+    if (!historicalModel || !isHistoricalChart(historicalModel.chart_payload)) return {} as HistoricalTaskProgressChartPayload;
+    return historicalModel.chart_payload;
+  }, [historicalModel]);
+  const systemChart = useMemo(() => {
+    if (!currentStatusModel || typeof currentStatusModel.chart_payload !== 'object' || Array.isArray(currentStatusModel.chart_payload)) return {} as CurrentSystemStatusChartPayload;
+    return currentStatusModel.chart_payload as CurrentSystemStatusChartPayload;
+  }, [currentStatusModel]);
+
+  const renderCurrentStatusView = () => {
+    const server = systemChart.server ?? {};
+    const services = systemChart.services ?? [];
+    const readModels = systemChart.read_models ?? [];
+    return (
+      <>
+        <section className="metric-grid">
+          <MetricCard label="Server" value={server.hostname ?? 'Unknown'} hint={`Load ${server.load_average_1m ?? 0} / ${server.load_average_5m ?? 0} / ${server.load_average_15m ?? 0}`} />
+          <MetricCard label="API" value={startCase(systemChart.api?.status)} hint={systemChart.api?.websocket_latest_route ?? 'No WebSocket route'} />
+          <MetricCard label="Refresh" value={`${systemChart.refresh?.cadence_seconds ?? 0}s`} hint={`Timer ${startCase(systemChart.refresh?.status)}`} />
+          <MetricCard label="Storage Free" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total ${server.storage_total_gb ?? 0} GB`} />
+        </section>
+        <section className="detail-grid">
+          <section className="panel">
+            <div className="panel-heading">System Services</div>
+            <div className="service-list">
+              {services.map((service) => (
+                <div className="service-row" key={service.unit}>
+                  <span>{service.unit}</span>
+                  <strong className={service.healthy ? 'service-ok' : 'service-warn'}>{startCase(service.active_state)}</strong>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="panel">
+            <div className="panel-heading">Dashboard Read Models</div>
+            <div className="service-list">
+              {readModels.map((model) => (
+                <div className="service-row" key={model.contract_type}>
+                  <span>{model.contract_type}</span>
+                  <strong className={model.status === 'fresh' ? 'service-ok' : 'service-warn'}>{startCase(model.status)} · {model.age_seconds ?? 'n/a'}s</strong>
+                </div>
+              ))}
+            </div>
+          </section>
+        </section>
+        <section className="panel">
+          <div className="panel-heading">Server Resources</div>
+          <div className="resource-grid">
+            <MetricCard label="Uptime" value={`${Math.round((server.uptime_seconds ?? 0) / 3600)}h`} />
+            <MetricCard label="Memory available" value={`${server.memory_available_mb ?? 0} MB`} hint={`Total ${server.memory_total_mb ?? 0} MB`} />
+            <MetricCard label="HTTP latest route" value={systemChart.api?.http_latest_route ?? 'Unknown'} />
+            <MetricCard label="WebSocket latest route" value={systemChart.api?.websocket_latest_route ?? 'Unknown'} />
+          </div>
+        </section>
+      </>
+    );
+  };
 
   const renderMainView = () => {
-    if (!readModel) return null;
+    if (activeView === 'status') return renderCurrentStatusView();
+    if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
       return (
         <section className="diagnostic-grid">
-          <RefPanel title="Diagnostic Refs" refs={readModel.diagnostic_refs} />
-          <RefPanel title="Issue Refs" refs={readModel.issue_refs} />
-          <RefPanel title="Lineage Refs" refs={readModel.lineage_refs} />
-          <RefPanel title="Profile Refs" refs={readModel.profile_refs} />
+          <RefPanel title="Diagnostic Refs" refs={historicalModel.diagnostic_refs} />
+          <RefPanel title="Issue Refs" refs={historicalModel.issue_refs} />
+          <RefPanel title="Lineage Refs" refs={historicalModel.lineage_refs} />
+          <RefPanel title="Profile Refs" refs={historicalModel.profile_refs} />
         </section>
       );
     }
@@ -189,7 +250,7 @@ function App() {
           <section className="panel">
             <div className="panel-heading">Diagnostic Refs</div>
             <div className="chips">
-              {readModel.diagnostic_refs.length ? readModel.diagnostic_refs.map((ref, index) => (
+              {historicalModel.diagnostic_refs.length ? historicalModel.diagnostic_refs.map((ref, index) => (
                 <span className="chip" key={index}>{safeRefLabel(ref, `diagnostic_${index + 1}`)}</span>
               )) : <span className="muted">None</span>}
             </div>
@@ -198,6 +259,9 @@ function App() {
       </>
     );
   };
+
+  const pageTitle = activeView === 'status' ? 'Current Status' : 'Historical Task Progress';
+  const pageEyebrow = activeView === 'status' ? 'Infrastructure / Status' : `${startCase(activeView)} / Historical Modeling`;
 
   return (
     <div className="app-shell">
@@ -226,21 +290,21 @@ function App() {
       <main className="content">
         <header className="hero">
           <div>
-            <div className="eyebrow">{startCase(activeView)} / Historical Modeling</div>
-            <h1>Historical Task Progress</h1>
+            <div className="eyebrow">{pageEyebrow}</div>
+            <h1>{pageTitle}</h1>
             <p>
               Public, read-only progress from storage-hosted dashboard summaries. Use the left navigation to inspect different slices; live updates stream over WebSocket with HTTP fallback.
             </p>
           </div>
           <div className="hero-actions">
-            {readModel ? <StatusPill status={readModel.status} severity={readModel.severity || 'info'} /> : null}
-            <button className="primary-action" type="button" onClick={() => loadReadModel()} disabled={loading}>
+            {activeReadModel ? <StatusPill status={activeReadModel.status} severity={activeReadModel.severity || 'info'} /> : null}
+            <button className="primary-action" type="button" onClick={() => loadReadModel(activeView === 'status' ? CURRENT_SYSTEM_STATUS : HISTORICAL_TASK_PROGRESS)} disabled={loading}>
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
         </header>
 
-        {loading && !readModel ? <section className="panel loading-panel">Loading storage read model…</section> : null}
+        {loading && !activeReadModel ? <section className="panel loading-panel">Loading storage read model…</section> : null}
 
         {error ? (
           <section className="panel error-panel">
@@ -250,17 +314,17 @@ function App() {
           </section>
         ) : null}
 
-        {readModel ? (
+        {activeReadModel ? (
           <>
             <section className="summary-card">
               <div>
-                <div className="eyebrow">{readModel.contract_type}</div>
-                <h2>{readModel.summary}</h2>
+                <div className="eyebrow">{activeReadModel.contract_type}</div>
+                <h2>{activeReadModel.summary}</h2>
               </div>
               <div className="summary-meta">
-                <span>Generated {formatTimestamp(readModel.generated_at_utc)}</span>
-                <span>Source {readModel.source_system}</span>
-                <span>Freshness {startCase(readModel.freshness.status)}</span>
+                <span>Generated {formatTimestamp(activeReadModel.generated_at_utc)}</span>
+                <span>Source {activeReadModel.source_system}</span>
+                <span>Freshness {startCase(activeReadModel.freshness.status)}</span>
                 <span>Stream {startCase(streamStatus)}</span>
                 <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
               </div>

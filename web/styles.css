@@ -107,3 +107,13 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
   .hero-actions { flex-wrap: wrap; }
   .metric-grid.three, .diagnostic-grid { grid-template-columns: 1fr; }
 }
+.service-list { display: grid; gap: 10px; }
+.service-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
+.service-row span { color: #cbd5e1; overflow-wrap: anywhere; }
+.service-row strong { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.service-ok { color: #86efac; }
+.service-warn { color: #fbbf24; }
+.resource-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1220px) {
+  .resource-grid { grid-template-columns: 1fr; }
+}

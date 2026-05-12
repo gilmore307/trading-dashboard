@@ -53,3 +53,9 @@ The first runtime slice should target only:
 5. Registry Dictionary / hover profiles.
 
 Realtime Trading Signals and Trading Performance Summary remain parked until mature realtime/trading evidence exists.
+
+## Current Status infrastructure slice
+
+- Current Status now consumes `current_system_status_summary_v1` for server/API/systemd-service/read-model-refresh posture.
+- Model/historical workflow progress remains under Tasks via `historical_task_progress_summary_v1`.
+- The page preserves the left-sidebar-only navigation rule and read-only dashboard boundaries.
