@@ -204,3 +204,25 @@ The adapter reads only accepted `storage/dashboard/read_models/<contract_type>/l
 - Future UI/runtime pages should consume this adapter boundary or a successor with the same storage-hosted read-model discipline.
 - Missing `latest.json` is surfaced as a read-adapter error rather than silently fabricating dashboard values.
 - Additional dashboard contracts can reuse the adapter after their semantic producer and storage materialization path are accepted.
+
+## D009 - First website slice is a read-only Historical Modeling page
+
+Date: 2026-05-12
+Status: Accepted
+
+### Context
+
+The read-model pipeline is now concrete enough to stop discussing the dashboard abstractly. Chentong asked for a first visible product that follows the accepted outline and can be reviewed for practical UI feedback.
+
+### Decision
+
+The first website/runtime slice uses Vite + React + TypeScript and implements one read-only page: Tasks / Historical Modeling / Historical Task Progress.
+
+The page consumes `historical_task_progress_summary_v1` through the dashboard read-model boundary and the local Vite development API, which reads `trading-storage/storage/dashboard/read_models/<contract_type>/latest.json`. The page displays status, freshness, current month, active stage, provider/lock posture, progress, stage counts, optional stage coverage, next expected system action, blocker category, and diagnostic refs.
+
+### Consequences
+
+- This is a visible website slice, not a workflow-control surface.
+- No dashboard-originated provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes are allowed.
+- Other primary tabs may appear in navigation as accepted/parked states, but they should not fabricate missing summaries.
+- Future pages should reuse storage-hosted dashboard read models and avoid raw internal tables as primary UI input.

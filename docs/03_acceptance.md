@@ -54,6 +54,8 @@ find . -maxdepth 2 -type f | sort
 Current implementation verification:
 
 ```bash
+npm run build
+npm test
 PYTHONPATH=src python3 -m unittest discover -s tests
 python3 -m compileall -q src scripts
 ```

@@ -1,3 +1,7 @@
+# JavaScript/build
+node_modules/
+dist/
+
 # Python/cache
 __pycache__/
 *.py[cod]
