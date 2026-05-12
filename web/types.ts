@@ -2,7 +2,7 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info' | null | 
 
 export interface DashboardReadModel {
   contract_type: string;
-  contract_version: string;
+  schema_version: number;
   generated_at_utc: string;
   source_system: string;
   status: string;

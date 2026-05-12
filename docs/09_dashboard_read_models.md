@@ -14,7 +14,7 @@ Instead, each page should consume a small storage-hosted summary contract design
 raw internal evidence -> upstream/component aggregation -> trading-storage materialized dashboard summary -> chart-first UI
 ```
 
-`trading-storage` now has the first materialization and refresh helpers for the storage step: `scripts/dashboard/materialize_read_model.py` validates a producer-supplied common envelope, and `scripts/dashboard/refresh_historical_task_progress_read_model.py` runs the manager-owned historical progress producer before writing snapshot/latest/schema/index files under the accepted `storage/dashboard/` layout. `trading-dashboard` now has the first read adapter and website slice: `src/trading_dashboard/read_models.py` reads accepted `latest.json` summaries, while the Vite/React Historical Modeling page renders `historical_task_progress_summary_v1` without querying raw internals.
+`trading-storage` now has the first materialization and refresh helpers for the storage step: `scripts/dashboard/materialize_read_model.py` validates a producer-supplied common envelope, and `scripts/dashboard/refresh_historical_task_progress_read_model.py` runs the manager-owned historical progress producer before writing snapshot/latest/schema/index files under the accepted `storage/dashboard/` layout. `trading-dashboard` now has the first read adapter and website slice: `src/trading_dashboard/read_models.py` reads accepted `latest.json` summaries, while the Vite/React Historical Modeling page renders `historical_task_progress_summary` without querying raw internals.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -41,7 +41,7 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 
 The first dashboard implementation should target these owner-facing surfaces, read from `trading-storage`, before any deep diagnostics or parked realtime/performance pages.
 
-### `current_system_status_summary_v1`
+### `current_system_status_summary`
 
 Purpose: support the Current Status page.
 
@@ -74,7 +74,7 @@ Hidden by default:
 - request/run/artifact/receipt row dumps;
 - daemon implementation details.
 
-### `alert_exception_summary_v1`
+### `alert_exception_summary`
 
 Purpose: support the Alerts and Exceptions page.
 
@@ -111,11 +111,11 @@ Initial alert taxonomy:
 
 The alert page is an owner-actionable issue queue, not a log viewer.
 
-### `historical_task_progress_summary_v1`
+### `historical_task_progress_summary`
 
 Purpose: support the Historical Modeling subtab under Tasks.
 
-Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Storage materialization and refresh orchestration are handled by `trading-storage/scripts/dashboard/refresh_historical_task_progress_read_model.py`; storage also carries reviewed systemd service/timer templates for periodic refresh. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary_v1`, and the first Vite/React Historical Modeling page.
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Storage materialization and refresh orchestration are handled by `trading-storage/scripts/dashboard/refresh_historical_task_progress_read_model.py`; storage also carries reviewed systemd service/timer templates for periodic refresh. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, and the first Vite/React Historical Modeling page.
 
 Owner-facing fields:
 
@@ -136,7 +136,7 @@ Hidden by default:
 - ready-signal rows;
 - raw stage receipts.
 
-### `realtime_task_progress_summary_v1`
+### `realtime_task_progress_summary`
 
 Purpose: support the Realtime Trading subtab under Tasks.
 
@@ -151,7 +151,7 @@ Owner-facing fields:
 
 If realtime work is parked, the read model should say so plainly instead of fabricating signal or performance metrics.
 
-### `model_layer_readiness_summary_v1`
+### `model_layer_readiness_summary`
 
 Purpose: support the Models page and eight layer subtabs.
 
@@ -183,7 +183,7 @@ Canonical layer map:
 
 Dashboard model pages must follow the accepted current layer map and must not revive old Layer 7 option-expression/final-action wording.
 
-### `model_promotion_posture_summary_v1`
+### `model_promotion_posture_summary`
 
 Purpose: summarize whether a model is blocked, deferred, eligible for review, approved, rejected, revoked, or superseded.
 
@@ -199,7 +199,7 @@ Owner-facing fields:
 
 The dashboard must not activate models. It only reports promotion posture.
 
-### `registry_dictionary_profile_v1`
+### `registry_dictionary_profile`
 
 Purpose: support Registry Dictionary and hover field profiles.
 
@@ -223,7 +223,7 @@ The registry dictionary is read-only. It must not expose editor controls or repl
 
 These contracts should exist only when the underlying systems provide mature evidence.
 
-### `realtime_signal_summary_v1`
+### `realtime_signal_summary`
 
 Future purpose: support Realtime Trading Signals.
 
@@ -241,7 +241,7 @@ Possible owner-facing fields:
 
 Do not expose full realtime quote/bar/option-chain internals by default.
 
-### `runtime_decision_quality_summary_v1`
+### `runtime_decision_quality_summary`
 
 Future purpose: summarize realtime/shadow decision quality once matured outcome labels exist.
 
@@ -254,7 +254,7 @@ Possible owner-facing fields:
 - no-trade avoided-bad-trade rate;
 - no-trade missed-positive-utility rate.
 
-### `trading_performance_summary_v1`
+### `trading_performance_summary`
 
 Future purpose: support Trading Performance Summary.
 
@@ -278,7 +278,7 @@ Possible owner-facing fields:
 - model decision vs realized outcome attribution;
 - capital/risk usage.
 
-### `storage_lifecycle_status_summary_v1`
+### `storage_lifecycle_status_summary`
 
 Future purpose: summarize storage lifecycle posture for Current Status and Alerts.
 

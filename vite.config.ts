@@ -6,14 +6,24 @@ import { defineConfig } from 'vite';
 import { WebSocketServer, type WebSocket } from 'ws';
 
 const DEFAULT_STORAGE_ROOT = '/root/projects/trading-storage/storage';
-const SAFE_CONTRACT_RE = /^[a-z][a-z0-9_]*_v[0-9]+$/;
+const SAFE_CONTRACT_RE = /^[a-z][a-z0-9_]*$/;
 
 function storageRoot(): string {
   return process.env.TRADING_DASHBOARD_STORAGE_ROOT ?? DEFAULT_STORAGE_ROOT;
 }
 
+function canonicalContractType(contractType: string): string {
+  return contractType.replace(/_v[0-9]+$/, '');
+}
+
 function latestReadModelPath(contractType: string): string {
-  return path.join(storageRoot(), 'dashboard', 'read_models', contractType, 'latest.json');
+  const canonicalType = canonicalContractType(contractType);
+  const canonicalPath = path.join(storageRoot(), 'dashboard', 'read_models', canonicalType, 'latest.json');
+  if (canonicalType !== contractType) {
+    const legacyPath = path.join(storageRoot(), 'dashboard', 'read_models', contractType, 'latest.json');
+    return fs.existsSync(canonicalPath) ? canonicalPath : legacyPath;
+  }
+  return canonicalPath;
 }
 
 function readLatestPayload(contractType: string): string {
@@ -26,14 +36,14 @@ function sendReadModelSnapshot(socket: WebSocket, contractType: string): void {
     const payload = JSON.parse(readLatestPayload(contractType));
     socket.send(JSON.stringify({
       type: 'read_model_snapshot',
-      contract_type: contractType,
+      contract_type: canonicalContractType(contractType),
       payload,
       sent_at_utc: new Date().toISOString(),
     }));
   } catch (error) {
     socket.send(JSON.stringify({
       type: 'read_model_error',
-      contract_type: contractType,
+      contract_type: canonicalContractType(contractType),
       latest_path: latestPath,
       error: error instanceof Error ? error.message : 'unknown read-model websocket error',
       sent_at_utc: new Date().toISOString(),
@@ -58,7 +68,7 @@ function attachReadModelSocket(socket: WebSocket, contractType: string): void {
   const heartbeatInterval = setInterval(() => {
     socket.send(JSON.stringify({
       type: 'read_model_heartbeat',
-      contract_type: contractType,
+      contract_type: canonicalContractType(contractType),
       sent_at_utc: new Date().toISOString(),
     }));
   }, 30_000);
@@ -74,7 +84,7 @@ function dashboardReadModelApi(): Plugin {
     configureServer(server) {
       server.middlewares.use('/api/read-models', (req, res) => {
         const url = req.url ?? '';
-        const match = url.match(/^\/([a-z][a-z0-9_]*_v[0-9]+)\/latest(?:\?.*)?$/);
+        const match = url.match(/^\/([a-z][a-z0-9_]*)\/latest(?:\?.*)?$/);
         if (!match || !SAFE_CONTRACT_RE.test(match[1])) {
           res.statusCode = 404;
           res.end(JSON.stringify({ error: 'unknown read-model route' }));
@@ -99,7 +109,7 @@ function dashboardReadModelApi(): Plugin {
       const wss = new WebSocketServer({ noServer: true });
       server.httpServer?.on('upgrade', (request, socket, head) => {
         const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
-        const match = pathname.match(/^\/ws\/read-models\/([a-z][a-z0-9_]*_v[0-9]+)\/latest$/);
+        const match = pathname.match(/^\/ws\/read-models\/([a-z][a-z0-9_]*)\/latest$/);
         if (!match || !SAFE_CONTRACT_RE.test(match[1])) return;
         wss.handleUpgrade(request, socket, head, (webSocket) => {
           attachReadModelSocket(webSocket, match[1]);

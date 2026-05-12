@@ -5,8 +5,8 @@ import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamSt
 import type { CurrentSystemStatusChartPayload, DashboardReadModel, HistoricalTaskProgressChartPayload } from './types';
 import './styles.css';
 
-const CURRENT_SYSTEM_STATUS = 'current_system_status_summary_v1';
-const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary_v1';
+const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
+const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
 
 type ViewId = 'status' | 'tasks' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
 
@@ -35,7 +35,7 @@ function safeRefLabel(ref: unknown, fallback: string): string {
 function sanitizedRefSummary(ref: unknown): string {
   if (typeof ref !== 'object' || ref === null) return String(ref);
   const record = ref as Record<string, unknown>;
-  const publicKeys = ['ref_type', 'kind', 'status', 'contract_type', 'contract_version', 'source_system', 'generated_at_utc'];
+  const publicKeys = ['ref_type', 'kind', 'status', 'contract_type', 'schema_version', 'source_system', 'generated_at_utc'];
   const parts = publicKeys
     .filter((key) => key in record)
     .map((key) => `${key}: ${String(record[key])}`);

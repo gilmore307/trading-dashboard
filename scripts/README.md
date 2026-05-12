@@ -10,6 +10,6 @@ Example:
 
 ```bash
 PYTHONPATH=src python3 scripts/read_models/read_latest_dashboard_read_model.py \
-  historical_task_progress_summary_v1 \
+  historical_task_progress_summary \
   --storage-root /root/projects/trading-storage/storage
 ```

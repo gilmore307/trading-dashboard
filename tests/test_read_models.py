@@ -18,7 +18,7 @@ from trading_dashboard.read_models import (
 def sample_payload(**overrides):
     payload = {
         "contract_type": HISTORICAL_TASK_PROGRESS_CONTRACT,
-        "contract_version": "1.0.0",
+        "schema_version": 1,
         "generated_at_utc": "2026-05-12T00:00:00Z",
         "source_system": "trading-manager",
         "status": "running",
@@ -32,10 +32,10 @@ def sample_payload(**overrides):
         },
         "profile_refs": [],
         "issue_refs": [],
-        "diagnostic_refs": [{"ref_type": "manager_historical_scheduler_status_v1"}],
-        "lineage_refs": [{"contract_type": "manager_historical_scheduler_status_v1"}],
+        "diagnostic_refs": [{"ref_type": "manager_historical_scheduler_status"}],
+        "lineage_refs": [{"contract_type": "manager_historical_scheduler_status"}],
         "freshness": {"class": "runtime_status_snapshot", "status": "fresh", "stale_after_seconds": 900},
-        "schema_ref": "storage/dashboard/schemas/historical_task_progress_summary_v1.schema.json",
+        "schema_ref": "storage/dashboard/schemas/historical_task_progress_summary.schema.json",
     }
     payload.update(overrides)
     return payload
@@ -65,7 +65,7 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
     def test_rejects_unsafe_contract_type(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(DashboardReadModelAdapterError):
-                read_dashboard_read_model_latest("../historical_task_progress_summary_v1", storage_root=Path(tmp))
+                read_dashboard_read_model_latest("../historical_task_progress_summary", storage_root=Path(tmp))
 
     def test_rejects_missing_latest_file(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -78,7 +78,7 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
             latest = storage_root / "dashboard" / "read_models" / HISTORICAL_TASK_PROGRESS_CONTRACT / "latest.json"
             latest.parent.mkdir(parents=True, exist_ok=True)
             latest.write_text(
-                json.dumps(sample_payload(contract_type="current_system_status_summary_v1")),
+                json.dumps(sample_payload(contract_type="current_system_status_summary")),
                 encoding="utf-8",
             )
 

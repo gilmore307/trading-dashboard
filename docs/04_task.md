@@ -2,7 +2,7 @@
 
 ## Active Tasks
 
-- First website slice is implemented: Vite + React + TypeScript renders a public read-only Tasks / Historical Modeling page from `historical_task_progress_summary_v1`, with the left navigation as the only page-switching entry point plus read-only manual refresh, WebSocket streaming with HTTP fallback polling, and in-view diagnostics expansion.
+- First website slice is implemented: Vite + React + TypeScript renders a public read-only Tasks / Historical Modeling page from `historical_task_progress_summary`, with the left navigation as the only page-switching entry point plus read-only manual refresh, WebSocket streaming with HTTP fallback polling, and in-view diagnostics expansion.
 - Dashboard continues consuming storage-hosted summaries rather than raw internals.
 
 ## Historical-Training Todo Status
@@ -21,9 +21,9 @@ These items are intentionally outside the current no-broker historical-training 
 
 ## Recently Accepted
 
-- Added the first visible website slice: Vite + React + TypeScript renders `historical_task_progress_summary_v1` as a chart-first Historical Task Progress page with cards, progress bar, stage distribution, coverage placeholder, next action, blocker, and diagnostics.
-- Added the first dashboard read adapter: `src/trading_dashboard/read_models.py` and `scripts/read_models/read_latest_dashboard_read_model.py` read storage-hosted `latest.json` summaries, starting with `historical_task_progress_summary_v1`, without raw internal table access or side effects.
-- Added the first refreshable dashboard read model: `trading-manager` builds `historical_task_progress_summary_v1` from read-only scheduler/status evidence, and `trading-storage` can refresh/materialize it through a storage-owned wrapper plus reviewed systemd service/timer templates. Dashboard UI remains future work.
+- Added the first visible website slice: Vite + React + TypeScript renders `historical_task_progress_summary` as a chart-first Historical Task Progress page with cards, progress bar, stage distribution, coverage placeholder, next action, blocker, and diagnostics.
+- Added the first dashboard read adapter: `src/trading_dashboard/read_models.py` and `scripts/read_models/read_latest_dashboard_read_model.py` read storage-hosted `latest.json` summaries, starting with `historical_task_progress_summary`, without raw internal table access or side effects.
+- Added the first refreshable dashboard read model: `trading-manager` builds `historical_task_progress_summary` from read-only scheduler/status evidence, and `trading-storage` can refresh/materialize it through a storage-owned wrapper plus reviewed systemd service/timer templates. Dashboard UI remains future work.
 - Registered the storage-side dashboard read-model materializer through `trading-manager`: producer-supplied summaries can now be validated and materialized by `trading-storage` into snapshot/latest/schema/index files.
 - Registered the dashboard summary/read-model contract names through `trading-manager` and accepted the initial storage physical layout/validation boundary in `trading-storage/docs/97_dashboard_summary_layout.md`.
 - Closed the current presentation-boundary phase in `docs/07_dashboard_closeout.md`: downstream-only display role, provenance-preserving expectation, no dashboard-originated trading actions, and deferred implementation-layout policy are accepted. No dashboard runtime, provider call, manager dispatch, model activation, broker execution, or account mutation is enabled by this closeout.
@@ -56,6 +56,6 @@ Realtime Trading Signals and Trading Performance Summary remain parked until mat
 
 ## Current Status infrastructure slice
 
-- Current Status now consumes `current_system_status_summary_v1` for server/API/systemd-service/read-model-refresh posture.
-- Model/historical workflow progress remains under Tasks via `historical_task_progress_summary_v1`.
+- Current Status now consumes `current_system_status_summary` for server/API/systemd-service/read-model-refresh posture.
+- Model/historical workflow progress remains under Tasks via `historical_task_progress_summary`.
 - The page preserves the left-sidebar-only navigation rule and read-only dashboard boundaries.

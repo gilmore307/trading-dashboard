@@ -137,13 +137,13 @@ The dashboard could accidentally become a complex internal-table UI if it reads 
 
 Dashboard pages must consume owner-facing summary/read-model contracts materialized in `trading-storage`. `docs/09_dashboard_read_models.md` owns the dashboard-side initial contract set, and `trading-storage/docs/96_dashboard_read_models.md` owns the storage-home boundary:
 
-- `current_system_status_summary_v1`;
-- `alert_exception_summary_v1`;
-- `historical_task_progress_summary_v1`;
-- `realtime_task_progress_summary_v1`;
-- `model_layer_readiness_summary_v1`;
-- `model_promotion_posture_summary_v1`;
-- `registry_dictionary_profile_v1`.
+- `current_system_status_summary`;
+- `alert_exception_summary`;
+- `historical_task_progress_summary`;
+- `realtime_task_progress_summary`;
+- `model_layer_readiness_summary`;
+- `model_promotion_posture_summary`;
+- `registry_dictionary_profile`.
 
 Future realtime/performance/storage lifecycle summaries are parked until mature evidence exists.
 
@@ -187,7 +187,7 @@ Status: Accepted
 
 ### Context
 
-`historical_task_progress_summary_v1` now has a manager-owned semantic producer and a storage-owned refresh/materialization wrapper. The dashboard needs a first implementation slice that can consume this accepted summary without becoming a runtime UI, workflow controller, raw artifact browser, or storage writer.
+`historical_task_progress_summary` now has a manager-owned semantic producer and a storage-owned refresh/materialization wrapper. The dashboard needs a first implementation slice that can consume this accepted summary without becoming a runtime UI, workflow controller, raw artifact browser, or storage writer.
 
 ### Decision
 
@@ -195,7 +195,7 @@ The first dashboard implementation slice is a read-only adapter over storage-hos
 
 - importable module: `src/trading_dashboard/read_models.py`;
 - executable helper: `scripts/read_models/read_latest_dashboard_read_model.py`;
-- first consumed contract: `historical_task_progress_summary_v1`.
+- first consumed contract: `historical_task_progress_summary`.
 
 The adapter reads only accepted `storage/dashboard/read_models/<contract_type>/latest.json` summaries, validates the common dashboard envelope shape, and projects the payload into a UI-ready dictionary. It does not query raw manager/model/data/execution/storage internals and does not perform provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.
 
@@ -218,7 +218,7 @@ The read-model pipeline is now concrete enough to stop discussing the dashboard 
 
 The first website/runtime slice uses Vite + React + TypeScript and implements one read-only page: Tasks / Historical Modeling / Historical Task Progress.
 
-The page consumes `historical_task_progress_summary_v1` through the dashboard read-model boundary and the local Vite development API, which reads `trading-storage/storage/dashboard/read_models/<contract_type>/latest.json`. The page displays status, freshness, current month, active stage, provider/lock posture, progress, stage counts, optional stage coverage, next expected system action, blocker category, and diagnostic refs. The left navigation is the only page-switching entry point; main content stays informational, while manual refresh, read-only WebSocket streaming, HTTP fallback polling, and in-view diagnostic expansion remain read-only controls.
+The page consumes `historical_task_progress_summary` through the dashboard read-model boundary and the local Vite development API, which reads `trading-storage/storage/dashboard/read_models/<contract_type>/latest.json`. The page displays status, freshness, current month, active stage, provider/lock posture, progress, stage counts, optional stage coverage, next expected system action, blocker category, and diagnostic refs. The left navigation is the only page-switching entry point; main content stays informational, while manual refresh, read-only WebSocket streaming, HTTP fallback polling, and in-view diagnostic expansion remain read-only controls.
 
 ### Consequences
 
@@ -238,7 +238,7 @@ Chentong clarified that the Current Status page should show server/API/system-se
 
 ### Decision
 
-Current Status consumes `current_system_status_summary_v1`. The summary is storage-owned and covers server resources, dashboard API routes, systemd service/timer state, dashboard read-model freshness, and refresh cadence. Model workflow progress stays on Tasks through `historical_task_progress_summary_v1`.
+Current Status consumes `current_system_status_summary`. The summary is storage-owned and covers server resources, dashboard API routes, systemd service/timer state, dashboard read-model freshness, and refresh cadence. Model workflow progress stays on Tasks through `historical_task_progress_summary`.
 
 The left navigation remains the only page-switching entry point. Main Current Status content is informational and read-only.
 

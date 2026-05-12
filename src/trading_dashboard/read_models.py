@@ -16,25 +16,26 @@ from pathlib import Path
 from typing import Any, Mapping
 
 DEFAULT_STORAGE_ROOT = Path("/root/projects/trading-storage/storage")
-HISTORICAL_TASK_PROGRESS_CONTRACT = "historical_task_progress_summary_v1"
+HISTORICAL_TASK_PROGRESS_CONTRACT = "historical_task_progress_summary"
 REGISTERED_DASHBOARD_READ_MODELS = frozenset(
     {
-        "current_system_status_summary_v1",
-        "alert_exception_summary_v1",
+        "current_system_status_summary",
+        "alert_exception_summary",
         HISTORICAL_TASK_PROGRESS_CONTRACT,
-        "realtime_task_progress_summary_v1",
-        "model_layer_readiness_summary_v1",
-        "model_promotion_posture_summary_v1",
-        "registry_dictionary_profile_v1",
-        "realtime_signal_summary_v1",
-        "runtime_decision_quality_summary_v1",
-        "trading_performance_summary_v1",
-        "storage_lifecycle_status_summary_v1",
+        "realtime_task_progress_summary",
+        "model_layer_readiness_summary",
+        "model_promotion_posture_summary",
+        "registry_dictionary_profile",
+        "realtime_signal_summary",
+        "runtime_decision_quality_summary",
+        "trading_performance_summary",
+        "storage_lifecycle_status_summary",
     }
 )
+LEGACY_DASHBOARD_READ_MODEL_ALIASES = {f"{contract_type}_v1": contract_type for contract_type in REGISTERED_DASHBOARD_READ_MODELS}
 REQUIRED_FIELDS = (
     "contract_type",
-    "contract_version",
+    "schema_version",
     "generated_at_utc",
     "source_system",
     "status",
@@ -47,7 +48,7 @@ REQUIRED_FIELDS = (
     "freshness",
     "schema_ref",
 )
-SAFE_CONTRACT_RE = re.compile(r"^[a-z][a-z0-9_]*_v[0-9]+$")
+SAFE_CONTRACT_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 class DashboardReadModelAdapterError(ValueError):
@@ -59,7 +60,7 @@ class DashboardReadModelView:
     """UI-ready view of one storage-hosted dashboard read model."""
 
     contract_type: str
-    contract_version: str
+    schema_version: int
     generated_at_utc: str
     source_system: str
     status: str
@@ -77,7 +78,7 @@ class DashboardReadModelView:
     def as_dict(self) -> dict[str, Any]:
         return {
             "contract_type": self.contract_type,
-            "contract_version": self.contract_version,
+            "schema_version": self.schema_version,
             "generated_at_utc": self.generated_at_utc,
             "source_system": self.source_system,
             "status": self.status,
@@ -97,16 +98,22 @@ class DashboardReadModelView:
 def _safe_contract_type(contract_type: str) -> str:
     if not isinstance(contract_type, str) or not SAFE_CONTRACT_RE.fullmatch(contract_type):
         raise DashboardReadModelAdapterError(f"unsafe dashboard read-model contract_type: {contract_type!r}")
-    if contract_type not in REGISTERED_DASHBOARD_READ_MODELS:
+    canonical = LEGACY_DASHBOARD_READ_MODEL_ALIASES.get(contract_type, contract_type)
+    if canonical not in REGISTERED_DASHBOARD_READ_MODELS:
         raise DashboardReadModelAdapterError(f"unregistered dashboard read-model contract_type: {contract_type!r}")
-    return contract_type
+    return canonical
 
 
 def latest_read_model_path(storage_root: Path, contract_type: str) -> Path:
     """Return the accepted storage-hosted latest path for a read-model contract."""
 
+    requested_contract_type = contract_type
     contract_type = _safe_contract_type(contract_type)
-    return Path(storage_root) / "dashboard" / "read_models" / contract_type / "latest.json"
+    canonical_path = Path(storage_root) / "dashboard" / "read_models" / contract_type / "latest.json"
+    if requested_contract_type != contract_type:
+        legacy_path = Path(storage_root) / "dashboard" / "read_models" / requested_contract_type / "latest.json"
+        return canonical_path if canonical_path.exists() else legacy_path
+    return canonical_path
 
 
 def _expect_list(payload: Mapping[str, Any], field: str) -> list[Any]:
@@ -125,7 +132,10 @@ def _adapt_payload(payload: Mapping[str, Any], *, expected_contract_type: str, l
         raise DashboardReadModelAdapterError(
             f"latest payload contract_type {contract_type!r} does not match expected {expected_contract_type!r}"
         )
-    for field in ("contract_version", "generated_at_utc", "source_system", "status", "summary", "schema_ref"):
+    schema_version = payload["schema_version"]
+    if not isinstance(schema_version, int) or schema_version < 1:
+        raise DashboardReadModelAdapterError("schema_version must be a positive integer")
+    for field in ("generated_at_utc", "source_system", "status", "summary", "schema_ref"):
         if not isinstance(payload[field], str) or not payload[field].strip():
             raise DashboardReadModelAdapterError(f"{field} must be a non-empty string")
     if not isinstance(payload["chart_payload"], (dict, list)):
@@ -137,7 +147,7 @@ def _adapt_payload(payload: Mapping[str, Any], *, expected_contract_type: str, l
         raise DashboardReadModelAdapterError("severity must be a string or null")
     return DashboardReadModelView(
         contract_type=contract_type,
-        contract_version=str(payload["contract_version"]),
+        schema_version=schema_version,
         generated_at_utc=str(payload["generated_at_utc"]),
         source_system=str(payload["source_system"]),
         status=str(payload["status"]),
@@ -181,6 +191,7 @@ __all__ = [
     "DEFAULT_STORAGE_ROOT",
     "HISTORICAL_TASK_PROGRESS_CONTRACT",
     "REGISTERED_DASHBOARD_READ_MODELS",
+    "LEGACY_DASHBOARD_READ_MODEL_ALIASES",
     "DashboardReadModelAdapterError",
     "DashboardReadModelView",
     "latest_read_model_path",
