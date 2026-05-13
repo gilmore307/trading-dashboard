@@ -8,16 +8,32 @@ import './styles.css';
 const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
 
+const SUMMARY_LABELS: Record<string, string> = {
+  [CURRENT_SYSTEM_STATUS]: 'System Health Summary',
+  [HISTORICAL_TASK_PROGRESS]: 'Task Progress Summary',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  'trading-storage': 'System Monitor',
+  'trading-manager': 'Task Manager',
+};
+
+const SERVICE_LABELS: Record<string, string> = {
+  'trading-manager-historical-scheduler.service': 'Historical Training Automation',
+  'trading-storage-dashboard-read-model-refresh.timer': 'Dashboard Refresh Schedule',
+  'trading-storage-dashboard-read-model-refresh.service': 'Dashboard Refresh Worker',
+};
+
 type ViewId = 'status' | 'tasks' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
 
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
-  { id: 'status', label: 'Current Status', state: 'Live summary' },
-  { id: 'tasks', label: 'Tasks', state: 'Historical live' },
-  { id: 'diagnostics', label: 'Diagnostics', state: 'Read-only refs' },
-  { id: 'models', label: 'Models', state: 'Contract accepted' },
-  { id: 'registry', label: 'Registry Dictionary', state: 'Contract accepted' },
-  { id: 'realtime', label: 'Realtime Signals', state: 'Parked' },
-  { id: 'performance', label: 'Trading Performance', state: 'Parked' },
+  { id: 'status', label: 'Current Status', state: 'Live' },
+  { id: 'tasks', label: 'Tasks', state: 'Training progress' },
+  { id: 'diagnostics', label: 'Diagnostics', state: 'Details' },
+  { id: 'models', label: 'Models', state: 'Coming soon' },
+  { id: 'registry', label: 'Definitions', state: 'Coming soon' },
+  { id: 'realtime', label: 'Realtime Signals', state: 'Coming soon' },
+  { id: 'performance', label: 'Trading Performance', state: 'Coming soon' },
 ];
 
 function isHistoricalChart(payload: DashboardReadModel['chart_payload']): payload is HistoricalTaskProgressChartPayload {
@@ -32,14 +48,36 @@ function safeRefLabel(ref: unknown, fallback: string): string {
   return fallback;
 }
 
+function publicSummaryLabel(contractType?: string | null): string {
+  if (!contractType) return 'Dashboard Summary';
+  return SUMMARY_LABELS[contractType] ?? startCase(contractType);
+}
+
+function publicSourceLabel(sourceSystem?: string | null): string {
+  if (!sourceSystem) return 'Dashboard System';
+  return SOURCE_LABELS[sourceSystem] ?? startCase(sourceSystem);
+}
+
+function publicServiceLabel(unit?: string | null): string {
+  if (!unit) return 'System Service';
+  return SERVICE_LABELS[unit] ?? startCase(unit.replace(/\.service$|\.timer$/u, ''));
+}
+
+function formatAgeSeconds(ageSeconds?: number | null): string {
+  if (typeof ageSeconds !== 'number' || !Number.isFinite(ageSeconds)) return 'age unknown';
+  if (ageSeconds < 60) return `${Math.round(ageSeconds)}s ago`;
+  if (ageSeconds < 3600) return `${Math.round(ageSeconds / 60)}m ago`;
+  return `${Math.round(ageSeconds / 3600)}h ago`;
+}
+
 function sanitizedRefSummary(ref: unknown): string {
   if (typeof ref !== 'object' || ref === null) return String(ref);
   const record = ref as Record<string, unknown>;
-  const publicKeys = ['ref_type', 'kind', 'status', 'contract_type', 'schema_version', 'source_system', 'generated_at_utc'];
-  const parts = publicKeys
-    .filter((key) => key in record)
-    .map((key) => `${key}: ${String(record[key])}`);
-  return parts.length ? parts.join(' · ') : 'Reference available in storage read model';
+  const parts: string[] = [];
+  if ('status' in record) parts.push(`Status: ${startCase(String(record.status))}`);
+  if ('generated_at_utc' in record) parts.push(`Generated: ${formatTimestamp(String(record.generated_at_utc))}`);
+  if ('source_system' in record) parts.push(`Source: ${publicSourceLabel(String(record.source_system))}`);
+  return parts.length ? parts.join(' · ') : 'Reference available for diagnostics.';
 }
 
 function RefPanel({ title, refs }: { title: string; refs: unknown[] }) {
@@ -77,7 +115,7 @@ function PlaceholderView({ title, description }: { title: string; description: s
       <div className="panel-heading">{title}</div>
       <h2>{description}</h2>
       <p>
-        This tab is clickable now, but it intentionally waits for an accepted storage-hosted dashboard read model before rendering public data.
+        This tab is clickable now, but it intentionally waits for an accepted public dashboard summary before rendering data.
       </p>
     </section>
   );
@@ -157,30 +195,30 @@ function App() {
     return (
       <>
         <section className="metric-grid">
-          <MetricCard label="Server" value={server.hostname ?? 'Unknown'} hint={`Load ${server.load_average_1m ?? 0} / ${server.load_average_5m ?? 0} / ${server.load_average_15m ?? 0}`} />
-          <MetricCard label="API" value={startCase(systemChart.api?.status)} hint={systemChart.api?.websocket_latest_route ?? 'No WebSocket route'} />
-          <MetricCard label="Refresh" value={`${systemChart.refresh?.cadence_seconds ?? 0}s`} hint={`Timer ${startCase(systemChart.refresh?.status)}`} />
-          <MetricCard label="Storage Free" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total ${server.storage_total_gb ?? 0} GB`} />
+          <MetricCard label="Server" value="Online" hint={`Load ${server.load_average_1m ?? 0} / ${server.load_average_5m ?? 0} / ${server.load_average_15m ?? 0}`} />
+          <MetricCard label="Live Updates" value={startCase(streamStatus)} hint={systemChart.api?.status === 'configured' ? 'Connected to dashboard data' : 'Checking connection'} />
+          <MetricCard label="Auto Refresh" value={`${systemChart.refresh?.cadence_seconds ?? 0}s`} hint={systemChart.refresh?.status === 'active' ? 'Refresh schedule active' : startCase(systemChart.refresh?.status)} />
+          <MetricCard label="Available Space" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total capacity ${server.storage_total_gb ?? 0} GB`} />
         </section>
         <section className="detail-grid">
           <section className="panel">
-            <div className="panel-heading">System Services</div>
+            <div className="panel-heading">Background Services</div>
             <div className="service-list">
               {services.map((service) => (
                 <div className="service-row" key={service.unit}>
-                  <span>{service.unit}</span>
-                  <strong className={service.healthy ? 'service-ok' : 'service-warn'}>{startCase(service.active_state)}</strong>
+                  <span>{publicServiceLabel(service.unit)}</span>
+                  <strong className={service.healthy ? 'service-ok' : 'service-warn'}>{service.healthy ? 'Healthy' : startCase(service.active_state)}</strong>
                 </div>
               ))}
             </div>
           </section>
           <section className="panel">
-            <div className="panel-heading">Dashboard Read Models</div>
+            <div className="panel-heading">Dashboard Data</div>
             <div className="service-list">
               {readModels.map((model) => (
                 <div className="service-row" key={model.contract_type}>
-                  <span>{model.contract_type}</span>
-                  <strong className={model.status === 'fresh' ? 'service-ok' : 'service-warn'}>{startCase(model.status)} · {model.age_seconds ?? 'n/a'}s</strong>
+                  <span>{publicSummaryLabel(model.contract_type)}</span>
+                  <strong className={model.status === 'fresh' ? 'service-ok' : 'service-warn'}>{startCase(model.status)} · {formatAgeSeconds(model.age_seconds)}</strong>
                 </div>
               ))}
             </div>
@@ -191,8 +229,8 @@ function App() {
           <div className="resource-grid">
             <MetricCard label="Uptime" value={`${Math.round((server.uptime_seconds ?? 0) / 3600)}h`} />
             <MetricCard label="Memory available" value={`${server.memory_available_mb ?? 0} MB`} hint={`Total ${server.memory_total_mb ?? 0} MB`} />
-            <MetricCard label="HTTP latest route" value={systemChart.api?.http_latest_route ?? 'Unknown'} />
-            <MetricCard label="WebSocket latest route" value={systemChart.api?.websocket_latest_route ?? 'Unknown'} />
+            <MetricCard label="Page Data" value={systemChart.api?.status === 'configured' ? 'Available' : 'Checking'} />
+            <MetricCard label="Live Feed" value={startCase(streamStatus)} />
           </div>
         </section>
       </>
@@ -228,9 +266,9 @@ function App() {
         </>
       );
     }
-    if (activeView === 'models') return <PlaceholderView title="Models" description="Model health will appear after a model-summary read model is accepted." />;
-    if (activeView === 'registry') return <PlaceholderView title="Registry Dictionary" description="Registry browsing will appear after a public registry read model is accepted." />;
-    if (activeView === 'realtime') return <PlaceholderView title="Realtime Signals" description="Realtime monitoring is parked until public realtime read models are accepted." />;
+    if (activeView === 'models') return <PlaceholderView title="Models" description="Model health will appear after a public model summary is accepted." />;
+    if (activeView === 'registry') return <PlaceholderView title="Registry Dictionary" description="Registry browsing will appear after a public dictionary summary is accepted." />;
+    if (activeView === 'realtime') return <PlaceholderView title="Realtime Signals" description="Realtime monitoring is parked until public realtime summaries are accepted." />;
     if (activeView === 'performance') return <PlaceholderView title="Trading Performance" description="Trading performance is parked until post-promotion public summaries exist." />;
     return (
       <>
@@ -261,7 +299,7 @@ function App() {
   };
 
   const pageTitle = activeView === 'status' ? 'Current Status' : 'Historical Task Progress';
-  const pageEyebrow = activeView === 'status' ? 'Infrastructure / Status' : `${startCase(activeView)} / Historical Modeling`;
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : `${startCase(activeView)} / Historical Modeling`;
 
   return (
     <div className="app-shell">
@@ -283,7 +321,7 @@ function App() {
         </nav>
         <div className="safety-card">
           <strong>Public read-only</strong>
-          <span>Navigation and refresh only read dashboard summaries. No provider calls · no model activation · no broker/account mutation.</span>
+          <span>This page only displays status. It cannot place trades, change accounts, or modify system settings.</span>
         </div>
       </aside>
 
@@ -293,7 +331,7 @@ function App() {
             <div className="eyebrow">{pageEyebrow}</div>
             <h1>{pageTitle}</h1>
             <p>
-              Public, read-only progress from storage-hosted dashboard summaries. Use the left navigation to inspect different slices; live updates stream over WebSocket with HTTP fallback.
+              Public, read-only progress from dashboard summaries. Use the left navigation to inspect different slices; live updates refresh automatically.
             </p>
           </div>
           <div className="hero-actions">
@@ -304,13 +342,13 @@ function App() {
           </div>
         </header>
 
-        {loading && !activeReadModel ? <section className="panel loading-panel">Loading storage read model…</section> : null}
+        {loading && !activeReadModel ? <section className="panel loading-panel">Loading latest dashboard status…</section> : null}
 
         {error ? (
           <section className="panel error-panel">
-            <div className="panel-heading">Read model unavailable</div>
+            <div className="panel-heading">Dashboard data unavailable</div>
             <p>{error}</p>
-            <p className="muted">Run the storage refresh wrapper first, then reload this page.</p>
+            <p className="muted">Try refreshing the page. If this continues, the dashboard data service may need attention.</p>
           </section>
         ) : null}
 
@@ -318,14 +356,14 @@ function App() {
           <>
             <section className="summary-card">
               <div>
-                <div className="eyebrow">{activeReadModel.contract_type}</div>
-                <h2>{activeReadModel.summary}</h2>
+                <div className="eyebrow">{publicSummaryLabel(activeReadModel.contract_type)}</div>
+                <h2>{activeView === 'status' ? 'System is healthy. Dashboard data, background services, and automatic refresh are working.' : activeReadModel.summary}</h2>
               </div>
               <div className="summary-meta">
                 <span>Generated {formatTimestamp(activeReadModel.generated_at_utc)}</span>
-                <span>Source {activeReadModel.source_system}</span>
+                <span>Source {publicSourceLabel(activeReadModel.source_system)}</span>
                 <span>Freshness {startCase(activeReadModel.freshness.status)}</span>
-                <span>Stream {startCase(streamStatus)}</span>
+                <span>Live Feed {startCase(streamStatus)}</span>
                 <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
               </div>
             </section>

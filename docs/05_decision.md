@@ -247,3 +247,24 @@ The left navigation remains the only page-switching entry point. Main Current St
 - Dashboard Current Status does not query raw manager/model/data/execution internals.
 - Infrastructure status is published through storage-hosted read models before the dashboard renders it.
 - WebSocket streaming remains read-only and streams storage-hosted snapshots only.
+
+## D011 - Current Status uses public-facing names
+
+Date: 2026-05-12
+Status: Accepted
+
+### Context
+
+Chentong clarified that Current Status should be understandable to someone who does not know the internal OpenClaw/trading repository layout. Internal route paths, systemd unit names, storage contract names, and component identifiers should not be visible in the primary Status page.
+
+### Decision
+
+The Current Status UI presents plain-language labels over the accepted dashboard summary payload. Examples include `System Health Summary`, `Task Progress Summary`, `Historical Training Automation`, `Dashboard Refresh Schedule`, and `Dashboard Refresh Worker` instead of internal contract paths, systemd unit names, or storage file identifiers.
+
+The underlying read-model contracts and runtime routes may remain implementation details, but the public page should show generic user-facing names and action-oriented health language.
+
+### Consequences
+
+- The Status page remains backed by storage-hosted dashboard summaries, but it does not expose internal paths or unit names in primary UI text.
+- Error/loading copy should describe dashboard status availability, not read-model file paths or refresh wrapper commands.
+- Future Status-page additions should add a public presentation label instead of rendering raw internal identifiers.

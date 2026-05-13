@@ -12,10 +12,7 @@ export async function fetchLatestReadModel(contractType: string, signal?: AbortS
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const detail = payload && typeof payload === 'object' && 'latest_path' in payload
-      ? ` Missing file: ${String(payload.latest_path)}`
-      : '';
-    throw new Error(`Unable to load ${contractType}.${detail}`);
+    throw new Error('Unable to load the latest dashboard summary.');
   }
   return payload as DashboardReadModel;
 }
@@ -44,12 +41,12 @@ export function openLatestReadModelSocket(
       return;
     }
     if (message.type === 'read_model_error') {
-      handlers.onError?.(message.error ?? `Unable to stream ${contractType}`);
+      handlers.onError?.(message.error ?? 'Live updates are temporarily unavailable.');
     }
   });
   socket.addEventListener('error', () => {
     handlers.onStatus?.('fallback');
-    handlers.onError?.(`WebSocket unavailable for ${contractType}; using HTTP fallback.`);
+    handlers.onError?.('Live updates are temporarily unavailable; using automatic refresh.');
   });
   socket.addEventListener('close', () => handlers.onStatus?.('fallback'));
   return socket;
