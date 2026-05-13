@@ -58,8 +58,12 @@ export interface CurrentSystemStatusChartPayload {
     load_average_1m?: number;
     load_average_5m?: number;
     load_average_15m?: number;
+    cpu_usage_percent?: number;
+    memory_usage_percent?: number;
     memory_total_mb?: number;
     memory_available_mb?: number;
+    network_download_kbps?: number;
+    network_upload_kbps?: number;
     storage_total_gb?: number;
     storage_available_gb?: number;
   };

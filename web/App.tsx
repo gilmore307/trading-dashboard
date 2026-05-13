@@ -70,6 +70,16 @@ function formatAgeSeconds(ageSeconds?: number | null): string {
   return `${Math.round(ageSeconds / 3600)}h ago`;
 }
 
+function formatPercent(value?: number | null): string {
+  return typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)}%` : '0.0%';
+}
+
+function formatNetworkRate(kbps?: number | null): string {
+  if (typeof kbps !== 'number' || !Number.isFinite(kbps)) return '0 KB/s';
+  if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`;
+  return `${kbps.toFixed(1)} KB/s`;
+}
+
 function sanitizedRefSummary(ref: unknown): string {
   if (typeof ref !== 'object' || ref === null) return String(ref);
   const record = ref as Record<string, unknown>;
@@ -192,8 +202,17 @@ function App() {
     const readModels = systemChart.read_models ?? [];
     return (
       <>
+        <section className="panel resource-panel">
+          <div className="panel-heading">Server Resources</div>
+          <div className="resource-grid four">
+            <MetricCard label="CPU" value={formatPercent(server.cpu_usage_percent)} />
+            <MetricCard label="Memory" value={formatPercent(server.memory_usage_percent)} hint={`${server.memory_available_mb ?? 0} MB available`} />
+            <MetricCard label="Download" value={formatNetworkRate(server.network_download_kbps)} />
+            <MetricCard label="Upload" value={formatNetworkRate(server.network_upload_kbps)} />
+          </div>
+        </section>
         <section className="metric-grid three">
-          <MetricCard label="Server" value="Online" hint={`Load ${server.load_average_1m ?? 0} / ${server.load_average_5m ?? 0} / ${server.load_average_15m ?? 0}`} />
+          <MetricCard label="Server" value="Online" hint="Running normally" />
           <MetricCard label="Auto Refresh" value={`${systemChart.refresh?.cadence_seconds ?? 0}s`} hint={systemChart.refresh?.status === 'active' ? 'Refresh schedule active' : startCase(systemChart.refresh?.status)} />
           <MetricCard label="Available Space" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total capacity ${server.storage_total_gb ?? 0} GB`} />
         </section>
@@ -222,7 +241,7 @@ function App() {
           </section>
         </section>
         <section className="panel">
-          <div className="panel-heading">Server Resources</div>
+          <div className="panel-heading">Server Details</div>
           <div className="resource-grid two">
             <MetricCard label="Uptime" value={`${Math.round((server.uptime_seconds ?? 0) / 3600)}h`} />
             <MetricCard label="Memory available" value={`${server.memory_available_mb ?? 0} MB`} hint={`Total ${server.memory_total_mb ?? 0} MB`} />

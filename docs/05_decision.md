@@ -268,3 +268,22 @@ The underlying read-model contracts and runtime routes may remain implementation
 - The Status page remains backed by storage-hosted dashboard summaries, but it does not expose internal paths or unit names in primary UI text.
 - Error/loading copy should describe dashboard status availability, not read-model file paths or refresh wrapper commands.
 - Future Status-page additions should add a public presentation label instead of rendering raw internal identifiers.
+
+## D012 - Server resources lead Current Status
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+Chentong clarified that Current Status should begin with immediately useful server resource posture rather than Linux load-average internals or explanatory copy.
+
+### Decision
+
+Current Status leads with a `Server Resources` card showing public-facing resource metrics: CPU usage, memory usage, network download rate, and network upload rate. The older load-average detail is not shown in the primary card; server state uses plain outcome language such as `Online` and `Running normally`.
+
+### Consequences
+
+- Current Status starts with live resource posture before service/data freshness sections.
+- Resource metrics remain read-only observations from the storage-owned status summary.
+- Future resource additions should use plain operational labels rather than kernel/internal field names.
