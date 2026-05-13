@@ -192,9 +192,8 @@ function App() {
     const readModels = systemChart.read_models ?? [];
     return (
       <>
-        <section className="metric-grid">
+        <section className="metric-grid three">
           <MetricCard label="Server" value="Online" hint={`Load ${server.load_average_1m ?? 0} / ${server.load_average_5m ?? 0} / ${server.load_average_15m ?? 0}`} />
-          <MetricCard label="Live Updates" value={startCase(streamStatus)} hint={systemChart.api?.status === 'configured' ? 'Connected to dashboard data' : 'Checking connection'} />
           <MetricCard label="Auto Refresh" value={`${systemChart.refresh?.cadence_seconds ?? 0}s`} hint={systemChart.refresh?.status === 'active' ? 'Refresh schedule active' : startCase(systemChart.refresh?.status)} />
           <MetricCard label="Available Space" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total capacity ${server.storage_total_gb ?? 0} GB`} />
         </section>
@@ -224,11 +223,9 @@ function App() {
         </section>
         <section className="panel">
           <div className="panel-heading">Server Resources</div>
-          <div className="resource-grid">
+          <div className="resource-grid two">
             <MetricCard label="Uptime" value={`${Math.round((server.uptime_seconds ?? 0) / 3600)}h`} />
             <MetricCard label="Memory available" value={`${server.memory_available_mb ?? 0} MB`} hint={`Total ${server.memory_total_mb ?? 0} MB`} />
-            <MetricCard label="Page Data" value={systemChart.api?.status === 'configured' ? 'Available' : 'Checking'} />
-            <MetricCard label="Live Feed" value={startCase(streamStatus)} />
           </div>
         </section>
       </>
@@ -330,7 +327,6 @@ function App() {
           </div>
           <div className="top-status-meta">
             <span>Last refreshed {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
-            <span>Live updates {startCase(streamStatus)}</span>
             <button className="primary-action compact-action" type="button" onClick={refreshAll} disabled={loading}>
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
@@ -365,7 +361,6 @@ function App() {
                   <span>Generated {formatTimestamp(activeReadModel.generated_at_utc)}</span>
                   <span>Source {publicSourceLabel(activeReadModel.source_system)}</span>
                   <span>Freshness {startCase(activeReadModel.freshness.status)}</span>
-                  <span>Live Feed {startCase(streamStatus)}</span>
                   <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
                 </div>
               </section>
