@@ -196,25 +196,31 @@ function App() {
     return currentStatusModel.chart_payload as CurrentSystemStatusChartPayload;
   }, [currentStatusModel]);
 
-  const renderCurrentStatusView = () => {
+  const renderServerResourcesPanel = () => {
     const server = systemChart.server ?? {};
+    return (
+      <section className="panel resource-panel">
+        <div className="panel-heading">Server Resources</div>
+        <div className="resource-grid server-resource-grid">
+          <MetricCard label="CPU" value={formatPercent(server.cpu_usage_percent)} />
+          <MetricCard label="Memory" value={formatPercent(server.memory_usage_percent)} hint={`${server.memory_available_mb ?? 0} MB available`} />
+          <MetricCard label="Storage" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total ${server.storage_total_gb ?? 0} GB`} />
+          <MetricCard label="Download" value={formatNetworkRate(server.network_download_kbps)} />
+          <MetricCard label="Upload" value={formatNetworkRate(server.network_upload_kbps)} />
+          <MetricCard label="Uptime" value={`${Math.round((server.uptime_seconds ?? 0) / 3600)}h`} />
+        </div>
+      </section>
+    );
+  };
+
+  const renderCurrentStatusView = () => {
     const services = systemChart.services ?? [];
     const readModels = systemChart.read_models ?? [];
     return (
       <>
-        <section className="panel resource-panel">
-          <div className="panel-heading">Server Resources</div>
-          <div className="resource-grid four">
-            <MetricCard label="CPU" value={formatPercent(server.cpu_usage_percent)} />
-            <MetricCard label="Memory" value={formatPercent(server.memory_usage_percent)} hint={`${server.memory_available_mb ?? 0} MB available`} />
-            <MetricCard label="Download" value={formatNetworkRate(server.network_download_kbps)} />
-            <MetricCard label="Upload" value={formatNetworkRate(server.network_upload_kbps)} />
-          </div>
-        </section>
-        <section className="metric-grid three">
+        <section className="metric-grid two">
           <MetricCard label="Server" value="Online" hint="Running normally" />
           <MetricCard label="Auto Refresh" value={`${systemChart.refresh?.cadence_seconds ?? 0}s`} hint={systemChart.refresh?.status === 'active' ? 'Refresh schedule active' : startCase(systemChart.refresh?.status)} />
-          <MetricCard label="Available Space" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total capacity ${server.storage_total_gb ?? 0} GB`} />
         </section>
         <section className="detail-grid">
           <section className="panel">
@@ -239,13 +245,6 @@ function App() {
               ))}
             </div>
           </section>
-        </section>
-        <section className="panel">
-          <div className="panel-heading">Server Details</div>
-          <div className="resource-grid two">
-            <MetricCard label="Uptime" value={`${Math.round((server.uptime_seconds ?? 0) / 3600)}h`} />
-            <MetricCard label="Memory available" value={`${server.memory_available_mb ?? 0} MB`} hint={`Total ${server.memory_total_mb ?? 0} MB`} />
-          </div>
         </section>
       </>
     );
@@ -351,6 +350,8 @@ function App() {
             </button>
           </div>
         </section>
+
+        {activeView === 'status' && currentStatusModel ? renderServerResourcesPanel() : null}
 
         <header className="hero">
           <div>
