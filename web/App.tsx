@@ -63,6 +63,21 @@ function publicServiceLabel(unit?: string | null): string {
   return SERVICE_LABELS[unit] ?? startCase(unit.replace(/\.service$|\.timer$/u, ''));
 }
 
+function apiStatusLabel(status?: string | null, kind?: string | null, streamStatus?: ReadModelStreamStatus): string {
+  if (kind === 'stream') {
+    if (streamStatus === 'live') return 'Connected';
+    if (streamStatus === 'connecting') return 'Connecting';
+    return 'Automatic refresh';
+  }
+  if (status === 'connected' || status === 'configured') return 'Connected';
+  return startCase(status);
+}
+
+function apiIsHealthy(status?: string | null, kind?: string | null, streamStatus?: ReadModelStreamStatus): boolean {
+  if (kind === 'stream') return streamStatus !== 'fallback';
+  return status === 'connected' || status === 'configured' || status === 'available';
+}
+
 function formatAgeSeconds(ageSeconds?: number | null): string {
   if (typeof ageSeconds !== 'number' || !Number.isFinite(ageSeconds)) return 'age unknown';
   if (ageSeconds < 60) return `${Math.round(ageSeconds)}s ago`;
@@ -216,9 +231,24 @@ function App() {
   const renderCurrentStatusView = () => {
     const services = systemChart.services ?? [];
     const readModels = systemChart.read_models ?? [];
+    const apis = systemChart.apis ?? [];
     return (
       <>
         {renderServerResourcesPanel()}
+        <section className="panel">
+          <div className="panel-heading">API Connections</div>
+          <div className="service-list">
+            {apis.map((api) => {
+              const healthy = apiIsHealthy(api.status, api.kind, streamStatus);
+              return (
+                <div className="service-row" key={`${api.kind ?? 'api'}-${api.name}`}>
+                  <span>{api.name}</span>
+                  <strong className={healthy ? 'service-ok' : 'service-warn'}>{apiStatusLabel(api.status, api.kind, streamStatus)}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </section>
         <section className="detail-grid">
           <section className="panel">
             <div className="panel-heading">Background Services</div>

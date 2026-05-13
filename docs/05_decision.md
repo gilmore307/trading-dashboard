@@ -287,3 +287,22 @@ Current Status leads with a `Server Resources` card showing public-facing resour
 - Current Status starts with live resource posture before service/data freshness sections.
 - Resource metrics remain read-only observations from the storage-owned status summary.
 - Future resource additions should use plain operational labels rather than kernel/internal field names.
+
+
+## D013 - Status exposes API connections with public labels
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+Chentong asked for an API card showing all server APIs and their connection status. The page should still avoid exposing internal route paths.
+
+### Decision
+
+Current Status shows an `API Connections` card with public API names and connection outcomes, such as `Dashboard Data API` and `Live Status API`. Internal implementation paths remain hidden.
+
+### Consequences
+
+- API health is visible as part of Status without leaking route templates.
+- Future API rows should include public names and plain statuses such as `Connected`, `Connecting`, or `Automatic refresh`.

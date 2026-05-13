@@ -51,6 +51,13 @@ export interface CurrentSystemReadModelFreshnessPayload {
   stale_after_seconds?: number | null;
 }
 
+export interface CurrentSystemApiPayload {
+  name: string;
+  kind?: string;
+  status: string;
+  healthy?: boolean;
+}
+
 export interface CurrentSystemStatusChartPayload {
   server?: {
     hostname?: string;
@@ -72,6 +79,7 @@ export interface CurrentSystemStatusChartPayload {
     websocket_latest_route?: string;
     status?: string;
   };
+  apis?: CurrentSystemApiPayload[];
   services?: CurrentSystemServicePayload[];
   read_models?: CurrentSystemReadModelFreshnessPayload[];
   refresh?: {
