@@ -41,6 +41,8 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 
 .summary-card, .panel, .metric-card { border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 24px; background: linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.52)); box-shadow: 0 18px 50px rgba(0,0,0,.24); }
 .summary-card { padding: 24px; display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; }
+.summary-card.refresh-only { padding: 16px 20px; align-items: center; }
+.summary-card.refresh-only h2 { margin-top: 4px; font-size: 22px; }
 .summary-meta { display: grid; gap: 8px; color: #8fa2ba; font-size: 13px; text-align: right; }
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .metric-card { padding: 18px; min-height: 112px; }

@@ -354,19 +354,28 @@ function App() {
 
         {activeReadModel ? (
           <>
-            <section className="summary-card">
-              <div>
-                <div className="eyebrow">{publicSummaryLabel(activeReadModel.contract_type)}</div>
-                <h2>{activeView === 'status' ? 'System is healthy. Dashboard data, background services, and automatic refresh are working.' : activeReadModel.summary}</h2>
-              </div>
-              <div className="summary-meta">
-                <span>Generated {formatTimestamp(activeReadModel.generated_at_utc)}</span>
-                <span>Source {publicSourceLabel(activeReadModel.source_system)}</span>
-                <span>Freshness {startCase(activeReadModel.freshness.status)}</span>
-                <span>Live Feed {startCase(streamStatus)}</span>
-                <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
-              </div>
-            </section>
+            {activeView === 'status' ? (
+              <section className="summary-card refresh-only">
+                <div>
+                  <div className="eyebrow">Last Refreshed</div>
+                  <h2>{lastRefresh ? formatTimestamp(lastRefresh) : formatTimestamp(activeReadModel.generated_at_utc)}</h2>
+                </div>
+              </section>
+            ) : (
+              <section className="summary-card">
+                <div>
+                  <div className="eyebrow">{publicSummaryLabel(activeReadModel.contract_type)}</div>
+                  <h2>{activeReadModel.summary}</h2>
+                </div>
+                <div className="summary-meta">
+                  <span>Generated {formatTimestamp(activeReadModel.generated_at_utc)}</span>
+                  <span>Source {publicSourceLabel(activeReadModel.source_system)}</span>
+                  <span>Freshness {startCase(activeReadModel.freshness.status)}</span>
+                  <span>Live Feed {startCase(streamStatus)}</span>
+                  <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
+                </div>
+              </section>
+            )}
             {renderMainView()}
           </>
         ) : null}
