@@ -387,3 +387,22 @@ Task List treats each row as `month + layer + operational stage/work type`. Rows
 - Completed/failed/current/future states apply to the finest child-task row instead of a broad month or model-layer label.
 - Month grouping keeps 2016-01/2016-02 style work windows understandable without collapsing them into one task.
 - Detail expansion remains presentation-only over storage-hosted, manager-sanitized read-model fields.
+
+## D018 - Completed historical months remain visible in Tasks
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+After month grouping was added, the dashboard still showed only the active month because the manager read model emitted the active workflow plan/checkpoint only. That hid completed historical months even though the scheduler daemon had durable completed-month state and month-specific workflow state files.
+
+### Decision
+
+Task List keeps the default `Now` status filter, but the read model includes completed historical workflow-state months before the active month. The UI adds an explicit Month filter so operators can inspect prior month groups without treating the month itself as the task row.
+
+### Consequences
+
+- Prior completed months are visible as `Past`/completed child-task rows when the status filter is widened.
+- The active month remains the only source of a `Now` row and latest execution/progress attachment.
+- Month remains a grouping/filter dimension, not the task identity by itself.

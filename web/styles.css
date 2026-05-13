@@ -139,7 +139,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .task-list-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
 .task-list-header .panel-heading { margin-bottom: 6px; }
 .task-filter-summary { color: #7c8ea5; font-size: 13px; font-weight: 750; }
-.task-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.task-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .task-filters label { display: grid; gap: 7px; color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 850; }
 .task-filters select { width: 100%; border: 1px solid rgba(148, 163, 184, .18); border-radius: 14px; padding: 10px 12px; color: #e7edf7; background: rgba(2, 6, 23, .68); font: inherit; font-size: 13px; font-weight: 750; outline: none; }
 .task-filters select:focus { border-color: rgba(125, 211, 252, .62); box-shadow: 0 0 0 3px rgba(14, 165, 233, .12); }
