@@ -267,7 +267,7 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand-mark">◈</div>
+          <div className="brand-mark"><img src="/trading-dashboard-icon.png?v=20260512" alt="" aria-hidden="true" /></div>
           <div>
             <div className="brand-title">Trading Dashboard</div>
             <div className="brand-subtitle">Public read-only operations view</div>
