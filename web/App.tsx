@@ -117,6 +117,16 @@ function providerPostureIsOk(status?: string | null): boolean {
   return status === 'ready' || status === 'available' || status === 'no_provider_work_selected' || status === 'not_required' || status === 'idle';
 }
 
+function stageExecutionIsOk(status?: string | null): boolean {
+  return status === 'succeeded' || status === 'skipped' || status === 'not_applicable';
+}
+
+function publicArtifactLabel(path?: string | null): string {
+  if (!path) return 'Not recorded';
+  const parts = path.split('/').filter(Boolean);
+  return parts.slice(-2).join('/');
+}
+
 function sanitizedRefSummary(ref: unknown): string {
   if (typeof ref !== 'object' || ref === null) return String(ref);
   const record = ref as Record<string, unknown>;
@@ -315,6 +325,8 @@ function App() {
     if (activeView === 'tasks') {
       const stageTotal = sumStageCounts(chart.stage_counts);
       const terminalStages = terminalStageCount(chart.stage_counts);
+      const lastExecution = chart.last_stage_execution;
+      const lastExecutionOk = stageExecutionIsOk(lastExecution?.status);
       return (
         <>
           <section className="metric-grid">
@@ -325,6 +337,29 @@ function App() {
           </section>
           <HistoricalProgressVisual chart={chart} />
           <section className="detail-grid">
+            <section className="panel">
+              <div className="panel-heading">Last Execution</div>
+              {lastExecution ? (
+                <div className="service-list">
+                  <div className="service-row">
+                    <span>{startCase(lastExecution.stage_id)}</span>
+                    <strong className={lastExecutionOk ? 'service-ok' : 'service-warn'}>{startCase(lastExecution.status)}</strong>
+                  </div>
+                  <div className="execution-reason">{lastExecution.failure_detail || lastExecution.reason || 'No execution reason recorded.'}</div>
+                  <div className="artifact-grid">
+                    <MetricCard label="Return code" value={lastExecution.return_code ?? 'None'} />
+                    <MetricCard label="Provider calls" value={lastExecution.provider_calls ?? 0} />
+                  </div>
+                  <div className="evidence-list">
+                    <span>stderr {publicArtifactLabel(lastExecution.stderr_path)}</span>
+                    <span>stdout {publicArtifactLabel(lastExecution.stdout_path)}</span>
+                    <span>receipt {publicArtifactLabel(lastExecution.receipt_path)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-chart compact">No stage execution summary attached.</div>
+              )}
+            </section>
             <section className="panel">
               <div className="panel-heading">System Gates</div>
               <div className="service-list">
@@ -346,11 +381,11 @@ function App() {
                 </div>
               </div>
             </section>
-            <section className="panel">
-              <div className="panel-heading">Next Step</div>
-              <p className="next-action">{startCase(chart.next_expected_system_action)}</p>
-              <div className="muted">Blocker: {startCase(chart.blocker_category)}</div>
-            </section>
+          </section>
+          <section className="panel">
+            <div className="panel-heading">Next Step</div>
+            <p className="next-action">{startCase(chart.next_expected_system_action)}</p>
+            <div className="muted">Blocker: {startCase(chart.blocker_category)}</div>
           </section>
         </>
       );

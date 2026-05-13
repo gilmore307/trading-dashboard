@@ -126,6 +126,7 @@ Owner-facing fields:
 - progress percentage;
 - ready/pending/failed counts;
 - latest attached stage-coverage counts when the storage refresh wrapper can locate a manager coverage artifact;
+- latest stage-execution status, return code, failure reason, and stdout/stderr/receipt evidence refs when available;
 - service runtime, scheduler lock, provider posture, and terminal-complete gates;
 - blocker category;
 - next expected system action;

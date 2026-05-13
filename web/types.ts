@@ -33,6 +33,20 @@ export interface StageCoveragePayload {
   can_unlock_downstream?: boolean;
 }
 
+export interface StageExecutionPayload {
+  stage_id?: string | null;
+  status?: string | null;
+  reason?: string | null;
+  failure_detail?: string | null;
+  return_code?: number | null;
+  stdout_path?: string | null;
+  stderr_path?: string | null;
+  receipt_path?: string | null;
+  provider_calls?: number;
+  model_activation_performed?: boolean;
+  broker_execution_performed?: boolean;
+}
+
 export interface CurrentSystemServicePayload {
   unit: string;
   active_state: string;
@@ -100,4 +114,5 @@ export interface HistoricalTaskProgressChartPayload {
   next_expected_system_action?: string | null;
   blocker_category?: string | null;
   stage_coverage?: StageCoveragePayload;
+  last_stage_execution?: StageExecutionPayload;
 }

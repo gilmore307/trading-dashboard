@@ -120,6 +120,9 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .dashboard-file-row strong { justify-self: end; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; text-align: right; }
 .service-ok { color: #86efac; }
 .service-warn { color: #fbbf24; }
+.execution-reason { padding: 14px; border-radius: 14px; background: rgba(245, 158, 11, .10); border: 1px solid rgba(245, 158, 11, .24); color: #fde68a; line-height: 1.45; }
+.artifact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.evidence-list { display: grid; gap: 8px; color: #8fa2ba; font-size: 12px; overflow-wrap: anywhere; }
 .resource-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .resource-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .server-resource-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
