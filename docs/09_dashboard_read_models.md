@@ -121,6 +121,7 @@ Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_
 
 Owner-facing fields:
 
+- task timeline listing past, current, and future stages with phase-level labels such as data acquisition, feature generation, model generation, evaluation, promotion review preparation, and maintenance;
 - current month or active historical window;
 - active layer/stage;
 - progress percentage;

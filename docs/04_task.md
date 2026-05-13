@@ -2,7 +2,7 @@
 
 ## Active Tasks
 
-- Historical Task Progress current content is being completed before opening broader dashboard pages: the page should show workflow progress, attached coverage when available, system gates, next step/blocker, and no duplicate chart panels.
+- Historical Task Progress current content is being completed before opening broader dashboard pages: Tasks now focuses on the full historical task list (past/current/future stages), while model-specific month/stage/progress/coverage cards live under Models.
 - First website slice is implemented: Vite + React + TypeScript renders a public read-only Tasks / Historical Modeling page from `historical_task_progress_summary`, with the left navigation as the only page-switching entry point plus read-only manual refresh, WebSocket streaming with HTTP fallback polling, and in-view diagnostics expansion.
 - Dashboard continues consuming storage-hosted summaries rather than raw internals.
 - As future website slices consume more original source outputs, update the Dashboard Data/source-output inventory in the same slice so the freshness/audit view stays complete.
@@ -59,5 +59,5 @@ Realtime Trading Signals and Trading Performance Summary remain parked until mat
 ## Current Status infrastructure slice
 
 - Current Status now consumes `current_system_status_summary` for server/API/systemd-service/read-model-refresh posture.
-- Model/historical workflow progress remains under Tasks via `historical_task_progress_summary`.
+- Historical task execution list remains under Tasks via `historical_task_progress_summary`; model-specific workflow progress/coverage lives under Models using the same storage-hosted summary until a dedicated model read model is accepted.
 - The page preserves the left-sidebar-only navigation rule and read-only dashboard boundaries.

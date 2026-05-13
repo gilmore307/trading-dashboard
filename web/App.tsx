@@ -2,16 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HistoricalProgressVisual, MetricCard, StatusPill } from './components';
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
-import type { CurrentSystemStatusChartPayload, DashboardReadModel, HistoricalTaskProgressChartPayload } from './types';
+import type { CurrentSystemStatusChartPayload, DashboardReadModel, HistoricalTaskProgressChartPayload, HistoricalTaskTimelineItemPayload } from './types';
 import './styles.css';
 
 const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
-
-const SUMMARY_LABELS: Record<string, string> = {
-  [CURRENT_SYSTEM_STATUS]: 'System Health Summary',
-  [HISTORICAL_TASK_PROGRESS]: 'Task Progress Summary',
-};
 
 const SOURCE_LABELS: Record<string, string> = {
   'trading-storage': 'System Monitor',
@@ -28,9 +23,9 @@ type ViewId = 'status' | 'tasks' | 'diagnostics' | 'models' | 'registry' | 'real
 
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'status', label: 'Current Status', state: 'Live' },
-  { id: 'tasks', label: 'Tasks', state: 'Training progress' },
+  { id: 'tasks', label: 'Tasks', state: 'Task list' },
   { id: 'diagnostics', label: 'Diagnostics', state: 'Details' },
-  { id: 'models', label: 'Models', state: 'Coming soon' },
+  { id: 'models', label: 'Models', state: 'Historical modeling' },
   { id: 'registry', label: 'Definitions', state: 'Coming soon' },
   { id: 'realtime', label: 'Realtime Signals', state: 'Coming soon' },
   { id: 'performance', label: 'Trading Performance', state: 'Coming soon' },
@@ -46,11 +41,6 @@ function safeRefLabel(ref: unknown, fallback: string): string {
   if ('kind' in ref) return startCase(String(ref.kind));
   if ('status' in ref) return startCase(String(ref.status));
   return fallback;
-}
-
-function publicSummaryLabel(contractType?: string | null): string {
-  if (!contractType) return 'Dashboard Summary';
-  return SUMMARY_LABELS[contractType] ?? startCase(contractType);
 }
 
 function publicSourceLabel(sourceSystem?: string | null): string {
@@ -135,6 +125,67 @@ function sanitizedRefSummary(ref: unknown): string {
   if ('generated_at_utc' in record) parts.push(`Generated: ${formatTimestamp(String(record.generated_at_utc))}`);
   if ('source_system' in record) parts.push(`Source: ${publicSourceLabel(String(record.source_system))}`);
   return parts.length ? parts.join(' · ') : 'Reference available for diagnostics.';
+}
+
+function taskStateSeverity(state?: string | null): string {
+  if (state === 'completed' || state === 'skipped') return 'low';
+  if (state === 'current') return 'info';
+  if (state === 'failed') return 'medium';
+  return 'info';
+}
+
+function taskStateLabel(task: HistoricalTaskTimelineItemPayload): string {
+  if (task.task_state === 'current') return 'Now';
+  if (task.task_state === 'completed') return 'Past';
+  if (task.task_state === 'future') return 'Future';
+  if (task.task_state === 'failed') return 'Failed';
+  if (task.task_state === 'skipped') return 'Skipped';
+  return startCase(task.task_state);
+}
+
+function layerLabel(task: HistoricalTaskTimelineItemPayload): string {
+  if (typeof task.layer === 'number') return `Layer ${task.layer}`;
+  return task.layer_key ? startCase(task.layer_key) : 'General';
+}
+
+function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
+  if (!tasks.length) {
+    return (
+      <section className="panel">
+        <div className="panel-heading">Task List</div>
+        <div className="empty-chart compact">No task timeline attached to this summary yet.</div>
+      </section>
+    );
+  }
+  return (
+    <section className="panel task-list-panel">
+      <div className="panel-heading">Task List</div>
+      <div className="task-list" role="list">
+        {tasks.map((task) => (
+          <article className={`task-row task-${task.task_state}`} key={`${task.sequence}-${task.task_id}`} role="listitem">
+            <div className="task-index">{task.sequence}</div>
+            <div className="task-main">
+              <div className="task-title-row">
+                <strong>{task.task_label}</strong>
+                <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
+              </div>
+              <div className="task-meta">
+                <span>{layerLabel(task)}</span>
+                <span>{startCase(task.stage_type)}</span>
+                <span>{startCase(task.status)}</span>
+                {task.updated_at_utc ? <span>Updated {formatTimestamp(task.updated_at_utc)}</span> : null}
+              </div>
+              {task.reason ? <div className="task-reason">{task.reason}</div> : null}
+            </div>
+            <div className="task-counts">
+              <span>{task.receipt_count ?? 0} receipts</span>
+              <span>{task.blocker_count ?? 0} blockers</span>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function RefPanel({ title, refs }: { title: string; refs: unknown[] }) {
@@ -323,19 +374,11 @@ function App() {
       );
     }
     if (activeView === 'tasks') {
-      const stageTotal = sumStageCounts(chart.stage_counts);
-      const terminalStages = terminalStageCount(chart.stage_counts);
       const lastExecution = chart.last_stage_execution;
       const lastExecutionOk = stageExecutionIsOk(lastExecution?.status);
       return (
         <>
-          <section className="metric-grid">
-            <MetricCard label="Current month" value={chart.current_month ?? 'Unknown'} />
-            <MetricCard label="Active stage" value={startCase(chart.active_stage)} />
-            <MetricCard label="Workflow" value={startCase(historicalModel.status)} hint={chart.terminal_complete ? 'Terminal complete' : `Lock ${startCase(chart.lock_status)}`} />
-            <MetricCard label="Progress" value={formatPercent(chart.progress_percent)} hint={`${terminalStages}/${stageTotal || 0} terminal stages`} />
-          </section>
-          <HistoricalProgressVisual chart={chart} />
+          <TaskTimelineList tasks={chart.task_timeline ?? []} />
           <section className="detail-grid">
             <section className="panel">
               <div className="panel-heading">Last Execution</div>
@@ -361,6 +404,28 @@ function App() {
               )}
             </section>
             <section className="panel">
+              <div className="panel-heading">Next Step</div>
+              <p className="next-action">{startCase(chart.next_expected_system_action)}</p>
+              <div className="muted">Blocker: {startCase(chart.blocker_category)}</div>
+            </section>
+          </section>
+        </>
+      );
+    }
+    if (activeView === 'models') {
+      const stageTotal = sumStageCounts(chart.stage_counts);
+      const terminalStages = terminalStageCount(chart.stage_counts);
+      return (
+        <>
+          <section className="metric-grid">
+            <MetricCard label="Current month" value={chart.current_month ?? 'Unknown'} />
+            <MetricCard label="Active stage" value={startCase(chart.active_stage)} />
+            <MetricCard label="Workflow" value={startCase(historicalModel.status)} hint={chart.terminal_complete ? 'Terminal complete' : `Lock ${startCase(chart.lock_status)}`} />
+            <MetricCard label="Progress" value={formatPercent(chart.progress_percent)} hint={`${terminalStages}/${stageTotal || 0} terminal stages`} />
+          </section>
+          <HistoricalProgressVisual chart={chart} />
+          <section className="detail-grid">
+            <section className="panel">
               <div className="panel-heading">System Gates</div>
               <div className="service-list">
                 <div className="service-row">
@@ -381,16 +446,15 @@ function App() {
                 </div>
               </div>
             </section>
-          </section>
-          <section className="panel">
-            <div className="panel-heading">Next Step</div>
-            <p className="next-action">{startCase(chart.next_expected_system_action)}</p>
-            <div className="muted">Blocker: {startCase(chart.blocker_category)}</div>
+            <section className="panel">
+              <div className="panel-heading">Next Step</div>
+              <p className="next-action">{startCase(chart.next_expected_system_action)}</p>
+              <div className="muted">Blocker: {startCase(chart.blocker_category)}</div>
+            </section>
           </section>
         </>
       );
     }
-    if (activeView === 'models') return <PlaceholderView title="Models" />;
     if (activeView === 'registry') return <PlaceholderView title="Definitions" />;
     if (activeView === 'realtime') return <PlaceholderView title="Realtime Signals" />;
     if (activeView === 'performance') return <PlaceholderView title="Trading Performance" />;
@@ -422,8 +486,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Current Status' : 'Historical Task Progress';
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : `${startCase(activeView)} / Historical Modeling`;
+  const pageTitle = activeView === 'status' ? 'Current Status' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);
@@ -480,20 +544,6 @@ function App() {
 
         {activeReadModel ? (
           <>
-            {activeView !== 'status' ? (
-              <section className="summary-card">
-                <div>
-                  <div className="eyebrow">{publicSummaryLabel(activeReadModel.contract_type)}</div>
-                  <h2>{activeReadModel.summary}</h2>
-                </div>
-                <div className="summary-meta">
-                  <span>Generated {formatTimestamp(activeReadModel.generated_at_utc)}</span>
-                  <span>Source {publicSourceLabel(activeReadModel.source_system)}</span>
-                  <span>Freshness {startCase(activeReadModel.freshness.status)}</span>
-                  <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
-                </div>
-              </section>
-            ) : null}
             {renderMainView()}
           </>
         ) : null}

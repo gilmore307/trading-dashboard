@@ -102,6 +102,21 @@ export interface CurrentSystemStatusChartPayload {
   };
 }
 
+export interface HistoricalTaskTimelineItemPayload {
+  sequence: number;
+  task_id: string;
+  task_label: string;
+  task_state: 'completed' | 'current' | 'future' | 'failed' | 'skipped' | string;
+  status: string;
+  stage_type?: string | null;
+  layer?: number | null;
+  layer_key?: string | null;
+  updated_at_utc?: string | null;
+  reason?: string | null;
+  receipt_count?: number;
+  blocker_count?: number;
+}
+
 export interface HistoricalTaskProgressChartPayload {
   current_month?: string | null;
   active_stage?: string | null;
@@ -115,4 +130,5 @@ export interface HistoricalTaskProgressChartPayload {
   blocker_category?: string | null;
   stage_coverage?: StageCoveragePayload;
   last_stage_execution?: StageExecutionPayload;
+  task_timeline?: HistoricalTaskTimelineItemPayload[];
 }

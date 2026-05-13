@@ -130,3 +130,29 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
   .resource-grid, .resource-grid.two, .server-resource-grid, .dashboard-file-row { grid-template-columns: 1fr; }
   .dashboard-file-row strong { justify-self: start; text-align: left; }
 }
+
+/* Fixed primary navigation */
+.sidebar { position: sticky; top: 0; height: 100vh; overflow-y: auto; align-self: start; }
+
+/* Task list view */
+.task-list-panel { padding-bottom: 16px; }
+.task-list { display: grid; gap: 10px; max-height: none; }
+.task-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) minmax(130px, auto); gap: 14px; align-items: start; padding: 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 16px; background: rgba(15, 23, 42, .45); }
+.task-row.task-current { border-color: rgba(125, 211, 252, .54); background: linear-gradient(135deg, rgba(14, 165, 233, .18), rgba(15, 23, 42, .55)); }
+.task-row.task-failed { border-color: rgba(248, 113, 113, .42); background: rgba(127, 29, 29, .18); }
+.task-row.task-completed, .task-row.task-skipped { opacity: .82; }
+.task-index { width: 34px; height: 34px; border-radius: 12px; display: grid; place-items: center; color: #7dd3fc; background: rgba(14, 165, 233, .12); border: 1px solid rgba(56, 189, 248, .24); font-weight: 900; font-size: 13px; }
+.task-main { min-width: 0; display: grid; gap: 8px; }
+.task-title-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.task-title-row strong { color: #eff6ff; font-size: 16px; }
+.task-meta { display: flex; flex-wrap: wrap; gap: 8px; color: #8fa2ba; font-size: 12px; }
+.task-meta span { padding: 5px 8px; border-radius: 999px; background: rgba(148, 163, 184, .08); border: 1px solid rgba(148, 163, 184, .12); }
+.task-reason { color: #b8c6da; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.task-counts { display: grid; gap: 6px; justify-items: end; color: #7c8ea5; font-size: 12px; font-weight: 750; }
+
+@media (max-width: 1220px) {
+  .task-row { grid-template-columns: 1fr; }
+  .task-title-row { align-items: flex-start; flex-direction: column; }
+  .task-counts { justify-items: start; }
+  .sidebar { position: static; height: auto; overflow: visible; }
+}

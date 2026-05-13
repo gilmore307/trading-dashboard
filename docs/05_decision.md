@@ -330,3 +330,22 @@ As future website pages, adapters, or read-model slices consume additional origi
 - Public labels remain preferred over internal storage paths.
 - Derived dashboard JSON should be described as sanitized/cache presentation, not as a new source file.
 - Future website development must keep source-output visibility synchronized with the actual raw/source artifacts feeding each visible dashboard surface.
+
+## D015 - Tasks is a task list; model progress belongs under Models
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+Chentong clarified that the Tasks page should answer what work is being performed at a finer operational level, such as data acquisition or feature generation, rather than primarily saying which model layer is active. The previous Current month, Active stage, Historical Modeling Progress, Latest Stage Coverage, and Task Progress Summary presentation felt too model-specific for Tasks.
+
+### Decision
+
+The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Model-specific current-month/current-stage/progress/coverage cards move to Models. The generic `Task Progress Summary` card is removed from page content.
+
+### Consequences
+
+- Tasks is list-first and operational-stage-first.
+- Models owns model/historical progress cards until a richer model-layer read model replaces this temporary reuse of `historical_task_progress_summary`.
+- Dashboard remains read-only and consumes storage-hosted summaries rather than workflow checkpoint internals directly.
