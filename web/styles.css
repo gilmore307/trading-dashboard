@@ -136,6 +136,15 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 
 /* Task list view */
 .task-list-panel { padding-bottom: 16px; }
+.task-list-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.task-list-header .panel-heading { margin-bottom: 6px; }
+.task-filter-summary { color: #7c8ea5; font-size: 13px; font-weight: 750; }
+.task-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.task-filters label { display: grid; gap: 7px; color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 850; }
+.task-filters select { width: 100%; border: 1px solid rgba(148, 163, 184, .18); border-radius: 14px; padding: 10px 12px; color: #e7edf7; background: rgba(2, 6, 23, .68); font: inherit; font-size: 13px; font-weight: 750; outline: none; }
+.task-filters select:focus { border-color: rgba(125, 211, 252, .62); box-shadow: 0 0 0 3px rgba(14, 165, 233, .12); }
+.secondary-button { border: 1px solid rgba(148, 163, 184, .22); color: #dbeafe; background: rgba(15, 23, 42, .55); border-radius: 999px; padding: 9px 12px; font-weight: 850; cursor: pointer; }
+.secondary-button:hover { border-color: rgba(125, 211, 252, .5); background: rgba(14, 165, 233, .14); }
 .task-list { display: grid; gap: 10px; max-height: none; }
 .task-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) minmax(130px, auto); gap: 14px; align-items: start; padding: 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 16px; background: rgba(15, 23, 42, .45); }
 .task-row.task-current { border-color: rgba(125, 211, 252, .54); background: linear-gradient(135deg, rgba(14, 165, 233, .18), rgba(15, 23, 42, .55)); }
@@ -151,6 +160,8 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .task-counts { display: grid; gap: 6px; justify-items: end; color: #7c8ea5; font-size: 12px; font-weight: 750; }
 
 @media (max-width: 1220px) {
+  .task-list-header { flex-direction: column; }
+  .task-filters { grid-template-columns: 1fr; }
   .task-row { grid-template-columns: 1fr; }
   .task-title-row { align-items: flex-start; flex-direction: column; }
   .task-counts { justify-items: start; }

@@ -349,3 +349,22 @@ The left navigation remains fixed. Tasks renders a storage-hosted task timeline 
 - Tasks is list-first and operational-stage-first.
 - Models owns model/historical progress cards until a richer model-layer read model replaces this temporary reuse of `historical_task_progress_summary`.
 - Dashboard remains read-only and consumes storage-hosted summaries rather than workflow checkpoint internals directly.
+
+## D016 - Task list defaults to current work and exposes filters
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+After Tasks became list-first, the full historical workflow list still showed too many rows at once. Chentong clarified that the top of Task List should include filters for layer, status, and task/work type such as Data Acquisition, and the default should show only the current `Now` task.
+
+### Decision
+
+Task List renders filter controls above the list. Filters cover layer, task state/status (`Now`, `Past`, `Future`, `Failed`, `Skipped`), and task/work type (`Data Acquisition`, `Feature Generation`, etc.). The default status filter is `Now`; layer and task/work type default to all. A reset action returns the view to the current-work default.
+
+### Consequences
+
+- Tasks stays operational and compact instead of showing every past/current/future row by default.
+- The underlying storage-hosted timeline remains complete; filtering is a read-only presentation concern.
+- Future task-list additions should preserve the current-work default unless a stronger owner-facing reason exists.

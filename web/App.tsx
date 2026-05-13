@@ -148,7 +148,42 @@ function layerLabel(task: HistoricalTaskTimelineItemPayload): string {
   return task.layer_key ? startCase(task.layer_key) : 'General';
 }
 
+function taskLayerFilterValue(task: HistoricalTaskTimelineItemPayload): string {
+  if (typeof task.layer === 'number') return String(task.layer);
+  return task.layer_key ?? 'general';
+}
+
+function taskWorkTypeFilterValue(task: HistoricalTaskTimelineItemPayload): string {
+  return task.stage_type ?? task.task_label ?? 'unknown';
+}
+
+function uniqueTaskOptions(tasks: HistoricalTaskTimelineItemPayload[], valueFor: (task: HistoricalTaskTimelineItemPayload) => string, labelFor: (task: HistoricalTaskTimelineItemPayload) => string) {
+  return Array.from(
+    tasks.reduce((options, task) => options.set(valueFor(task), labelFor(task)), new Map<string, string>()).entries(),
+  ).sort(([, left], [, right]) => left.localeCompare(right));
+}
+
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
+  const [layerFilter, setLayerFilter] = useState('all');
+  const [stateFilter, setStateFilter] = useState('current');
+  const [workTypeFilter, setWorkTypeFilter] = useState('all');
+
+  const layerOptions = useMemo(() => uniqueTaskOptions(tasks, taskLayerFilterValue, layerLabel), [tasks]);
+  const stateOptions = useMemo(() => uniqueTaskOptions(tasks, (task) => task.task_state, taskStateLabel), [tasks]);
+  const workTypeOptions = useMemo(
+    () => uniqueTaskOptions(tasks, taskWorkTypeFilterValue, (task) => startCase(task.stage_type || task.task_label)),
+    [tasks],
+  );
+  const filteredTasks = useMemo(
+    () => tasks.filter((task) => {
+      if (layerFilter !== 'all' && taskLayerFilterValue(task) !== layerFilter) return false;
+      if (stateFilter !== 'all' && task.task_state !== stateFilter) return false;
+      if (workTypeFilter !== 'all' && taskWorkTypeFilterValue(task) !== workTypeFilter) return false;
+      return true;
+    }),
+    [layerFilter, stateFilter, tasks, workTypeFilter],
+  );
+
   if (!tasks.length) {
     return (
       <section className="panel">
@@ -159,31 +194,66 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   }
   return (
     <section className="panel task-list-panel">
-      <div className="panel-heading">Task List</div>
-      <div className="task-list" role="list">
-        {tasks.map((task) => (
-          <article className={`task-row task-${task.task_state}`} key={`${task.sequence}-${task.task_id}`} role="listitem">
-            <div className="task-index">{task.sequence}</div>
-            <div className="task-main">
-              <div className="task-title-row">
-                <strong>{task.task_label}</strong>
-                <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
-              </div>
-              <div className="task-meta">
-                <span>{layerLabel(task)}</span>
-                <span>{startCase(task.stage_type)}</span>
-                <span>{startCase(task.status)}</span>
-                {task.updated_at_utc ? <span>Updated {formatTimestamp(task.updated_at_utc)}</span> : null}
-              </div>
-              {task.reason ? <div className="task-reason">{task.reason}</div> : null}
-            </div>
-            <div className="task-counts">
-              <span>{task.receipt_count ?? 0} receipts</span>
-              <span>{task.blocker_count ?? 0} blockers</span>
-            </div>
-          </article>
-        ))}
+      <div className="task-list-header">
+        <div>
+          <div className="panel-heading">Task List</div>
+          <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} tasks</div>
+        </div>
+        <button className="secondary-button" type="button" onClick={() => { setLayerFilter('all'); setStateFilter('current'); setWorkTypeFilter('all'); }}>
+          Reset to Now
+        </button>
       </div>
+      <div className="task-filters" aria-label="Task list filters">
+        <label>
+          <span>Layer</span>
+          <select value={layerFilter} onChange={(event) => setLayerFilter(event.target.value)}>
+            <option value="all">All layers</option>
+            {layerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}>
+            <option value="all">All statuses</option>
+            {stateOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Task</span>
+          <select value={workTypeFilter} onChange={(event) => setWorkTypeFilter(event.target.value)}>
+            <option value="all">All tasks</option>
+            {workTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
+      </div>
+      {filteredTasks.length ? (
+        <div className="task-list" role="list">
+          {filteredTasks.map((task) => (
+            <article className={`task-row task-${task.task_state}`} key={`${task.sequence}-${task.task_id}`} role="listitem">
+              <div className="task-index">{task.sequence}</div>
+              <div className="task-main">
+                <div className="task-title-row">
+                  <strong>{task.task_label}</strong>
+                  <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
+                </div>
+                <div className="task-meta">
+                  <span>{layerLabel(task)}</span>
+                  <span>{startCase(task.stage_type)}</span>
+                  <span>{startCase(task.status)}</span>
+                  {task.updated_at_utc ? <span>Updated {formatTimestamp(task.updated_at_utc)}</span> : null}
+                </div>
+                {task.reason ? <div className="task-reason">{task.reason}</div> : null}
+              </div>
+              <div className="task-counts">
+                <span>{task.receipt_count ?? 0} receipts</span>
+                <span>{task.blocker_count ?? 0} blockers</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-chart compact">No tasks match the selected filters.</div>
+      )}
     </section>
   );
 }
