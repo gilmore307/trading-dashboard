@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { HistoricalProgressVisual, MetricCard, StageStackedBar, StatusPill } from './components';
+import { HistoricalProgressVisual, MetricCard, StatusPill } from './components';
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
 import type { CurrentSystemStatusChartPayload, DashboardReadModel, HistoricalTaskProgressChartPayload } from './types';
@@ -97,6 +97,24 @@ function formatNetworkRate(kbps?: number | null): string {
   if (typeof kbps !== 'number' || !Number.isFinite(kbps)) return '0 KB/s';
   if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`;
   return `${kbps.toFixed(1)} KB/s`;
+}
+
+function sumStageCounts(counts?: Record<string, number>): number {
+  return Object.values(counts ?? {}).reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+}
+
+function terminalStageCount(counts?: Record<string, number>): number {
+  return (counts?.succeeded ?? 0) + (counts?.not_applicable ?? 0);
+}
+
+function workflowGateLabel(ok?: boolean | null): string {
+  if (ok === true) return 'Ready';
+  if (ok === false) return 'Blocked';
+  return 'Unknown';
+}
+
+function providerPostureIsOk(status?: string | null): boolean {
+  return status === 'ready' || status === 'available' || status === 'no_provider_work_selected' || status === 'not_required' || status === 'idle';
 }
 
 function sanitizedRefSummary(ref: unknown): string {
@@ -295,17 +313,44 @@ function App() {
       );
     }
     if (activeView === 'tasks') {
+      const stageTotal = sumStageCounts(chart.stage_counts);
+      const terminalStages = terminalStageCount(chart.stage_counts);
       return (
         <>
-          <section className="metric-grid three">
+          <section className="metric-grid">
             <MetricCard label="Current month" value={chart.current_month ?? 'Unknown'} />
             <MetricCard label="Active stage" value={startCase(chart.active_stage)} />
-            <MetricCard label="Next action" value={startCase(chart.next_expected_system_action)} />
+            <MetricCard label="Workflow" value={startCase(historicalModel.status)} hint={chart.terminal_complete ? 'Terminal complete' : `Lock ${startCase(chart.lock_status)}`} />
+            <MetricCard label="Progress" value={formatPercent(chart.progress_percent)} hint={`${terminalStages}/${stageTotal || 0} terminal stages`} />
           </section>
           <HistoricalProgressVisual chart={chart} />
-          <section className="panel">
-            <div className="panel-heading">Stage Counts</div>
-            <StageStackedBar counts={chart.stage_counts} />
+          <section className="detail-grid">
+            <section className="panel">
+              <div className="panel-heading">System Gates</div>
+              <div className="service-list">
+                <div className="service-row">
+                  <span>Service Runtime</span>
+                  <strong className={chart.service_runtime_ready ? 'service-ok' : 'service-warn'}>{workflowGateLabel(chart.service_runtime_ready)}</strong>
+                </div>
+                <div className="service-row">
+                  <span>Scheduler Lock</span>
+                  <strong className={chart.lock_status === 'active' ? 'service-ok' : 'service-warn'}>{startCase(chart.lock_status)}</strong>
+                </div>
+                <div className="service-row">
+                  <span>Provider Stage Posture</span>
+                  <strong className={providerPostureIsOk(chart.provider_status) ? 'service-ok' : 'service-warn'}>{startCase(chart.provider_status)}</strong>
+                </div>
+                <div className="service-row">
+                  <span>Terminal Complete</span>
+                  <strong className={chart.terminal_complete ? 'service-ok' : 'service-warn'}>{chart.terminal_complete ? 'Yes' : 'No'}</strong>
+                </div>
+              </div>
+            </section>
+            <section className="panel">
+              <div className="panel-heading">Next Step</div>
+              <p className="next-action">{startCase(chart.next_expected_system_action)}</p>
+              <div className="muted">Blocker: {startCase(chart.blocker_category)}</div>
+            </section>
           </section>
         </>
       );

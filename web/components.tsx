@@ -57,7 +57,7 @@ export function CoveragePanel({ coverage }: { coverage?: StageCoveragePayload })
   if (!coverage) {
     return (
       <section className="panel">
-        <div className="panel-heading">Stage Coverage</div>
+        <div className="panel-heading">Latest Stage Coverage</div>
         <div className="empty-chart">No coverage artifact attached to this summary yet.</div>
       </section>
     );
@@ -76,7 +76,7 @@ export function CoveragePanel({ coverage }: { coverage?: StageCoveragePayload })
   ] as const;
   return (
     <section className="panel">
-      <div className="panel-heading">Stage Coverage</div>
+      <div className="panel-heading">Latest Stage Coverage</div>
       <div className="coverage-title">
         <strong>{startCase(coverage.stage_id)}</strong>
         <StatusPill status={coverage.status ?? 'unknown'} severity={coverage.can_unlock_downstream ? 'info' : 'medium'} />
