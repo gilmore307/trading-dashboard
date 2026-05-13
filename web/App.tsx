@@ -163,10 +163,95 @@ function uniqueTaskOptions(tasks: HistoricalTaskTimelineItemPayload[], valueFor:
   ).sort(([, left], [, right]) => left.localeCompare(right));
 }
 
+function monthLabel(month?: string | null): string {
+  return month || 'Unscheduled Month';
+}
+
+function groupTasksByMonth(tasks: HistoricalTaskTimelineItemPayload[]) {
+  const groups = new Map<string, HistoricalTaskTimelineItemPayload[]>();
+  tasks.forEach((task) => {
+    const month = monthLabel(task.month);
+    groups.set(month, [...(groups.get(month) ?? []), task]);
+  });
+  return Array.from(groups.entries());
+}
+
+function yesNo(value?: boolean | null): string {
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  return 'Unknown';
+}
+
+function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) {
+  const detail = task.detail ?? {};
+  const progress = detail.progress;
+  const execution = detail.last_execution;
+  const blockers = detail.blockers ?? [];
+  const receipts = detail.receipt_refs ?? [];
+  const progressPercent = progress?.expected_count ? ((progress.ready_count ?? 0) / progress.expected_count) * 100 : 0;
+  return (
+    <div className="task-detail-panel">
+      <div className="task-detail-grid">
+        <div className="task-detail-card">
+          <span>Task identity</span>
+          <strong>{monthLabel(task.month)} · {layerLabel(task)} · {startCase(task.stage_type)}</strong>
+          <small>{task.task_id}</small>
+        </div>
+        <div className="task-detail-card">
+          <span>Status</span>
+          <strong>{startCase(task.status)}</strong>
+          <small>{task.reason || 'No current reason recorded.'}</small>
+        </div>
+        {progress ? (
+          <div className="task-detail-card wide-detail">
+            <span>Current progress</span>
+            <strong>{progress.ready_count ?? 0}/{progress.expected_count ?? 0} ready</strong>
+            <div className="mini-progress" aria-label={`Task progress ${formatPercent(progressPercent)}`}>
+              <div className="mini-progress-fill" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} />
+            </div>
+            <small>Pending {progress.pending_count ?? 0} · Failed {progress.failed_count ?? 0} · Accepted skips {progress.accepted_failed_count ?? 0}</small>
+          </div>
+        ) : task.task_state === 'current' ? (
+          <div className="task-detail-card wide-detail">
+            <span>Current progress</span>
+            <strong>{startCase(task.status)}</strong>
+            <small>No stage-coverage progress artifact is attached to this task yet.</small>
+          </div>
+        ) : null}
+        {execution ? (
+          <div className="task-detail-card wide-detail">
+            <span>Latest execution</span>
+            <strong>{startCase(execution.status)}</strong>
+            <small>{execution.return_code === undefined || execution.return_code === null ? 'No return code recorded' : `Return code ${execution.return_code}`}</small>
+            {execution.reason ? <small>{execution.reason}</small> : null}
+          </div>
+        ) : null}
+        <div className="task-detail-card">
+          <span>Safety boundary</span>
+          <strong>Provider calls: {yesNo(detail.provider_calls_allowed)}</strong>
+          <small>Model activation: {yesNo(detail.model_activation_allowed)} · Broker execution: {yesNo(detail.broker_execution_allowed)}</small>
+        </div>
+        <div className="task-detail-card">
+          <span>Evidence</span>
+          <strong>{receipts.length} receipt refs</strong>
+          <small>{receipts.slice(0, 2).join(' · ') || 'No receipt refs attached.'}</small>
+        </div>
+      </div>
+      {blockers.length ? (
+        <div className="task-detail-list">
+          <span>Blockers</span>
+          {blockers.map((blocker) => <code key={blocker}>{blocker}</code>)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
   const [layerFilter, setLayerFilter] = useState('all');
   const [stateFilter, setStateFilter] = useState('current');
   const [workTypeFilter, setWorkTypeFilter] = useState('all');
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const layerOptions = useMemo(() => uniqueTaskOptions(tasks, taskLayerFilterValue, layerLabel), [tasks]);
   const stateOptions = useMemo(() => uniqueTaskOptions(tasks, (task) => task.task_state, taskStateLabel), [tasks]);
@@ -183,6 +268,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     }),
     [layerFilter, stateFilter, tasks, workTypeFilter],
   );
+  const monthGroups = useMemo(() => groupTasksByMonth(filteredTasks), [filteredTasks]);
 
   if (!tasks.length) {
     return (
@@ -197,9 +283,9 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
       <div className="task-list-header">
         <div>
           <div className="panel-heading">Task List</div>
-          <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} tasks</div>
+          <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} child tasks</div>
         </div>
-        <button className="secondary-button" type="button" onClick={() => { setLayerFilter('all'); setStateFilter('current'); setWorkTypeFilter('all'); }}>
+        <button className="secondary-button" type="button" onClick={() => { setLayerFilter('all'); setStateFilter('current'); setWorkTypeFilter('all'); setExpandedTasks(new Set()); }}>
           Reset to Now
         </button>
       </div>
@@ -226,29 +312,58 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           </select>
         </label>
       </div>
-      {filteredTasks.length ? (
-        <div className="task-list" role="list">
-          {filteredTasks.map((task) => (
-            <article className={`task-row task-${task.task_state}`} key={`${task.sequence}-${task.task_id}`} role="listitem">
-              <div className="task-index">{task.sequence}</div>
-              <div className="task-main">
-                <div className="task-title-row">
-                  <strong>{task.task_label}</strong>
-                  <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
-                </div>
-                <div className="task-meta">
-                  <span>{layerLabel(task)}</span>
-                  <span>{startCase(task.stage_type)}</span>
-                  <span>{startCase(task.status)}</span>
-                  {task.updated_at_utc ? <span>Updated {formatTimestamp(task.updated_at_utc)}</span> : null}
-                </div>
-                {task.reason ? <div className="task-reason">{task.reason}</div> : null}
+      {monthGroups.length ? (
+        <div className="task-month-groups">
+          {monthGroups.map(([month, monthTasks]) => (
+            <section className="task-month-group" key={month}>
+              <div className="task-month-heading">
+                <strong>{month}</strong>
+                <span>{monthTasks.length} child tasks</span>
               </div>
-              <div className="task-counts">
-                <span>{task.receipt_count ?? 0} receipts</span>
-                <span>{task.blocker_count ?? 0} blockers</span>
+              <div className="task-list" role="list">
+                {monthTasks.map((task) => {
+                  const taskKey = `${task.month ?? 'unknown'}-${task.sequence}-${task.task_id}`;
+                  const isExpanded = expandedTasks.has(taskKey);
+                  return (
+                    <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
+                      <div className="task-index">{task.sequence}</div>
+                      <div className="task-main">
+                        <div className="task-title-row">
+                          <strong>{task.task_label}</strong>
+                          <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
+                        </div>
+                        <div className="task-meta">
+                          <span>{monthLabel(task.month)}</span>
+                          <span>{layerLabel(task)}</span>
+                          <span>{startCase(task.stage_type)}</span>
+                          <span>{startCase(task.status)}</span>
+                          {task.updated_at_utc ? <span>Updated {formatTimestamp(task.updated_at_utc)}</span> : null}
+                        </div>
+                        {task.reason ? <div className="task-reason">{task.reason}</div> : null}
+                        {isExpanded ? <TaskDetailPanel task={task} /> : null}
+                      </div>
+                      <div className="task-counts">
+                        <span>{task.receipt_count ?? 0} receipts</span>
+                        <span>{task.blocker_count ?? 0} blockers</span>
+                        <button
+                          className="detail-toggle"
+                          type="button"
+                          aria-expanded={isExpanded}
+                          onClick={() => setExpandedTasks((current) => {
+                            const next = new Set(current);
+                            if (next.has(taskKey)) next.delete(taskKey);
+                            else next.add(taskKey);
+                            return next;
+                          })}
+                        >
+                          {isExpanded ? 'Hide details' : 'Details'}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
-            </article>
+            </section>
           ))}
         </div>
       ) : (

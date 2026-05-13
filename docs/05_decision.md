@@ -368,3 +368,22 @@ Task List renders filter controls above the list. Filters cover layer, task stat
 - Tasks stays operational and compact instead of showing every past/current/future row by default.
 - The underlying storage-hosted timeline remains complete; filtering is a read-only presentation concern.
 - Future task-list additions should preserve the current-work default unless a stronger owner-facing reason exists.
+
+## D017 - Task rows are finest child tasks grouped by month
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+Chentong clarified that the task list should display the finest child tasks so completed and incomplete states are meaningful. Historical months such as 2016-01 and 2016-02 are useful grouping/work-window context, not the same visible task row. Chentong also asked for expandable task details, especially for the current task's progress.
+
+### Decision
+
+Task List treats each row as `month + layer + operational stage/work type`. Rows are grouped by historical month, still filterable by layer/status/task type, and each row has a read-only details toggle. Expanded details show task identity, status/reason, current progress when stage coverage is attached, latest execution result when attached, safety posture, evidence count/refs, and blockers.
+
+### Consequences
+
+- Completed/failed/current/future states apply to the finest child-task row instead of a broad month or model-layer label.
+- Month grouping keeps 2016-01/2016-02 style work windows understandable without collapsing them into one task.
+- Detail expansion remains presentation-only over storage-hosted, manager-sanitized read-model fields.

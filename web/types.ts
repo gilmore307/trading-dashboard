@@ -102,8 +102,24 @@ export interface CurrentSystemStatusChartPayload {
   };
 }
 
+export interface HistoricalTaskTimelineDetailPayload {
+  blockers?: string[];
+  receipt_refs?: string[];
+  safe_without_provider_calls?: boolean | null;
+  provider_calls_allowed?: boolean | null;
+  model_activation_allowed?: boolean | null;
+  broker_execution_allowed?: boolean | null;
+  progress?: StageCoveragePayload;
+  last_execution?: {
+    status?: string | null;
+    return_code?: number | null;
+    reason?: string | null;
+  };
+}
+
 export interface HistoricalTaskTimelineItemPayload {
   sequence: number;
+  month?: string | null;
   task_id: string;
   task_label: string;
   task_state: 'completed' | 'current' | 'future' | 'failed' | 'skipped' | string;
@@ -115,6 +131,7 @@ export interface HistoricalTaskTimelineItemPayload {
   reason?: string | null;
   receipt_count?: number;
   blocker_count?: number;
+  detail?: HistoricalTaskTimelineDetailPayload;
 }
 
 export interface HistoricalTaskProgressChartPayload {
