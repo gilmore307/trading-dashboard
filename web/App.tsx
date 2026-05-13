@@ -218,10 +218,7 @@ function App() {
     const readModels = systemChart.read_models ?? [];
     return (
       <>
-        <section className="metric-grid two">
-          <MetricCard label="Server" value="Online" hint="Running normally" />
-          <MetricCard label="Auto Refresh" value={`${systemChart.refresh?.cadence_seconds ?? 0}s`} hint={systemChart.refresh?.status === 'active' ? 'Refresh schedule active' : startCase(systemChart.refresh?.status)} />
-        </section>
+        {renderServerResourcesPanel()}
         <section className="detail-grid">
           <section className="panel">
             <div className="panel-heading">Background Services</div>
@@ -350,8 +347,6 @@ function App() {
             </button>
           </div>
         </section>
-
-        {activeView === 'status' && currentStatusModel ? renderServerResourcesPanel() : null}
 
         <header className="hero">
           <div>
