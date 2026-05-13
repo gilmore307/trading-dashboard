@@ -308,21 +308,22 @@ Current Status shows an `API Connections` card with public provider API names an
 - Live provider connectivity checks, if added later, need a separate bounded read-only approval path.
 
 
-## D014 - Status groups providers and services, then lists data files
+## D014 - Status groups providers and services, then lists source outputs
 
 Date: 2026-05-13
 Status: Accepted
 
 ### Context
 
-Chentong asked for provider API status and Background Services to share one row, while Dashboard Data should be its own row listing every file the dashboard reads and each file's last update time.
+Chentong asked for provider API status and Background Services to share one row, while Dashboard Data should be its own row. Dashboard Data should list the original script/model/task outputs that feed the dashboard, not derived dashboard summary files.
 
 ### Decision
 
-Current Status renders API Connections and Background Services side by side after Server Resources. Dashboard Data is a full-width panel below them and lists each dashboard data file with its last updated timestamp.
+Current Status renders API Connections and Background Services side by side after Server Resources. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
 
 ### Consequences
 
 - Infrastructure/service posture stays compact in one row.
-- Dashboard input freshness is easier to audit because each consumed summary file has a visible last-updated time.
+- Dashboard input freshness is easier to audit because source output freshness is visible.
 - Public labels remain preferred over internal storage paths.
+- Derived dashboard JSON should be described as sanitized/cache presentation, not as a new source file.

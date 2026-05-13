@@ -41,16 +41,13 @@ export interface CurrentSystemServicePayload {
   healthy?: boolean;
 }
 
-export interface CurrentSystemReadModelFreshnessPayload {
-  contract_type: string;
+export interface CurrentSystemSourceOutputPayload {
+  label: string;
+  kind?: string;
   exists: boolean;
   status: string;
   age_seconds?: number | null;
-  file_label?: string | null;
   latest_updated_at_utc?: string | null;
-  generated_at_utc?: string | null;
-  payload_status?: string | null;
-  stale_after_seconds?: number | null;
 }
 
 export interface CurrentSystemApiPayload {
@@ -83,7 +80,7 @@ export interface CurrentSystemStatusChartPayload {
   };
   apis?: CurrentSystemApiPayload[];
   services?: CurrentSystemServicePayload[];
-  read_models?: CurrentSystemReadModelFreshnessPayload[];
+  source_outputs?: CurrentSystemSourceOutputPayload[];
   refresh?: {
     timer_unit?: string;
     cadence_seconds?: number;

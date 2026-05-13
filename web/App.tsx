@@ -83,10 +83,10 @@ function formatAgeSeconds(ageSeconds?: number | null): string {
   return `${Math.round(ageSeconds / 3600)}h ago`;
 }
 
-function dataFileStatus(model: { exists: boolean; status: string; latest_updated_at_utc?: string | null; age_seconds?: number | null }): string {
-  if (!model.exists) return 'Missing';
-  if (!model.latest_updated_at_utc) return startCase(model.status);
-  return `Updated ${formatTimestamp(model.latest_updated_at_utc)} · ${formatAgeSeconds(model.age_seconds)}`;
+function sourceOutputStatus(output: { exists: boolean; status: string; latest_updated_at_utc?: string | null; age_seconds?: number | null }): string {
+  if (!output.exists) return 'Missing';
+  if (!output.latest_updated_at_utc) return startCase(output.status);
+  return `Updated ${formatTimestamp(output.latest_updated_at_utc)} · ${formatAgeSeconds(output.age_seconds)}`;
 }
 
 function formatPercent(value?: number | null): string {
@@ -234,7 +234,7 @@ function App() {
 
   const renderCurrentStatusView = () => {
     const services = systemChart.services ?? [];
-    const readModels = systemChart.read_models ?? [];
+    const sourceOutputs = systemChart.source_outputs ?? [];
     const apis = systemChart.apis ?? [];
     return (
       <>
@@ -269,10 +269,10 @@ function App() {
         <section className="panel">
           <div className="panel-heading">Dashboard Data</div>
           <div className="dashboard-file-list">
-            {readModels.map((model) => (
-              <div className="dashboard-file-row" key={model.contract_type}>
-                <span>{publicSummaryLabel(model.contract_type)} file</span>
-                <strong className={model.status === 'fresh' ? 'service-ok' : 'service-warn'}>{dataFileStatus(model)}</strong>
+            {sourceOutputs.map((output) => (
+              <div className="dashboard-file-row" key={`${output.kind ?? 'source'}-${output.label}`}>
+                <span>{output.label}</span>
+                <strong className={output.status === 'available' ? 'service-ok' : 'service-warn'}>{sourceOutputStatus(output)}</strong>
               </div>
             ))}
           </div>
