@@ -109,14 +109,11 @@ function RefPanel({ title, refs }: { title: string; refs: unknown[] }) {
   );
 }
 
-function PlaceholderView({ title, description }: { title: string; description: string }) {
+function PlaceholderView({ title }: { title: string }) {
   return (
     <section className="panel placeholder-view">
       <div className="panel-heading">{title}</div>
-      <h2>{description}</h2>
-      <p>
-        This tab is clickable now, but it intentionally waits for an accepted public dashboard summary before rendering data.
-      </p>
+      <h2>Coming Soon</h2>
     </section>
   );
 }
@@ -267,10 +264,10 @@ function App() {
         </>
       );
     }
-    if (activeView === 'models') return <PlaceholderView title="Models" description="Model health will appear after a public model summary is accepted." />;
-    if (activeView === 'registry') return <PlaceholderView title="Registry Dictionary" description="Registry browsing will appear after a public dictionary summary is accepted." />;
-    if (activeView === 'realtime') return <PlaceholderView title="Realtime Signals" description="Realtime monitoring is parked until public realtime summaries are accepted." />;
-    if (activeView === 'performance') return <PlaceholderView title="Trading Performance" description="Trading performance is parked until post-promotion public summaries exist." />;
+    if (activeView === 'models') return <PlaceholderView title="Models" />;
+    if (activeView === 'registry') return <PlaceholderView title="Definitions" />;
+    if (activeView === 'realtime') return <PlaceholderView title="Realtime Signals" />;
+    if (activeView === 'performance') return <PlaceholderView title="Trading Performance" />;
     return (
       <>
         <section className="metric-grid">
@@ -314,7 +311,6 @@ function App() {
           <div className="brand-mark"><img src="/trading-dashboard-icon.png?v=20260513b" alt="" aria-hidden="true" /></div>
           <div>
             <div className="brand-title">Trading Dashboard</div>
-            <div className="brand-subtitle">Public read-only operations view</div>
           </div>
         </div>
         <nav className="nav-list" aria-label="Primary dashboard navigation">
@@ -325,17 +321,12 @@ function App() {
             </button>
           ))}
         </nav>
-        <div className="safety-card">
-          <strong>Public read-only</strong>
-          <span>This page only displays status. It cannot place trades, change accounts, or modify system settings.</span>
-        </div>
       </aside>
 
       <main className="content">
         <section className="top-status-bar" aria-label="Dashboard status bar">
           <div className="top-status-primary">
             {pageStatusModel ? <StatusPill status={pageStatusModel.status} severity={pageStatusModel.severity || 'info'} /> : null}
-            <span className="top-status-copy">Dashboard is read-only</span>
           </div>
           <div className="top-status-meta">
             <span>Last refreshed {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
@@ -350,9 +341,6 @@ function App() {
           <div>
             <div className="eyebrow">{pageEyebrow}</div>
             <h1>{pageTitle}</h1>
-            <p>
-              Public, read-only progress from dashboard summaries. Use the left navigation to inspect different slices; live updates refresh automatically.
-            </p>
           </div>
         </header>
 
@@ -362,7 +350,6 @@ function App() {
           <section className="panel error-panel">
             <div className="panel-heading">Dashboard data unavailable</div>
             <p>{error}</p>
-            <p className="muted">Try refreshing the page. If this continues, the dashboard data service may need attention.</p>
           </section>
         ) : null}
 
