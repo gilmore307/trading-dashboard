@@ -83,6 +83,12 @@ function formatAgeSeconds(ageSeconds?: number | null): string {
   return `${Math.round(ageSeconds / 3600)}h ago`;
 }
 
+function dataFileStatus(model: { exists: boolean; status: string; latest_updated_at_utc?: string | null; age_seconds?: number | null }): string {
+  if (!model.exists) return 'Missing';
+  if (!model.latest_updated_at_utc) return startCase(model.status);
+  return `Updated ${formatTimestamp(model.latest_updated_at_utc)} · ${formatAgeSeconds(model.age_seconds)}`;
+}
+
 function formatPercent(value?: number | null): string {
   return typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(1)}%` : '0.0%';
 }
@@ -233,21 +239,21 @@ function App() {
     return (
       <>
         {renderServerResourcesPanel()}
-        <section className="panel">
-          <div className="panel-heading">API Connections</div>
-          <div className="service-list">
-            {apis.map((api) => {
-              const healthy = api.healthy ?? apiIsHealthy(api.status);
-              return (
-                <div className="service-row" key={`${api.kind ?? 'api'}-${api.name}`}>
-                  <span>{api.name}</span>
-                  <strong className={healthy ? 'service-ok' : 'service-warn'}>{apiStatusLabel(api.status)}</strong>
-                </div>
-              );
-            })}
-          </div>
-        </section>
         <section className="detail-grid">
+          <section className="panel">
+            <div className="panel-heading">API Connections</div>
+            <div className="service-list">
+              {apis.map((api) => {
+                const healthy = api.healthy ?? apiIsHealthy(api.status);
+                return (
+                  <div className="service-row" key={`${api.kind ?? 'api'}-${api.name}`}>
+                    <span>{api.name}</span>
+                    <strong className={healthy ? 'service-ok' : 'service-warn'}>{apiStatusLabel(api.status)}</strong>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
           <section className="panel">
             <div className="panel-heading">Background Services</div>
             <div className="service-list">
@@ -259,17 +265,17 @@ function App() {
               ))}
             </div>
           </section>
-          <section className="panel">
-            <div className="panel-heading">Dashboard Data</div>
-            <div className="service-list">
-              {readModels.map((model) => (
-                <div className="service-row" key={model.contract_type}>
-                  <span>{publicSummaryLabel(model.contract_type)}</span>
-                  <strong className={model.status === 'fresh' ? 'service-ok' : 'service-warn'}>{startCase(model.status)} · {formatAgeSeconds(model.age_seconds)}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
+        </section>
+        <section className="panel">
+          <div className="panel-heading">Dashboard Data</div>
+          <div className="dashboard-file-list">
+            {readModels.map((model) => (
+              <div className="dashboard-file-row" key={model.contract_type}>
+                <span>{publicSummaryLabel(model.contract_type)} file</span>
+                <strong className={model.status === 'fresh' ? 'service-ok' : 'service-warn'}>{dataFileStatus(model)}</strong>
+              </div>
+            ))}
+          </div>
         </section>
       </>
     );

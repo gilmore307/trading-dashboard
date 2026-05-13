@@ -114,11 +114,16 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .service-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
 .service-row span { color: #cbd5e1; overflow-wrap: anywhere; }
 .service-row strong { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.dashboard-file-list { display: grid; gap: 10px; }
+.dashboard-file-row { display: grid; grid-template-columns: minmax(220px, .55fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
+.dashboard-file-row span { color: #cbd5e1; font-weight: 750; }
+.dashboard-file-row strong { justify-self: end; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; text-align: right; }
 .service-ok { color: #86efac; }
 .service-warn { color: #fbbf24; }
 .resource-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .resource-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .server-resource-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 @media (max-width: 1220px) {
-  .resource-grid, .resource-grid.two, .server-resource-grid { grid-template-columns: 1fr; }
+  .resource-grid, .resource-grid.two, .server-resource-grid, .dashboard-file-row { grid-template-columns: 1fr; }
+  .dashboard-file-row strong { justify-self: start; text-align: left; }
 }

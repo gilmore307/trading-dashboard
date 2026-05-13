@@ -46,6 +46,8 @@ export interface CurrentSystemReadModelFreshnessPayload {
   exists: boolean;
   status: string;
   age_seconds?: number | null;
+  file_label?: string | null;
+  latest_updated_at_utc?: string | null;
   generated_at_utc?: string | null;
   payload_status?: string | null;
   stale_after_seconds?: number | null;

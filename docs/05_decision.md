@@ -306,3 +306,23 @@ Current Status shows an `API Connections` card with public provider API names an
 
 - Provider API readiness is visible as part of Status without leaking route templates or secret material.
 - Live provider connectivity checks, if added later, need a separate bounded read-only approval path.
+
+
+## D014 - Status groups providers and services, then lists data files
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+Chentong asked for provider API status and Background Services to share one row, while Dashboard Data should be its own row listing every file the dashboard reads and each file's last update time.
+
+### Decision
+
+Current Status renders API Connections and Background Services side by side after Server Resources. Dashboard Data is a full-width panel below them and lists each dashboard data file with its last updated timestamp.
+
+### Consequences
+
+- Infrastructure/service posture stays compact in one row.
+- Dashboard input freshness is easier to audit because each consumed summary file has a visible last-updated time.
+- Public labels remain preferred over internal storage paths.
