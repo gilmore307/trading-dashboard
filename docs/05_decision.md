@@ -321,9 +321,12 @@ Chentong asked for provider API status and Background Services to share one row,
 
 Current Status renders API Connections and Background Services side by side after Server Resources. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
 
+As future website pages, adapters, or read-model slices consume additional original source outputs, the Dashboard Data source-output inventory must be updated in the same development slice. Omitting a newly consumed raw source output from this list is a freshness/auditability contract gap, even if the derived dashboard JSON is already refreshed.
+
 ### Consequences
 
 - Infrastructure/service posture stays compact in one row.
 - Dashboard input freshness is easier to audit because source output freshness is visible.
 - Public labels remain preferred over internal storage paths.
 - Derived dashboard JSON should be described as sanitized/cache presentation, not as a new source file.
+- Future website development must keep source-output visibility synchronized with the actual raw/source artifacts feeding each visible dashboard surface.

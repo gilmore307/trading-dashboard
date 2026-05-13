@@ -20,6 +20,8 @@ The dashboard reads storage-hosted read models. It does not become the component
 
 Raw evidence may appear only through an issue-focused diagnostic drilldown for a visible status, blocker, alert, model issue, signal issue, or performance anomaly.
 
+When a new website page or read adapter begins depending on additional original source outputs, the corresponding Dashboard Data/source-output inventory must be updated alongside that feature. The dashboard summary may stay sanitized and compact, but the owner-facing freshness view must not silently omit raw/source artifacts that now feed visible pages.
+
 ## Shared Read-Model Envelope
 
 Every storage-hosted dashboard read model should follow the common envelope accepted in `trading-storage/docs/97_dashboard_summary_layout.md`. At dashboard level, the visible fields include these concepts where applicable:
