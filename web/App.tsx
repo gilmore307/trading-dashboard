@@ -63,19 +63,17 @@ function publicServiceLabel(unit?: string | null): string {
   return SERVICE_LABELS[unit] ?? startCase(unit.replace(/\.service$|\.timer$/u, ''));
 }
 
-function apiStatusLabel(status?: string | null, kind?: string | null, streamStatus?: ReadModelStreamStatus): string {
-  if (kind === 'stream') {
-    if (streamStatus === 'live') return 'Connected';
-    if (streamStatus === 'connecting') return 'Connecting';
-    return 'Automatic refresh';
-  }
-  if (status === 'connected' || status === 'configured') return 'Connected';
+function apiStatusLabel(status?: string | null): string {
+  if (status === 'connected') return 'Connected';
+  if (status === 'configured') return 'Configured';
+  if (status === 'not_configured') return 'Not configured';
+  if (status === 'local_service_online') return 'Local service online';
+  if (status === 'local_service_offline') return 'Local service offline';
   return startCase(status);
 }
 
-function apiIsHealthy(status?: string | null, kind?: string | null, streamStatus?: ReadModelStreamStatus): boolean {
-  if (kind === 'stream') return streamStatus !== 'fallback';
-  return status === 'connected' || status === 'configured' || status === 'available';
+function apiIsHealthy(status?: string | null): boolean {
+  return status === 'connected' || status === 'configured' || status === 'available' || status === 'local_service_online';
 }
 
 function formatAgeSeconds(ageSeconds?: number | null): string {
@@ -239,11 +237,11 @@ function App() {
           <div className="panel-heading">API Connections</div>
           <div className="service-list">
             {apis.map((api) => {
-              const healthy = apiIsHealthy(api.status, api.kind, streamStatus);
+              const healthy = api.healthy ?? apiIsHealthy(api.status);
               return (
                 <div className="service-row" key={`${api.kind ?? 'api'}-${api.name}`}>
                   <span>{api.name}</span>
-                  <strong className={healthy ? 'service-ok' : 'service-warn'}>{apiStatusLabel(api.status, api.kind, streamStatus)}</strong>
+                  <strong className={healthy ? 'service-ok' : 'service-warn'}>{apiStatusLabel(api.status)}</strong>
                 </div>
               );
             })}

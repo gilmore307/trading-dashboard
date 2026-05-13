@@ -289,20 +289,20 @@ Current Status leads with a `Server Resources` card showing public-facing resour
 - Future resource additions should use plain operational labels rather than kernel/internal field names.
 
 
-## D013 - Status exposes API connections with public labels
+## D013 - Status exposes provider API connections with public labels
 
 Date: 2026-05-13
 Status: Accepted
 
 ### Context
 
-Chentong asked for an API card showing all server APIs and their connection status. The page should still avoid exposing internal route paths.
+Chentong asked for an API card showing provider APIs such as Alpaca, OKX, and ThetaData with connection/status information. The page should still avoid exposing internal route paths, secret paths, or low-level implementation details.
 
 ### Decision
 
-Current Status shows an `API Connections` card with public API names and connection outcomes, such as `Dashboard Data API` and `Live Status API`. Internal implementation paths remain hidden.
+Current Status shows an `API Connections` card with public provider API names and plain status labels, such as `Alpaca Market Data API`, `OKX Market Data API`, and `ThetaData Options API`. The default dashboard read model reports local configuration/runtime availability only and does not call providers.
 
 ### Consequences
 
-- API health is visible as part of Status without leaking route templates.
-- Future API rows should include public names and plain statuses such as `Connected`, `Connecting`, or `Automatic refresh`.
+- Provider API readiness is visible as part of Status without leaking route templates or secret material.
+- Live provider connectivity checks, if added later, need a separate bounded read-only approval path.
