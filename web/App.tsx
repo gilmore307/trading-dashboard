@@ -179,6 +179,7 @@ function App() {
   }, [applyReadModel, loadReadModel]);
 
   const activeReadModel = activeView === 'status' ? currentStatusModel : historicalModel;
+  const pageStatusModel = currentStatusModel ?? activeReadModel;
   const chart = useMemo(() => {
     if (!historicalModel || !isHistoricalChart(historicalModel.chart_payload)) return {} as HistoricalTaskProgressChartPayload;
     return historicalModel.chart_payload;
@@ -301,6 +302,11 @@ function App() {
   const pageTitle = activeView === 'status' ? 'Current Status' : 'Historical Task Progress';
   const pageEyebrow = activeView === 'status' ? 'System / Status' : `${startCase(activeView)} / Historical Modeling`;
 
+  const refreshAll = () => {
+    void loadReadModel(CURRENT_SYSTEM_STATUS);
+    void loadReadModel(HISTORICAL_TASK_PROGRESS);
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -326,6 +332,20 @@ function App() {
       </aside>
 
       <main className="content">
+        <section className="top-status-bar" aria-label="Dashboard status bar">
+          <div className="top-status-primary">
+            {pageStatusModel ? <StatusPill status={pageStatusModel.status} severity={pageStatusModel.severity || 'info'} /> : null}
+            <span className="top-status-copy">Dashboard is read-only</span>
+          </div>
+          <div className="top-status-meta">
+            <span>Last refreshed {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
+            <span>Live updates {startCase(streamStatus)}</span>
+            <button className="primary-action compact-action" type="button" onClick={refreshAll} disabled={loading}>
+              {loading ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+        </section>
+
         <header className="hero">
           <div>
             <div className="eyebrow">{pageEyebrow}</div>
@@ -333,12 +353,6 @@ function App() {
             <p>
               Public, read-only progress from dashboard summaries. Use the left navigation to inspect different slices; live updates refresh automatically.
             </p>
-          </div>
-          <div className="hero-actions">
-            {activeReadModel ? <StatusPill status={activeReadModel.status} severity={activeReadModel.severity || 'info'} /> : null}
-            <button className="primary-action" type="button" onClick={() => loadReadModel(activeView === 'status' ? CURRENT_SYSTEM_STATUS : HISTORICAL_TASK_PROGRESS)} disabled={loading}>
-              {loading ? 'Refreshing…' : 'Refresh'}
-            </button>
           </div>
         </header>
 
@@ -354,14 +368,7 @@ function App() {
 
         {activeReadModel ? (
           <>
-            {activeView === 'status' ? (
-              <section className="summary-card refresh-only">
-                <div>
-                  <div className="eyebrow">Last Refreshed</div>
-                  <h2>{lastRefresh ? formatTimestamp(lastRefresh) : formatTimestamp(activeReadModel.generated_at_utc)}</h2>
-                </div>
-              </section>
-            ) : (
+            {activeView !== 'status' ? (
               <section className="summary-card">
                 <div>
                   <div className="eyebrow">{publicSummaryLabel(activeReadModel.contract_type)}</div>
@@ -375,7 +382,7 @@ function App() {
                   <span>Loaded {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
                 </div>
               </section>
-            )}
+            ) : null}
             {renderMainView()}
           </>
         ) : null}
