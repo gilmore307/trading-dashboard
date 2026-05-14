@@ -445,3 +445,22 @@ Task List filter options are ordered by domain sequence. Months sort chronologic
 - Operators can scan filters in the same order as the historical workflow.
 - The default Status filter remains `Now`; only the dropdown option order changes.
 - New task/work-type values should be assigned an explicit order when they become first-class workflow phases.
+
+## D019 - Dashboard web service is presentation-only
+
+Date: 2026-05-14
+Status: Accepted
+
+### Context
+
+The dashboard needs a resident browser-serving process instead of ad hoc `npm run dev` sessions, while preserving the dashboard boundary as read-only presentation over storage-hosted read models.
+
+### Decision
+
+`deploy/systemd/trading-dashboard-web.service` is the accepted host service template. It builds the Vite UI before start and serves it on the reviewed Vite preview port with `TRADING_DASHBOARD_STORAGE_ROOT` pointed at `trading-storage/storage`. The Vite read-model plugin serves the same read-only HTTP and WebSocket latest-summary routes in both dev and preview modes.
+
+### Consequences
+
+- Dashboard service startup may rebuild `dist/`, but the running dashboard still does not publish tasks, dispatch manager work, call providers, activate models, submit broker orders, mutate accounts, or write storage read models.
+- Storage remains the owner of dashboard read-model materialization and refresh cadence.
+- Host installation/restart of the service is an operational deployment action, not a dashboard UI control.

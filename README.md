@@ -9,6 +9,7 @@ It does not own component responsibilities outside that boundary, global contrac
 ## Top-Level Structure
 
 ```text
+deploy/      Host deployment templates for read-only dashboard presentation services.
 docs/        Repository scope, context, workflow, acceptance, task, decisions, local memory, and information architecture.
 scripts/     Executable dashboard helper entrypoints.
 src/         Importable read-only dashboard adapters.

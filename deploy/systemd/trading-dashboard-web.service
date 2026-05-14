@@ -1,0 +1,22 @@
+[Unit]
+Description=Trading Dashboard Web UI
+Documentation=file:/root/projects/trading-dashboard/docs/09_dashboard_read_models.md
+After=network-online.target trading-storage-dashboard-read-model-refresh.timer
+Wants=network-online.target trading-storage-dashboard-read-model-refresh.timer
+
+[Service]
+Type=simple
+WorkingDirectory=/root/projects/trading-dashboard
+Environment=TRADING_DASHBOARD_STORAGE_ROOT=/root/projects/trading-storage/storage
+Environment=NODE_ENV=production
+ExecStartPre=/usr/bin/npm run build
+ExecStart=/usr/bin/npm run serve
+Restart=always
+RestartSec=10
+KillSignal=SIGTERM
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

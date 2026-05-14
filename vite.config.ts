@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Plugin } from 'vite';
+import type { Plugin, PreviewServer, ViteDevServer } from 'vite';
 import { defineConfig } from 'vite';
 import { WebSocketServer, type WebSocket } from 'ws';
 
@@ -78,43 +78,50 @@ function attachReadModelSocket(socket: WebSocket, contractType: string): void {
   });
 }
 
+function attachDashboardReadModelApi(server: ViteDevServer | PreviewServer): void {
+  server.middlewares.use('/api/read-models', (req, res) => {
+    const url = req.url ?? '';
+    const match = url.match(/^\/([a-z][a-z0-9_]*)\/latest(?:\?.*)?$/);
+    if (!match || !SAFE_CONTRACT_RE.test(match[1])) {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: 'unknown read-model route' }));
+      return;
+    }
+    const latestPath = latestReadModelPath(match[1]);
+    try {
+      const payload = readLatestPayload(match[1]);
+      res.setHeader('content-type', 'application/json; charset=utf-8');
+      res.end(payload);
+    } catch {
+      res.statusCode = 404;
+      res.setHeader('content-type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({
+        error: 'dashboard read-model latest.json not found',
+        contract_type: match[1],
+        latest_path: latestPath,
+      }));
+    }
+  });
+
+  const wss = new WebSocketServer({ noServer: true });
+  server.httpServer?.on('upgrade', (request, socket, head) => {
+    const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
+    const match = pathname.match(/^\/ws\/read-models\/([a-z][a-z0-9_]*)\/latest$/);
+    if (!match || !SAFE_CONTRACT_RE.test(match[1])) return;
+    wss.handleUpgrade(request, socket, head, (webSocket) => {
+      attachReadModelSocket(webSocket, match[1]);
+    });
+  });
+}
+
 function dashboardReadModelApi(): Plugin {
   return {
     name: 'dashboard-read-model-api',
     configureServer(server) {
-      server.middlewares.use('/api/read-models', (req, res) => {
-        const url = req.url ?? '';
-        const match = url.match(/^\/([a-z][a-z0-9_]*)\/latest(?:\?.*)?$/);
-        if (!match || !SAFE_CONTRACT_RE.test(match[1])) {
-          res.statusCode = 404;
-          res.end(JSON.stringify({ error: 'unknown read-model route' }));
-          return;
-        }
-        const latestPath = latestReadModelPath(match[1]);
-        try {
-          const payload = readLatestPayload(match[1]);
-          res.setHeader('content-type', 'application/json; charset=utf-8');
-          res.end(payload);
-        } catch {
-          res.statusCode = 404;
-          res.setHeader('content-type', 'application/json; charset=utf-8');
-          res.end(JSON.stringify({
-            error: 'dashboard read-model latest.json not found',
-            contract_type: match[1],
-            latest_path: latestPath,
-          }));
-        }
-      });
-
-      const wss = new WebSocketServer({ noServer: true });
-      server.httpServer?.on('upgrade', (request, socket, head) => {
-        const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
-        const match = pathname.match(/^\/ws\/read-models\/([a-z][a-z0-9_]*)\/latest$/);
-        if (!match || !SAFE_CONTRACT_RE.test(match[1])) return;
-        wss.handleUpgrade(request, socket, head, (webSocket) => {
-          attachReadModelSocket(webSocket, match[1]);
-        });
-      });
+      attachDashboardReadModelApi(server);
+    },
+    configurePreviewServer(server) {
+      attachDashboardReadModelApi(server);
     },
   };
 }
