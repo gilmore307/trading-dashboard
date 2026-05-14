@@ -95,6 +95,28 @@ export interface CurrentSystemParallelismPayload {
   reason?: string;
 }
 
+
+export interface CurrentSystemRuntimeThroughputPayload {
+  status?: string;
+  mode?: string;
+  month_ingest_worker_count?: number;
+  model_worker_count?: number;
+  total_worker_count?: number;
+  fold_month_count?: number;
+  month_ingest_rounds_per_fold?: number | null;
+  window_minutes?: number;
+  window_start_utc?: string;
+  latest_decision_at_utc?: string;
+  decision_count?: number;
+  executed_decision_count?: number;
+  idle_or_blocked_decision_count?: number;
+  completion_rate_per_minute?: number;
+  max_completions_per_second?: number;
+  multi_completion_second_count?: number;
+  active_worker_estimate?: number;
+  summary?: string;
+}
+
 export interface CurrentSystemStatusChartPayload {
   server?: {
     hostname?: string;
@@ -112,6 +134,7 @@ export interface CurrentSystemStatusChartPayload {
     storage_available_gb?: number;
   };
   parallelism?: CurrentSystemParallelismPayload;
+  runtime_throughput?: CurrentSystemRuntimeThroughputPayload;
   api?: {
     http_latest_route?: string;
     websocket_latest_route?: string;

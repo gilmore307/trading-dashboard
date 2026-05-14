@@ -70,7 +70,7 @@ Suggested storage fields:
 - last compression/archive/delete receipt summary;
 - restore verification status.
 
-Dashboard Data copy must say these timestamps are source artifact write times, not dashboard read-model refresh times. Heartbeat artifacts are expected to move continuously; event-driven artifacts move only when decisions or stage progress are recorded. Current Status also consumes `chart_payload.parallelism` to render the Multitask Threads card with dynamic provider-worker mode, selected/max workers, request batch limit, idle/backstop scheduler tick interval, drain mode/limits, live read-model refresh posture, load target, and memory budget.
+Dashboard Data copy must say these timestamps are source artifact write times, not dashboard read-model refresh times. Heartbeat artifacts are expected to move continuously; event-driven artifacts move only when decisions or stage progress are recorded. Current Status consumes `chart_payload.runtime_throughput` to render the Runtime Throughput card with the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. `chart_payload.parallelism` may still exist as subordinate provider-dispatch/resource-gate detail, but it is no longer the primary Multitask Threads presentation.
 
 Hidden by default:
 

@@ -608,18 +608,21 @@ function App() {
   };
 
   const renderThreadingPanel = () => {
-    const parallelism = systemChart.parallelism ?? {};
+    const runtime = systemChart.runtime_throughput ?? {};
+    const monthWorkers = runtime.month_ingest_worker_count ?? 0;
+    const modelWorkers = runtime.model_worker_count ?? 0;
+    const rounds = runtime.month_ingest_rounds_per_fold;
     return (
-      <section className="panel">
-        <div className="panel-heading">Multitask Threads</div>
-        <div className="artifact-grid">
-          <MetricCard label="Workers" value={`${parallelism.selected_worker_count ?? 1}/${parallelism.max_worker_count ?? 1}`} hint={startCase(parallelism.mode ?? 'dynamic')} />
-          <MetricCard label="Batch limit" value={parallelism.next_request_limit ?? 0} hint="provider requests/batch" />
-          <MetricCard label="Idle tick" value={`${parallelism.scheduler_interval_seconds ?? 0}s`} hint={startCase(parallelism.scheduler_interval_role ?? 'idle_backstop')} />
-          <MetricCard label="Drain mode" value={parallelism.drain_ready_stages ? 'On' : 'Off'} hint={`${parallelism.drain_max_steps ?? 0} steps / ${parallelism.drain_max_seconds ?? 0}s`} />
-          <MetricCard label="Live refresh" value={parallelism.event_refresh_enabled ? 'On' : 'Off'} hint={parallelism.event_refresh_service_unit ?? 'Not configured'} />
-          <MetricCard label="Load target" value={`${parallelism.load_target_per_cpu ?? 0}/CPU`} hint={`load ${parallelism.load_1m ?? 0} on ${parallelism.cpu_count ?? 0} cores`} />
-          <MetricCard label="Worker memory" value={`${parallelism.worker_memory_mb ?? 0} MB`} hint={`${parallelism.memory_available_mb ?? 0} MB available`} />
+      <section className="panel runtime-throughput-panel">
+        <div className="panel-heading">Runtime Throughput</div>
+        <p className="panel-subtitle">{runtime.summary ?? 'Historical scheduler throughput has not been observed yet.'}</p>
+        <div className="artifact-grid runtime-throughput-grid">
+          <MetricCard label="Runtime lanes" value={`${monthWorkers}+${modelWorkers}`} hint={`${runtime.total_worker_count ?? monthWorkers + modelWorkers} total workers`} />
+          <MetricCard label="Fold cadence" value={`${runtime.fold_month_count ?? 6} months`} hint={rounds ? `${rounds} ingest rounds per fold` : 'non-overlapping folds'} />
+          <MetricCard label="Completion rate" value={`${runtime.completion_rate_per_minute ?? 0}/min`} hint={`${runtime.executed_decision_count ?? 0} completed decisions`} />
+          <MetricCard label="Peak burst" value={`${runtime.max_completions_per_second ?? 0}/sec`} hint={`${runtime.multi_completion_second_count ?? 0} multi-completion seconds`} />
+          <MetricCard label="Window" value={`${runtime.window_minutes ?? 15}m`} hint={runtime.latest_decision_at_utc ? `latest ${formatTimestamp(runtime.latest_decision_at_utc)}` : 'no decision timestamp'} />
+          <MetricCard label="Idle / blocked" value={runtime.idle_or_blocked_decision_count ?? 0} hint={`${runtime.decision_count ?? 0} decisions observed`} />
         </div>
       </section>
     );

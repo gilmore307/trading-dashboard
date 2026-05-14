@@ -52,6 +52,9 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .visual-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(390px, .7fr); gap: 18px; }
 .panel { padding: 22px; }
 .panel-heading { color: #d8e6f7; font-size: 14px; font-weight: 850; letter-spacing: .02em; margin-bottom: 18px; }
+.panel-subtitle { margin: -8px 0 16px; color: #8fa2ba; font-size: 13px; line-height: 1.45; }
+.runtime-throughput-panel { border-color: rgba(34, 197, 94, .20); }
+.runtime-throughput-grid .metric-card { min-height: 104px; }
 .wide { min-height: 320px; }
 .progress-row { display: grid; grid-template-columns: 230px 1fr; gap: 26px; align-items: end; margin-bottom: 28px; }
 .huge-number { font-size: 72px; font-weight: 900; letter-spacing: -0.08em; line-height: .9; background: linear-gradient(90deg, #e0f2fe, #67e8f9, #86efac); -webkit-background-clip: text; color: transparent; }
