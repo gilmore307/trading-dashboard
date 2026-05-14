@@ -321,13 +321,12 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
           <strong>{receipts.length} receipt refs</strong>
           <small>{receipts.slice(0, 2).join(' · ') || 'No receipt refs attached.'}</small>
         </div>
-      </div>
-      {blockers.length ? (
-        <div className="task-detail-list">
+        <div className="task-detail-card">
           <span>Blockers</span>
-          {blockers.map((blocker) => <code key={blocker}>{blocker}</code>)}
+          <strong>{blockers.length} blockers</strong>
+          {blockers.length ? blockers.slice(0, 3).map((blocker) => <code key={blocker}>{blocker}</code>) : <small>No blockers attached.</small>}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
