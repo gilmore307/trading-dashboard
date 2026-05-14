@@ -342,7 +342,7 @@ Chentong clarified that the Tasks page should answer what work is being performe
 
 ### Decision
 
-The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Model-specific current-month/current-stage/progress/coverage cards move to Models. The generic `Task Progress Summary` card is removed from page content.
+The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Model-specific current-month/current-stage/progress/coverage cards move to Models. The generic `Task Progress Summary` card is removed from page content.
 
 ### Consequences
 

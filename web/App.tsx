@@ -192,6 +192,10 @@ function yesNo(value?: boolean | null): string {
   return 'Unknown';
 }
 
+function timestampText(value?: string | null): string {
+  return value ? formatTimestamp(value) : 'Not recorded';
+}
+
 function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) {
   const detail = task.detail ?? {};
   const progress = detail.progress;
@@ -211,6 +215,15 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
           <span>Status</span>
           <strong>{startCase(task.status)}</strong>
           <small>{task.reason || 'No current reason recorded.'}</small>
+        </div>
+        <div className="task-detail-card wide-detail">
+          <span>Task timing</span>
+          <div className="task-timestamp-grid">
+            <small><b>Generated</b>{timestampText(task.created_at_utc)}</small>
+            <small><b>Started</b>{timestampText(task.started_at_utc)}</small>
+            <small><b>Ended</b>{timestampText(task.ended_at_utc)}</small>
+            <small><b>Status updated</b>{timestampText(task.status_updated_at_utc ?? task.updated_at_utc)}</small>
+          </div>
         </div>
         {progress ? (
           <div className="task-detail-card wide-detail">
@@ -357,7 +370,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
                           <span>{layerLabel(task)}</span>
                           <span>{startCase(task.stage_type)}</span>
                           <span>{startCase(task.status)}</span>
-                          {task.updated_at_utc ? <span>Updated {formatTimestamp(task.updated_at_utc)}</span> : null}
+                          {task.status_updated_at_utc || task.updated_at_utc ? <span>Status updated {formatTimestamp((task.status_updated_at_utc ?? task.updated_at_utc) || undefined)}</span> : null}
                         </div>
                         {task.reason ? <div className="task-reason">{task.reason}</div> : null}
                         {isExpanded ? <TaskDetailPanel task={task} /> : null}

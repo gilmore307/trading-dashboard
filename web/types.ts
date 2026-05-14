@@ -130,6 +130,10 @@ export interface HistoricalTaskTimelineItemPayload {
   layer?: number | null;
   layer_key?: string | null;
   updated_at_utc?: string | null;
+  created_at_utc?: string | null;
+  started_at_utc?: string | null;
+  ended_at_utc?: string | null;
+  status_updated_at_utc?: string | null;
   reason?: string | null;
   receipt_count?: number;
   blocker_count?: number;
