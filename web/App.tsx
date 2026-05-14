@@ -230,18 +230,32 @@ function groupTasksByMonth(tasks: HistoricalTaskTimelineItemPayload[]) {
   return Array.from(groups.entries());
 }
 
-function yesNo(value?: boolean | null): string {
-  if (value === true) return 'Yes';
-  if (value === false) return 'No';
-  return 'Unknown';
-}
-
 function timestampText(value?: string | null): string {
   return value ? formatTimestamp(value) : 'Not recorded';
 }
 
 function workerLabel(task: HistoricalTaskTimelineItemPayload): string {
   return task.worker_label || task.detail?.worker?.worker_label || 'Worker not assigned';
+}
+
+function taskProgressFallback(task: HistoricalTaskTimelineItemPayload): { percent: number; label: string; hint: string } {
+  const status = String(task.status || '').toLowerCase();
+  if (status === 'succeeded' || status === 'not_applicable') {
+    return { percent: 100, label: '100% complete', hint: startCase(task.status) };
+  }
+  if (status === 'failed') {
+    return { percent: 100, label: 'Failed', hint: task.reason || 'Task reached a terminal failure state.' };
+  }
+  if (status === 'running') {
+    return { percent: 50, label: 'In progress', hint: task.reason || 'Task is currently running.' };
+  }
+  if (status === 'ready') {
+    return { percent: 0, label: '0% · Ready', hint: task.reason || 'Task is ready but has not started.' };
+  }
+  if (status === 'blocked') {
+    return { percent: 0, label: '0% · Blocked', hint: task.reason || 'Task is waiting on blockers.' };
+  }
+  return { percent: 0, label: startCase(task.status || 'Not started'), hint: task.reason || 'No execution progress recorded yet.' };
 }
 
 function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) {
@@ -251,6 +265,8 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const blockers = detail.blockers ?? [];
   const receipts = detail.receipt_refs ?? [];
   const progressPercent = progress?.expected_count ? ((progress.ready_count ?? 0) / progress.expected_count) * 100 : 0;
+  const fallbackProgress = taskProgressFallback(task);
+  const fallbackProgressPercent = Math.max(0, Math.min(100, fallbackProgress.percent));
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -276,7 +292,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
         {progress ? (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
-            <strong>{progress.ready_count ?? 0}/{progress.expected_count ?? 0} ready</strong>
+            <strong>{formatPercent(progressPercent)} · {progress.ready_count ?? 0}/{progress.expected_count ?? 0} ready</strong>
             <div className="mini-progress" aria-label={`Task progress ${formatPercent(progressPercent)}`}>
               <div className="mini-progress-fill" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} />
             </div>
@@ -285,8 +301,11 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
         ) : task.task_state === 'current' ? (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
-            <strong>{startCase(task.status)}</strong>
-            <small>No stage-coverage progress artifact is attached to this task yet.</small>
+            <strong>{fallbackProgress.label}</strong>
+            <div className="mini-progress" aria-label={`Task progress ${fallbackProgress.label}`}>
+              <div className="mini-progress-fill" style={{ width: `${fallbackProgressPercent}%` }} />
+            </div>
+            <small>{fallbackProgress.hint}</small>
           </div>
         ) : null}
         {execution ? (
@@ -297,11 +316,6 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             {execution.reason ? <small>{execution.reason}</small> : null}
           </div>
         ) : null}
-        <div className="task-detail-card">
-          <span>Safety boundary</span>
-          <strong>Provider calls: {yesNo(detail.provider_calls_allowed)}</strong>
-          <small>Model activation: {yesNo(detail.model_activation_allowed)} · Broker execution: {yesNo(detail.broker_execution_allowed)}</small>
-        </div>
         <div className="task-detail-card">
           <span>Evidence</span>
           <strong>{receipts.length} receipt refs</strong>
