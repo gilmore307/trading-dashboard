@@ -79,6 +79,12 @@ export interface CurrentSystemParallelismPayload {
   max_worker_count?: number;
   next_request_limit?: number;
   scheduler_interval_seconds?: number;
+  scheduler_interval_role?: string;
+  drain_ready_stages?: boolean;
+  drain_max_steps?: number;
+  drain_max_seconds?: number;
+  event_refresh_enabled?: boolean;
+  event_refresh_service_unit?: string;
   load_target_per_cpu?: number;
   load_1m?: number;
   cpu_count?: number;

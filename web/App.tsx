@@ -575,11 +575,12 @@ function App() {
         <div className="panel-heading">Multitask Threads</div>
         <div className="artifact-grid">
           <MetricCard label="Workers" value={`${parallelism.selected_worker_count ?? 1}/${parallelism.max_worker_count ?? 1}`} hint={startCase(parallelism.mode ?? 'dynamic')} />
-          <MetricCard label="Batch limit" value={parallelism.next_request_limit ?? 0} hint="provider requests/tick" />
-          <MetricCard label="Tick interval" value={`${parallelism.scheduler_interval_seconds ?? 0}s`} />
+          <MetricCard label="Batch limit" value={parallelism.next_request_limit ?? 0} hint="provider requests/batch" />
+          <MetricCard label="Idle tick" value={`${parallelism.scheduler_interval_seconds ?? 0}s`} hint={startCase(parallelism.scheduler_interval_role ?? 'idle_backstop')} />
+          <MetricCard label="Drain mode" value={parallelism.drain_ready_stages ? 'On' : 'Off'} hint={`${parallelism.drain_max_steps ?? 0} steps / ${parallelism.drain_max_seconds ?? 0}s`} />
+          <MetricCard label="Live refresh" value={parallelism.event_refresh_enabled ? 'On' : 'Off'} hint={parallelism.event_refresh_service_unit ?? 'Not configured'} />
           <MetricCard label="Load target" value={`${parallelism.load_target_per_cpu ?? 0}/CPU`} hint={`load ${parallelism.load_1m ?? 0} on ${parallelism.cpu_count ?? 0} cores`} />
           <MetricCard label="Worker memory" value={`${parallelism.worker_memory_mb ?? 0} MB`} hint={`${parallelism.memory_available_mb ?? 0} MB available`} />
-          <MetricCard label="Reserve" value={`${parallelism.reserved_memory_mb ?? 0} MB`} hint={startCase(parallelism.status ?? 'unknown')} />
         </div>
       </section>
     );
