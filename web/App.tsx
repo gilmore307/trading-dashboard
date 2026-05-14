@@ -154,6 +154,10 @@ function taskWorkTypeFilterValue(task: HistoricalTaskTimelineItemPayload): strin
   return task.stage_type ?? task.task_label ?? 'unknown';
 }
 
+function taskWorkerFilterValue(task: HistoricalTaskTimelineItemPayload): string {
+  return task.worker_id || task.detail?.worker?.worker_id || task.worker_label || task.detail?.worker?.worker_label || 'unassigned_worker';
+}
+
 function taskMonthFilterValue(task: HistoricalTaskTimelineItemPayload): string {
   return task.month ?? 'unscheduled';
 }
@@ -324,6 +328,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const [layerFilter, setLayerFilter] = useState('all');
   const [stateFilter, setStateFilter] = useState('current');
   const [workTypeFilter, setWorkTypeFilter] = useState('all');
+  const [workerFilter, setWorkerFilter] = useState('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const monthOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, (task) => monthLabel(task.month), monthOptionRank), [tasks]);
@@ -333,15 +338,20 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     () => uniqueTaskOptions(tasks, taskWorkTypeFilterValue, (task) => startCase(task.stage_type || task.task_label), workTypeOptionRank),
     [tasks],
   );
+  const workerOptions = useMemo(
+    () => uniqueTaskOptions(tasks, taskWorkerFilterValue, workerLabel),
+    [tasks],
+  );
   const filteredTasks = useMemo(
     () => tasks.filter((task) => {
       if (monthFilter !== 'all' && taskMonthFilterValue(task) !== monthFilter) return false;
       if (layerFilter !== 'all' && taskLayerFilterValue(task) !== layerFilter) return false;
       if (stateFilter !== 'all' && task.task_state !== stateFilter) return false;
       if (workTypeFilter !== 'all' && taskWorkTypeFilterValue(task) !== workTypeFilter) return false;
+      if (workerFilter !== 'all' && taskWorkerFilterValue(task) !== workerFilter) return false;
       return true;
     }),
-    [layerFilter, monthFilter, stateFilter, tasks, workTypeFilter],
+    [layerFilter, monthFilter, stateFilter, tasks, workerFilter, workTypeFilter],
   );
   const monthGroups = useMemo(() => groupTasksByMonth(filteredTasks), [filteredTasks]);
 
@@ -360,7 +370,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className="panel-heading">Task List</div>
           <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} child tasks</div>
         </div>
-        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('all'); setLayerFilter('all'); setStateFilter('current'); setWorkTypeFilter('all'); setExpandedTasks(new Set()); }}>
+        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('all'); setLayerFilter('all'); setStateFilter('current'); setWorkTypeFilter('all'); setWorkerFilter('all'); setExpandedTasks(new Set()); }}>
           Reset to Now
         </button>
       </div>
@@ -393,6 +403,13 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             {workTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
+        <label>
+          <span>Worker</span>
+          <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)}>
+            <option value="all">All workers</option>
+            {workerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
       </div>
       {monthGroups.length ? (
         <div className="task-month-groups">
@@ -412,7 +429,10 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
                       <div className="task-main">
                         <div className="task-title-row">
                           <strong>{task.task_label}</strong>
-                          <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
+                          <div className="task-title-badges">
+                            <span className="task-worker-chip">Worker: {workerLabel(task)}</span>
+                            <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
+                          </div>
                         </div>
                         <div className="task-meta">
                           <span>{monthLabel(task.month)}</span>
