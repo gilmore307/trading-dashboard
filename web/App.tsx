@@ -264,11 +264,6 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
           <strong>{startCase(task.status)}</strong>
           <small>{task.reason || 'No current reason recorded.'}</small>
         </div>
-        <div className="task-detail-card">
-          <span>Worker</span>
-          <strong>{workerLabel(task)}</strong>
-          <small>{task.worker_id || detail.worker?.worker_id || 'worker id not recorded'} · {startCase(task.worker_kind || detail.worker?.worker_kind)}</small>
-        </div>
         <div className="task-detail-card wide-detail">
           <span>Task timing</span>
           <div className="task-timestamp-grid">
