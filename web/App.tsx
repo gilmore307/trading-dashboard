@@ -76,7 +76,13 @@ function formatAgeSeconds(ageSeconds?: number | null): string {
 function sourceOutputStatus(output: { exists: boolean; status: string; latest_updated_at_utc?: string | null; age_seconds?: number | null }): string {
   if (!output.exists) return 'Missing';
   if (!output.latest_updated_at_utc) return startCase(output.status);
-  return `Updated ${formatTimestamp(output.latest_updated_at_utc)} · ${formatAgeSeconds(output.age_seconds)}`;
+  return `${formatTimestamp(output.latest_updated_at_utc)} · ${formatAgeSeconds(output.age_seconds)}`;
+}
+
+function sourceOutputFreshnessLabel(freshnessClass?: string | null): string {
+  if (freshnessClass === 'heartbeat') return 'Heartbeat source';
+  if (freshnessClass === 'event_driven') return 'Event-driven source';
+  return 'Source artifact';
 }
 
 function formatPercent(value?: number | null): string {
@@ -546,10 +552,14 @@ function App() {
         </section>
         <section className="panel">
           <div className="panel-heading">Dashboard Data</div>
+          <p className="dashboard-data-note">These are source artifact write times, not the dashboard refresh time. Heartbeat rows should stay fresh; event-driven rows change only when the scheduler records a decision or stage progress.</p>
           <div className="dashboard-file-list">
             {sourceOutputs.map((output) => (
               <div className="dashboard-file-row" key={`${output.kind ?? 'source'}-${output.label}`}>
-                <span>{output.label}</span>
+                <div className="dashboard-file-main">
+                  <span>{output.label}</span>
+                  <small>{sourceOutputFreshnessLabel(output.freshness_class)} · {output.freshness_note ?? 'Freshness behavior not described.'}</small>
+                </div>
                 <strong className={output.status === 'available' ? 'service-ok' : 'service-warn'}>{sourceOutputStatus(output)}</strong>
               </div>
             ))}

@@ -114,9 +114,12 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .service-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
 .service-row span { color: #cbd5e1; overflow-wrap: anywhere; }
 .service-row strong { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.dashboard-data-note { margin: -6px 0 16px; max-width: none; color: #8fa2ba; font-size: 13px; }
 .dashboard-file-list { display: grid; gap: 10px; }
-.dashboard-file-row { display: grid; grid-template-columns: minmax(220px, .55fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
+.dashboard-file-row { display: grid; grid-template-columns: minmax(260px, .62fr) minmax(0, 1fr); align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
+.dashboard-file-main { display: grid; gap: 5px; min-width: 0; }
 .dashboard-file-row span { color: #cbd5e1; font-weight: 750; }
+.dashboard-file-row small { color: #7c8ea5; line-height: 1.35; overflow-wrap: anywhere; }
 .dashboard-file-row strong { justify-self: end; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; text-align: right; }
 .service-ok { color: #86efac; }
 .service-warn { color: #fbbf24; }

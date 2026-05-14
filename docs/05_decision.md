@@ -406,3 +406,23 @@ Task List keeps the default `Now` status filter, but the read model includes com
 - Prior completed months are visible as `Past`/completed child-task rows when the status filter is widened.
 - The active month remains the only source of a `Now` row and latest execution/progress attachment.
 - Month remains a grouping/filter dimension, not the task identity by itself.
+
+## D019 - Dashboard Data distinguishes heartbeat freshness from event freshness
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+Chentong noticed Dashboard Data source timestamps looked stale even when the dashboard summary itself was refreshing. Investigation showed two separate cases can look identical if the UI only says "updated": heartbeat files should refresh continuously, while decision/workflow/coverage/run artifacts update only when scheduler decisions or stage progress occur. A separate bug also made Active Workflow State point at a stale legacy unqualified workflow-state file instead of the active month-specific workflow state.
+
+### Decision
+
+Dashboard Data must describe source artifact write times as distinct from dashboard read-model refresh time. Source-output rows expose a freshness class: `heartbeat` for continuously refreshed scheduler state, and `event_driven` for scheduler decision/workflow/stage artifacts that update only when progress occurs. The Active Workflow State row resolves the active month-specific workflow state from scheduler state rather than the legacy unqualified workflow-state file.
+
+### Consequences
+
+- Old event-driven timestamps are not automatically presented as dashboard refresh failures.
+- Old heartbeat timestamps remain suspicious and should direct attention to service/runtime health.
+- Dashboard Data stays an audit/freshness surface for source artifacts, not a raw artifact browser.
+- Active workflow freshness follows the actual current month.

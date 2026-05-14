@@ -52,6 +52,7 @@ Owner-facing fields:
 - server/resource health summary;
 - API/provider reachability and freshness;
 - key service state;
+- dashboard source-output freshness rows, including `heartbeat` vs `event_driven` freshness semantics;
 - historical scheduler summary;
 - realtime monitor summary if active;
 - storage health summary;
@@ -68,6 +69,8 @@ Suggested storage fields:
 - protected-set size;
 - last compression/archive/delete receipt summary;
 - restore verification status.
+
+Dashboard Data copy must say these timestamps are source artifact write times, not dashboard read-model refresh times. Heartbeat artifacts are expected to move continuously; event-driven artifacts move only when decisions or stage progress are recorded.
 
 Hidden by default:
 

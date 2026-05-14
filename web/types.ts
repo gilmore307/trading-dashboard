@@ -62,6 +62,8 @@ export interface CurrentSystemSourceOutputPayload {
   status: string;
   age_seconds?: number | null;
   latest_updated_at_utc?: string | null;
+  freshness_class?: 'heartbeat' | 'event_driven' | string;
+  freshness_note?: string | null;
 }
 
 export interface CurrentSystemApiPayload {
