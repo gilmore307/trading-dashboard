@@ -127,6 +127,12 @@ export interface CurrentSystemStatusChartPayload {
   };
 }
 
+export interface HistoricalTaskWorkerPayload {
+  worker_id?: string | null;
+  worker_label?: string | null;
+  worker_kind?: string | null;
+}
+
 export interface HistoricalTaskTimelineDetailPayload {
   blockers?: string[];
   receipt_refs?: string[];
@@ -140,6 +146,7 @@ export interface HistoricalTaskTimelineDetailPayload {
     return_code?: number | null;
     reason?: string | null;
   };
+  worker?: HistoricalTaskWorkerPayload;
 }
 
 export interface HistoricalTaskTimelineItemPayload {
@@ -152,6 +159,9 @@ export interface HistoricalTaskTimelineItemPayload {
   stage_type?: string | null;
   layer?: number | null;
   layer_key?: string | null;
+  worker_id?: string | null;
+  worker_label?: string | null;
+  worker_kind?: string | null;
   updated_at_utc?: string | null;
   created_at_utc?: string | null;
   started_at_utc?: string | null;
