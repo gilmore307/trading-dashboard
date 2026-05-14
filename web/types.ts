@@ -73,6 +73,22 @@ export interface CurrentSystemApiPayload {
   healthy?: boolean;
 }
 
+export interface CurrentSystemParallelismPayload {
+  mode?: string;
+  selected_worker_count?: number;
+  max_worker_count?: number;
+  next_request_limit?: number;
+  scheduler_interval_seconds?: number;
+  load_target_per_cpu?: number;
+  load_1m?: number;
+  cpu_count?: number;
+  memory_available_mb?: number;
+  worker_memory_mb?: number;
+  reserved_memory_mb?: number;
+  status?: string;
+  reason?: string;
+}
+
 export interface CurrentSystemStatusChartPayload {
   server?: {
     hostname?: string;
@@ -89,6 +105,7 @@ export interface CurrentSystemStatusChartPayload {
     storage_total_gb?: number;
     storage_available_gb?: number;
   };
+  parallelism?: CurrentSystemParallelismPayload;
   api?: {
     http_latest_route?: string;
     websocket_latest_route?: string;

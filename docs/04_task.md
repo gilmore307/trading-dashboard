@@ -4,7 +4,7 @@
 
 - Historical Task Progress current content is being completed before opening broader dashboard pages: Tasks now focuses on a filtered, month-grouped historical child-task list. The default view shows only current `Now` work, with filters for month, layer, status, and task/work type; each row can expand to show task detail/progress, including generated/started/ended/status-updated timestamps when available. Model-specific month/stage/progress/coverage cards live under Models.
 - First website slice is implemented: Vite + React + TypeScript renders a public read-only Tasks / Historical Modeling page from `historical_task_progress_summary`, with the left navigation as the only page-switching entry point plus read-only manual refresh, WebSocket streaming with HTTP fallback polling, and in-view diagnostics expansion.
-- Dashboard continues consuming storage-hosted summaries rather than raw internals.
+- Dashboard continues consuming storage-hosted summaries rather than raw internals. Current Status now includes a Multitask Threads card for scheduler/provider parallelism: selected workers, configured max workers, provider request batch limit, tick interval, load target, and memory budget.
 - As future website slices consume more original source outputs, update the Dashboard Data/source-output inventory in the same slice so the freshness/audit view stays complete. Dashboard Data must distinguish source artifact write time from dashboard read-model refresh time, and must label heartbeat vs event-driven freshness behavior.
 
 ## Historical-Training Todo Status

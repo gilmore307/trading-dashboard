@@ -319,7 +319,7 @@ Chentong asked for provider API status and Background Services to share one row,
 
 ### Decision
 
-Current Status renders API Connections and Background Services side by side after Server Resources. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
+Current Status renders Server Resources first, then a Multitask Threads card for scheduler/provider parallelism parameters, then API Connections and Background Services side by side. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
 
 As future website pages, adapters, or read-model slices consume additional original source outputs, the Dashboard Data source-output inventory must be updated in the same development slice. Omitting a newly consumed raw source output from this list is a freshness/auditability contract gap, even if the derived dashboard JSON is already refreshed.
 
