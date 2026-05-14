@@ -426,3 +426,22 @@ Dashboard Data must describe source artifact write times as distinct from dashbo
 - Old heartbeat timestamps remain suspicious and should direct attention to service/runtime health.
 - Dashboard Data stays an audit/freshness surface for source artifacts, not a raw artifact browser.
 - Active workflow freshness follows the actual current month.
+
+## D020 - Task filters use chronological and workflow order
+
+Date: 2026-05-13
+Status: Accepted
+
+### Context
+
+Chentong asked that Status and Task filter choices appear in time/process order instead of arbitrary alphabetical order. Alphabetical ordering made the Task selector less useful because workflow phases such as data acquisition, feature generation, model generation, evaluation, promotion review, and maintenance should be read in execution sequence.
+
+### Decision
+
+Task List filter options are ordered by domain sequence. Months sort chronologically, layers sort numerically, statuses sort by task timeline posture (`Past`, terminal exceptions, `Now`, then `Future`), and task/work types sort by the historical workflow order: data acquisition, feature generation, model generation, model evaluation, promotion review preparation, then maintenance. Unknown future values remain visible after the known sequence.
+
+### Consequences
+
+- Operators can scan filters in the same order as the historical workflow.
+- The default Status filter remains `Now`; only the dropdown option order changes.
+- New task/work-type values should be assigned an explicit order when they become first-class workflow phases.

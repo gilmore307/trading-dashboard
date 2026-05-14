@@ -167,10 +167,58 @@ function taskMonthFilterValue(task: HistoricalTaskTimelineItemPayload): string {
   return task.month ?? 'unscheduled';
 }
 
-function uniqueTaskOptions(tasks: HistoricalTaskTimelineItemPayload[], valueFor: (task: HistoricalTaskTimelineItemPayload) => string, labelFor: (task: HistoricalTaskTimelineItemPayload) => string) {
-  return Array.from(
-    tasks.reduce((options, task) => options.set(valueFor(task), labelFor(task)), new Map<string, string>()).entries(),
-  ).sort(([, left], [, right]) => left.localeCompare(right));
+const TASK_STATE_FILTER_ORDER: Record<string, number> = {
+  completed: 10,
+  skipped: 20,
+  failed: 30,
+  current: 40,
+  future: 50,
+};
+
+const WORK_TYPE_FILTER_ORDER: Record<string, number> = {
+  data_acquisition: 10,
+  feature_generation: 20,
+  model_generation: 30,
+  model_evaluation: 40,
+  promotion_review_preparation: 50,
+  maintenance: 60,
+};
+
+function monthOptionRank(value: string): number {
+  if (value === 'unscheduled') return Number.MAX_SAFE_INTEGER;
+  const normalized = Number(value.replace(/-/gu, ''));
+  return Number.isFinite(normalized) ? normalized : Number.MAX_SAFE_INTEGER - 1;
+}
+
+function layerOptionRank(value: string): number {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : Number.MAX_SAFE_INTEGER;
+}
+
+function taskStateOptionRank(value: string): number {
+  return TASK_STATE_FILTER_ORDER[value] ?? Number.MAX_SAFE_INTEGER;
+}
+
+function workTypeOptionRank(value: string): number {
+  return WORK_TYPE_FILTER_ORDER[value] ?? Number.MAX_SAFE_INTEGER;
+}
+
+function uniqueTaskOptions(
+  tasks: HistoricalTaskTimelineItemPayload[],
+  valueFor: (task: HistoricalTaskTimelineItemPayload) => string,
+  labelFor: (task: HistoricalTaskTimelineItemPayload) => string,
+  rankFor?: (value: string) => number,
+) {
+  const options = new Map<string, { firstIndex: number; label: string; rank: number }>();
+  tasks.forEach((task, index) => {
+    const value = valueFor(task);
+    if (!options.has(value)) {
+      options.set(value, { firstIndex: index, label: labelFor(task), rank: rankFor?.(value) ?? Number.MAX_SAFE_INTEGER });
+    }
+  });
+  return Array.from(options.entries())
+    .sort(([, left], [, right]) => (left.rank - right.rank) || (left.firstIndex - right.firstIndex) || left.label.localeCompare(right.label))
+    .map(([value, option]) => [value, option.label] as [string, string]);
 }
 
 function monthLabel(month?: string | null): string {
@@ -277,11 +325,11 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const [workTypeFilter, setWorkTypeFilter] = useState('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
-  const monthOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, (task) => monthLabel(task.month)), [tasks]);
-  const layerOptions = useMemo(() => uniqueTaskOptions(tasks, taskLayerFilterValue, layerLabel), [tasks]);
-  const stateOptions = useMemo(() => uniqueTaskOptions(tasks, (task) => task.task_state, taskStateLabel), [tasks]);
+  const monthOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, (task) => monthLabel(task.month), monthOptionRank), [tasks]);
+  const layerOptions = useMemo(() => uniqueTaskOptions(tasks, taskLayerFilterValue, layerLabel, layerOptionRank), [tasks]);
+  const stateOptions = useMemo(() => uniqueTaskOptions(tasks, (task) => task.task_state, taskStateLabel, taskStateOptionRank), [tasks]);
   const workTypeOptions = useMemo(
-    () => uniqueTaskOptions(tasks, taskWorkTypeFilterValue, (task) => startCase(task.stage_type || task.task_label)),
+    () => uniqueTaskOptions(tasks, taskWorkTypeFilterValue, (task) => startCase(task.stage_type || task.task_label), workTypeOptionRank),
     [tasks],
   );
   const filteredTasks = useMemo(

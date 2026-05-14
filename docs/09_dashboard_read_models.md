@@ -124,7 +124,7 @@ Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_
 
 Owner-facing fields:
 
-- task timeline listing past, current, and future child-task rows at `month + layer + phase` granularity, with phase-level labels such as data acquisition, feature generation, model generation, evaluation, promotion review preparation, and maintenance; the dashboard groups this timeline by month, filters it by month/layer/status/task type, defaults to current `Now` work, and can expand each row using sanitized detail/progress fields including generated, started, ended, and status-updated timestamps when available;
+- task timeline listing past, current, and future child-task rows at `month + layer + phase` granularity, with phase-level labels such as data acquisition, feature generation, model generation, evaluation, promotion review preparation, and maintenance; the dashboard groups this timeline by month, filters it by month/layer/status/task type, orders filter choices by chronological/workflow sequence rather than label alphabetization, defaults to current `Now` work, and can expand each row using sanitized detail/progress fields including generated, started, ended, and status-updated timestamps when available;
 - current month or active historical window;
 - active layer/stage;
 - progress percentage;
