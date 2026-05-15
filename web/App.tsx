@@ -124,11 +124,19 @@ function sanitizedRefSummary(ref: unknown): string {
   return parts.length ? parts.join(' · ') : 'Reference available for diagnostics.';
 }
 
+type DiagnosticSeverity = 'critical' | 'error' | 'warning' | 'notice';
+type DiagnosticHandlingStatus = 'open' | 'closed' | 'no_action_required';
+
 type DiagnosticSummaryItem = {
+  id: string;
   title: string;
+  category: string;
   status: string;
   detail: string;
-  severity: 'ok' | 'warn' | 'error';
+  severity: DiagnosticSeverity;
+  handlingStatus: DiagnosticHandlingStatus;
+  occurredAt?: string | null;
+  evidenceCount: number;
 };
 
 function refDetail(ref: unknown): string {
@@ -147,6 +155,32 @@ function refTitle(ref: unknown, fallback: string): string {
   if (record.contract_type) return startCase(String(record.contract_type));
   if (record.kind) return startCase(String(record.kind));
   return fallback;
+}
+
+function diagnosticSeverityRank(severity: DiagnosticSeverity): number {
+  return { critical: 0, error: 1, warning: 2, notice: 3 }[severity];
+}
+
+function handlingStatusLabel(status: DiagnosticHandlingStatus): string {
+  if (status === 'open') return 'Open';
+  if (status === 'closed') return 'Closed';
+  return 'No action needed';
+}
+
+function diagnosticSeverityLabel(severity: DiagnosticSeverity): string {
+  if (severity === 'critical') return 'Critical';
+  if (severity === 'error') return 'Error';
+  if (severity === 'warning') return 'Warning';
+  return 'Notice';
+}
+
+function stableDiagnosticId(prefix: string, value: string, index = 0): string {
+  const normalized = `${prefix}-${value}-${index}`.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, '').slice(0, 42);
+  return normalized || `${prefix}-${index + 1}`;
+}
+
+function maybeRecord(ref: unknown): Record<string, unknown> {
+  return typeof ref === 'object' && ref !== null ? ref as Record<string, unknown> : {};
 }
 
 function taskStateSeverity(state?: string | null): string {
@@ -534,63 +568,110 @@ function collectDiagnosticSummary(
   chart: HistoricalTaskProgressChartPayload,
 ): DiagnosticSummaryItem[] {
   const items: DiagnosticSummaryItem[] = [];
+  const currentEvidenceCount = currentStatusModel?.diagnostic_refs.length ?? 0;
+  const historicalEvidenceCount = historicalModel?.diagnostic_refs.length ?? 0;
   if (currentStatusModel && currentStatusModel.status !== 'healthy') {
+    const severity = currentStatusModel.severity === 'critical' ? 'critical' : currentStatusModel.severity === 'high' ? 'error' : 'warning';
     items.push({
+      id: stableDiagnosticId('read-model', CURRENT_SYSTEM_STATUS),
       title: 'Current Status read model',
+      category: 'Read model',
       status: startCase(currentStatusModel.status),
       detail: currentStatusModel.summary,
-      severity: currentStatusModel.severity === 'critical' || currentStatusModel.severity === 'high' ? 'error' : 'warn',
+      severity,
+      handlingStatus: 'open',
+      occurredAt: currentStatusModel.generated_at_utc,
+      evidenceCount: currentEvidenceCount,
     });
   }
   if (historicalModel && !['complete', 'healthy'].includes(historicalModel.status)) {
+    const severity = historicalModel.severity === 'critical' ? 'critical' : historicalModel.severity === 'high' ? 'error' : 'warning';
     items.push({
+      id: stableDiagnosticId('read-model', HISTORICAL_TASK_PROGRESS),
       title: 'Historical task progress read model',
+      category: 'Read model',
       status: startCase(historicalModel.status),
       detail: historicalModel.summary,
-      severity: historicalModel.severity === 'critical' || historicalModel.severity === 'high' ? 'error' : 'warn',
+      severity,
+      handlingStatus: 'open',
+      occurredAt: historicalModel.generated_at_utc,
+      evidenceCount: historicalEvidenceCount,
     });
   }
-  (systemChart.services ?? []).filter((service) => service.healthy === false).forEach((service) => {
+  (systemChart.services ?? []).filter((service) => service.healthy === false).forEach((service, index) => {
     items.push({
+      id: stableDiagnosticId('service', service.unit, index),
       title: publicServiceLabel(service.unit),
+      category: 'Service',
       status: startCase(service.active_state),
       detail: `Systemd unit ${service.unit} is ${service.active_state}${service.substate ? `/${service.substate}` : ''}.`,
-      severity: 'error',
+      severity: service.active_state === 'failed' ? 'critical' : 'error',
+      handlingStatus: 'open',
+      occurredAt: currentStatusModel?.generated_at_utc,
+      evidenceCount: 1,
     });
   });
-  (systemChart.apis ?? []).filter((api) => api.healthy === false || (!api.healthy && !apiIsHealthy(api.status))).forEach((api) => {
+  (systemChart.apis ?? []).filter((api) => api.healthy === false || (!api.healthy && !apiIsHealthy(api.status))).forEach((api, index) => {
+    const optionalLocalOffline = api.status === 'local_service_offline';
     items.push({
+      id: stableDiagnosticId('api', api.name, index),
       title: api.name,
+      category: 'API',
       status: apiStatusLabel(api.status),
       detail: `${api.kind ? startCase(api.kind) : 'API'} is not currently reported as healthy.`,
-      severity: api.status === 'local_service_offline' ? 'warn' : 'error',
+      severity: optionalLocalOffline ? 'notice' : 'warning',
+      handlingStatus: optionalLocalOffline ? 'no_action_required' : 'open',
+      occurredAt: currentStatusModel?.generated_at_utc,
+      evidenceCount: currentEvidenceCount,
     });
   });
-  (systemChart.source_outputs ?? []).filter((output) => output.status !== 'available' || !output.exists).forEach((output) => {
+  (systemChart.source_outputs ?? []).filter((output) => output.status !== 'available' || !output.exists).forEach((output, index) => {
     items.push({
+      id: stableDiagnosticId('source-output', output.label, index),
       title: output.label,
+      category: 'Dashboard data',
       status: startCase(output.status),
       detail: output.freshness_note ?? sourceOutputStatus(output),
-      severity: 'warn',
+      severity: output.exists ? 'warning' : 'error',
+      handlingStatus: 'open',
+      occurredAt: output.latest_updated_at_utc ?? currentStatusModel?.generated_at_utc,
+      evidenceCount: 1,
     });
   });
-  (chart.task_timeline ?? []).filter((task) => task.task_state === 'failed' || String(task.status).toLowerCase() === 'failed').slice(0, 20).forEach((task) => {
+  (chart.task_timeline ?? []).filter((task) => task.task_state === 'failed' || String(task.status).toLowerCase() === 'failed').slice(0, 20).forEach((task, index) => {
     items.push({
+      id: stableDiagnosticId('task', `${task.month ?? 'unknown'}-${task.task_id}`, index),
       title: task.task_label,
+      category: 'Task',
       status: 'Failed',
       detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${startCase(task.stage_type)}${task.reason ? ` · ${task.reason}` : ''}`,
       severity: 'error',
+      handlingStatus: 'open',
+      occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
+      evidenceCount: task.receipt_count ?? task.detail?.receipt_refs?.length ?? 0,
     });
   });
   [...(currentStatusModel?.issue_refs ?? []), ...(historicalModel?.issue_refs ?? [])].forEach((ref, index) => {
+    const record = maybeRecord(ref);
+    const status = String(record.status ?? 'issue_ref');
+    const closed = ['closed', 'resolved', 'complete', 'succeeded'].includes(status.toLowerCase());
     items.push({
+      id: stableDiagnosticId('issue', refTitle(ref, `Issue ${index + 1}`), index),
       title: refTitle(ref, `Issue ${index + 1}`),
-      status: 'Issue ref',
+      category: 'Issue ref',
+      status: startCase(status),
       detail: refDetail(ref),
-      severity: 'warn',
+      severity: closed ? 'notice' : 'warning',
+      handlingStatus: closed ? 'closed' : 'open',
+      occurredAt: String(record.generated_at_utc ?? record.generated_utc ?? '') || historicalModel?.generated_at_utc || currentStatusModel?.generated_at_utc,
+      evidenceCount: 1,
     });
   });
-  return items;
+  return items.sort((left, right) =>
+    diagnosticSeverityRank(left.severity) - diagnosticSeverityRank(right.severity)
+    || String(right.occurredAt ?? '').localeCompare(String(left.occurredAt ?? ''))
+    || left.id.localeCompare(right.id),
+  );
 }
 
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
@@ -768,11 +849,25 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           options={[["auto", "Now/latest period"], ["all", "All months"], ...monthOptions]}
           onChange={setMonthFilter}
         />
+        <SearchableFilter
+          label="Target"
+          listId="task-target-options"
+          value={targetFilter}
+          options={[["all", "All targets"], ...targetOptions]}
+          onChange={setTargetFilter}
+        />
         <label>
           <span>Layer</span>
           <select value={layerFilter} onChange={(event) => setLayerFilter(event.target.value)}>
             <option value="all">All layers</option>
             {layerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
+        <label>
+          <span>Task</span>
+          <select value={workTypeFilter} onChange={(event) => setWorkTypeFilter(event.target.value)}>
+            <option value="all">All tasks</option>
+            {workTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
         <label>
@@ -784,26 +879,12 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           </select>
         </label>
         <label>
-          <span>Task</span>
-          <select value={workTypeFilter} onChange={(event) => setWorkTypeFilter(event.target.value)}>
-            <option value="all">All tasks</option>
-            {workTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label>
           <span>Worker</span>
           <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)}>
             <option value="all">All workers</option>
             {workerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <SearchableFilter
-          label="Target"
-          listId="task-target-options"
-          value={targetFilter}
-          options={[["all", "All targets"], ...targetOptions]}
-          onChange={setTargetFilter}
-        />
       </div>
       {virtualRows.length ? (
         <div
@@ -842,35 +923,68 @@ function DiagnosticsSummaryView({
   currentStatusModel: DashboardReadModel | null;
   historicalModel: DashboardReadModel | null;
 }) {
-  const errorCount = items.filter((item) => item.severity === 'error').length;
-  const warningCount = items.filter((item) => item.severity === 'warn').length;
+  const [severityFilter, setSeverityFilter] = useState<DiagnosticSeverity | 'all'>('all');
   const evidenceCount = (currentStatusModel?.diagnostic_refs.length ?? 0) + (historicalModel?.diagnostic_refs.length ?? 0);
   const issueCount = (currentStatusModel?.issue_refs.length ?? 0) + (historicalModel?.issue_refs.length ?? 0);
+  const severityCounts = {
+    critical: items.filter((item) => item.severity === 'critical').length,
+    error: items.filter((item) => item.severity === 'error').length,
+    warning: items.filter((item) => item.severity === 'warning').length,
+    notice: items.filter((item) => item.severity === 'notice').length,
+  };
+  const filteredItems = severityFilter === 'all' ? items : items.filter((item) => item.severity === severityFilter);
+  const severityCards: Array<{ key: DiagnosticSeverity | 'all'; label: string; value: number; hint: string }> = [
+    { key: 'all', label: 'All', value: items.length, hint: 'All visible diagnostic rows' },
+    { key: 'critical', label: 'Critical', value: severityCounts.critical, hint: 'Service/data failures needing immediate action' },
+    { key: 'error', label: 'Errors', value: severityCounts.error, hint: 'Failed workflow or unhealthy runtime items' },
+    { key: 'warning', label: 'Warnings', value: severityCounts.warning, hint: 'Needs review but not immediately fatal' },
+    { key: 'notice', label: 'Notices', value: severityCounts.notice, hint: 'Informational or no-action-needed items' },
+  ];
   return (
     <>
-      <section className="metric-grid four diagnostics-summary-metrics">
-        <MetricCard label="Errors" value={errorCount} hint="Needs agent/operator follow-up" />
-        <MetricCard label="Warnings" value={warningCount} hint="Watch or clarify with agent" />
-        <MetricCard label="Issue refs" value={issueCount} hint="Structured issue references" />
-        <MetricCard label="Evidence refs" value={evidenceCount} hint="Agent-facing diagnostic references" />
+      <section className="diagnostic-filter-cards" aria-label="Diagnostics severity filters">
+        {severityCards.map((card) => (
+          <button
+            className={`diagnostic-filter-card ${severityFilter === card.key ? 'active' : ''}`}
+            key={card.key}
+            onClick={() => setSeverityFilter(card.key)}
+            type="button"
+          >
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+            <small>{card.hint}</small>
+          </button>
+        ))}
       </section>
       <section className="panel diagnostics-summary-panel">
         <div className="panel-heading">Error Summary</div>
         <p className="panel-subtitle">This page summarizes visible errors and status only. Use the agent conversation for diagnosis, repair, reruns, or external actions.</p>
-        {items.length ? (
-          <div className="diagnostic-summary-list">
-            {items.map((item, index) => (
-              <div className={`diagnostic-summary-row diagnostic-${item.severity}`} key={`${item.title}-${index}`}>
-                <div className="dashboard-file-main">
-                  <span>{item.title}</span>
-                  <small>{item.detail}</small>
+        {filteredItems.length ? (
+          <div className="diagnostic-table" role="table" aria-label="Diagnostics error summary">
+            <div className="diagnostic-table-row diagnostic-table-head" role="row">
+              <span>ID</span>
+              <span>Severity</span>
+              <span>Error / status</span>
+              <span>Occurred</span>
+              <span>Handling</span>
+              <span>Evidence</span>
+            </div>
+            {filteredItems.map((item) => (
+              <div className={`diagnostic-table-row diagnostic-${item.severity}`} key={item.id} role="row">
+                <code>{item.id}</code>
+                <span>{diagnosticSeverityLabel(item.severity)}</span>
+                <div className="diagnostic-table-main">
+                  <strong>{item.title}</strong>
+                  <small>{item.category} · {item.status} · {item.detail}</small>
                 </div>
-                <strong>{item.status}</strong>
+                <span>{item.occurredAt ? formatTimestamp(item.occurredAt) : 'Not recorded'}</span>
+                <span>{handlingStatusLabel(item.handlingStatus)}</span>
+                <span>{item.evidenceCount}</span>
               </div>
             ))}
           </div>
         ) : (
-          <div className="empty-chart compact">No active errors or warnings are reported by the dashboard read models.</div>
+          <div className="empty-chart compact">No diagnostics match the selected severity filter.</div>
         )}
       </section>
       <section className="detail-grid">
@@ -888,11 +1002,12 @@ function DiagnosticsSummaryView({
           </div>
         </section>
         <section className="panel">
-          <div className="panel-heading">Reference Counts</div>
+          <div className="panel-heading">Agent Evidence Summary</div>
+          <p className="dashboard-data-note">Issue and evidence refs are not operator controls. They are compact pointers the agent can use when you ask it to diagnose or close an item.</p>
           <div className="service-list">
+            <div className="service-row"><span>Issue refs</span><strong>{issueCount}</strong></div>
+            <div className="service-row"><span>Evidence refs</span><strong>{evidenceCount}</strong></div>
             <div className="service-row"><span>Lineage refs</span><strong>{(currentStatusModel?.lineage_refs.length ?? 0) + (historicalModel?.lineage_refs.length ?? 0)}</strong></div>
-            <div className="service-row"><span>Profile refs</span><strong>{(currentStatusModel?.profile_refs.length ?? 0) + (historicalModel?.profile_refs.length ?? 0)}</strong></div>
-            <div className="service-row"><span>Diagnostic refs</span><strong>{evidenceCount}</strong></div>
           </div>
         </section>
       </section>

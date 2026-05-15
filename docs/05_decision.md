@@ -540,3 +540,22 @@ Diagnostics is placed last in the dashboard navigation. Its content is limited t
 - Primary pages stay focused on owner-facing status, tasks, models, and future business surfaces.
 - Diagnostics remains useful as a concise error-status report without duplicating agent troubleshooting flows.
 - Raw diagnostic references remain summarized/countable evidence rather than a primary browsing interface.
+
+## D025 - Diagnostics uses severity cards and a traceable issue table
+
+Date: 2026-05-14
+Status: Accepted
+
+### Context
+
+Diagnostics should support quick agent-facing follow-up, not act as a raw reference browser. Chentong asked for key fields such as error id, occurrence time, and handling state, and for severity cards to filter the summary below. Issue/evidence refs are useful only as handoff pointers for the agent; they are not primary operator actions.
+
+### Decision
+
+Diagnostics presents severity filter cards for All, Critical, Errors, Warnings, and Notices. Clicking a card filters the Error Summary table. The table includes stable diagnostic id, severity, category/status/detail, occurred time, handling state (`Open`, `Closed`, or `No action needed`), and evidence count. Issue/evidence refs are demoted to an Agent Evidence Summary panel rather than top-level cards.
+
+### Consequences
+
+- Operators can scan actionable errors first and leave non-action notices visible but lower priority.
+- Agent handoff remains traceable through ids and evidence counts without exposing a raw artifact browser.
+- Optional/offline-but-not-needed conditions can be represented as `No action needed` instead of appearing as unresolved failures.
