@@ -206,8 +206,11 @@ const WORK_TYPE_FILTER_ORDER: Record<string, number> = {
 
 function monthOptionRank(value: string): number {
   if (value === 'unscheduled') return Number.MAX_SAFE_INTEGER;
-  const normalized = Number(value.replace(/-/gu, ''));
-  return Number.isFinite(normalized) ? normalized : Number.MAX_SAFE_INTEGER - 1;
+  const match = /^(\d{4}-\d{2})(?:\.\.(\d{4}-\d{2}))?$/u.exec(value);
+  if (!match) return Number.MAX_SAFE_INTEGER - 1;
+  const normalizedStart = Number(match[1].replace(/-/gu, ''));
+  if (!Number.isFinite(normalizedStart)) return Number.MAX_SAFE_INTEGER - 1;
+  return normalizedStart * 10 + (match[2] ? 1 : 0);
 }
 
 function layerOptionRank(value: string): number {
@@ -221,6 +224,12 @@ function taskStateOptionRank(value: string): number {
 
 function workTypeOptionRank(value: string): number {
   return WORK_TYPE_FILTER_ORDER[value] ?? Number.MAX_SAFE_INTEGER;
+}
+
+function targetOptionRank(value: string): number {
+  if (value === 'target_pending') return 80;
+  if (value === 'not_targeted') return 90;
+  return 10;
 }
 
 function uniqueTaskOptions(
@@ -358,7 +367,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
   const [monthFilter, setMonthFilter] = useState('all');
   const [layerFilter, setLayerFilter] = useState('all');
-  const [stateFilter, setStateFilter] = useState('current');
+  const [stateFilter, setStateFilter] = useState('auto');
   const [workTypeFilter, setWorkTypeFilter] = useState('all');
   const [workerFilter, setWorkerFilter] = useState('all');
   const [targetFilter, setTargetFilter] = useState('all');
@@ -376,20 +385,25 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     [tasks],
   );
   const targetOptions = useMemo(
-    () => uniqueTaskOptions(tasks, taskTargetFilterValue, taskTargetLabel),
+    () => uniqueTaskOptions(tasks, taskTargetFilterValue, taskTargetLabel, targetOptionRank),
     [tasks],
   );
+  const defaultStateFilter = useMemo(
+    () => (tasks.some((task) => task.task_state === 'current') ? 'current' : 'all'),
+    [tasks],
+  );
+  const effectiveStateFilter = stateFilter === 'auto' ? defaultStateFilter : stateFilter;
   const filteredTasks = useMemo(
     () => tasks.filter((task) => {
       if (monthFilter !== 'all' && taskMonthFilterValue(task) !== monthFilter) return false;
       if (layerFilter !== 'all' && taskLayerFilterValue(task) !== layerFilter) return false;
-      if (stateFilter !== 'all' && task.task_state !== stateFilter) return false;
+      if (effectiveStateFilter !== 'all' && task.task_state !== effectiveStateFilter) return false;
       if (workTypeFilter !== 'all' && taskWorkTypeFilterValue(task) !== workTypeFilter) return false;
       if (workerFilter !== 'all' && taskWorkerFilterValue(task) !== workerFilter) return false;
       if (targetFilter !== 'all' && taskTargetFilterValue(task) !== targetFilter) return false;
       return true;
     }),
-    [layerFilter, monthFilter, stateFilter, targetFilter, tasks, workerFilter, workTypeFilter],
+    [effectiveStateFilter, layerFilter, monthFilter, targetFilter, tasks, workerFilter, workTypeFilter],
   );
   const monthGroups = useMemo(() => groupTasksByMonth(filteredTasks), [filteredTasks]);
 
@@ -408,8 +422,8 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className="panel-heading">Task List</div>
           <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} child tasks</div>
         </div>
-        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('all'); setLayerFilter('all'); setStateFilter('current'); setWorkTypeFilter('all'); setWorkerFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
-          Reset to Now
+        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('all'); setLayerFilter('all'); setStateFilter('auto'); setWorkTypeFilter('all'); setWorkerFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
+          Reset filters
         </button>
       </div>
       <div className="task-filters" aria-label="Task list filters">
@@ -430,6 +444,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
         <label>
           <span>Status</span>
           <select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}>
+            <option value="auto">Now if available</option>
             <option value="all">All statuses</option>
             {stateOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>

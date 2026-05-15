@@ -483,3 +483,22 @@ Task List rows for target-specific Layer 3+ work show the selected target symbol
 - Target-specific modeling work can be filtered and scanned by symbol without exposing raw workflow checkpoint internals.
 - Storage capacity presentation is clear that the value is remaining available disk space.
 - Throughput cards remain read-only scheduler observations, but their labels better explain what is being counted.
+
+## D022 - Task default view must not look empty when workflow is idle
+
+Date: 2026-05-14
+Status: Accepted
+
+### Context
+
+After historical workflow slices complete, the task timeline can contain no `current` rows. A hard default Status filter of `Now` then renders `0 of N child tasks`, which looks broken even though the system is healthy and the rows are completed. Month filter ordering also treated six-month fold ranges as unknown values, placing them after all single-month entries.
+
+### Decision
+
+The Status filter now defaults to `Now if available`: it shows current work when current rows exist, otherwise it falls back to all statuses. Month filters parse both single months and `YYYY-MM..YYYY-MM` fold ranges so fold ranges remain chronologically ordered by their start month. Target filter options put concrete symbols before non-targeted panel work.
+
+### Consequences
+
+- An idle/completed workflow still shows useful historical task rows instead of an unexplained empty list.
+- Six-month model fold ranges no longer drift to the bottom of the Month filter.
+- Target filtering is easier to scan because concrete symbols appear before broad market/sector rows.
