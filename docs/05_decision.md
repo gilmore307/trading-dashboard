@@ -457,7 +457,7 @@ The dashboard needs a resident browser-serving process instead of ad hoc `npm ru
 
 ### Decision
 
-`deploy/systemd/trading-dashboard-web.service` is the accepted host service template. It builds the Vite UI before start and serves it on the reviewed Vite preview port with `TRADING_DASHBOARD_STORAGE_ROOT` pointed at `trading-storage/storage`. The Vite read-model plugin serves the same read-only HTTP and WebSocket latest-summary routes in both dev and preview modes.
+`deploy/systemd/trading-dashboard-web.service` is the accepted host service template. It builds the Vite UI before start and serves it on the reviewed Vite preview port `5173` with `TRADING_DASHBOARD_STORAGE_ROOT` pointed at `trading-storage/storage`. The Vite read-model plugin serves the same read-only HTTP and WebSocket latest-summary routes in both dev and preview modes.
 
 ### Consequences
 
