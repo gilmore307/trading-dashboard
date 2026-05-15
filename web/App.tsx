@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HistoricalProgressVisual, MetricCard, StatusPill } from './components';
+import { fetchDataTableCatalog, fetchDataTableRows, type DataTableQueryResult, type DataTableSpec } from './dataTables';
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
 import type { CurrentSystemStatusChartPayload, DashboardReadModel, HistoricalTaskProgressChartPayload, HistoricalTaskTimelineItemPayload } from './types';
@@ -19,11 +20,12 @@ const SERVICE_LABELS: Record<string, string> = {
   'trading-storage-dashboard-read-model-refresh.service': 'Dashboard Refresh Worker',
 };
 
-type ViewId = 'status' | 'tasks' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
+type ViewId = 'status' | 'tasks' | 'data' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
 
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'status', label: 'Current Status', state: 'Live' },
   { id: 'tasks', label: 'Tasks', state: 'Task list' },
+  { id: 'data', label: 'Data', state: 'SQL tables' },
   { id: 'models', label: 'Models', state: 'Historical modeling' },
   { id: 'registry', label: 'Definitions', state: 'Coming soon' },
   { id: 'realtime', label: 'Realtime Signals', state: 'Coming soon' },
@@ -904,6 +906,172 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   );
 }
 
+
+function dataCellText(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function DataExplorerView() {
+  const [catalog, setCatalog] = useState<DataTableSpec[]>([]);
+  const [selectedTable, setSelectedTable] = useState('');
+  const [result, setResult] = useState<DataTableQueryResult | null>(null);
+  const [searchDraft, setSearchDraft] = useState('');
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sort, setSort] = useState('');
+  const [direction, setDirection] = useState<'asc' | 'desc'>('asc');
+  const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const limit = 50;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    fetchDataTableCatalog(controller.signal)
+      .then((tables) => {
+        setCatalog(tables);
+        setSelectedTable((current) => current || tables[0]?.table_id || '');
+        setError(null);
+      })
+      .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : 'Unable to load data table catalog.'))
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTable) return;
+    const controller = new AbortController();
+    setLoading(true);
+    fetchDataTableRows({
+      table: selectedTable,
+      search,
+      filters,
+      sort,
+      direction,
+      limit,
+      offset,
+      signal: controller.signal,
+    })
+      .then((payload) => {
+        setResult(payload);
+        if (!sort) setSort(payload.sort);
+        setError(null);
+      })
+      .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : 'Unable to load data table rows.'))
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [direction, filters, offset, search, selectedTable, sort]);
+
+  const selectedSpec = catalog.find((table) => table.table_id === selectedTable);
+  const pageStart = result ? Math.min(result.total, result.offset + 1) : 0;
+  const pageEnd = result ? Math.min(result.total, result.offset + result.rows.length) : 0;
+  const canPageBack = (result?.offset ?? 0) > 0;
+  const canPageForward = result ? result.offset + result.limit < result.total : false;
+
+  const updateFilter = (column: string, value: string) => {
+    setOffset(0);
+    setFilters((current) => ({ ...current, [column]: value }));
+  };
+
+  const chooseSort = (column: string) => {
+    setOffset(0);
+    setSort((current) => {
+      if (current === column) {
+        setDirection((currentDirection) => currentDirection === 'asc' ? 'desc' : 'asc');
+        return current;
+      }
+      setDirection('asc');
+      return column;
+    });
+  };
+
+  const resetControls = () => {
+    setSearchDraft('');
+    setSearch('');
+    setFilters({});
+    setOffset(0);
+  };
+
+  return (
+    <section className="panel data-explorer-panel">
+      <div className="task-list-header">
+        <div>
+          <div className="panel-heading">Data Tables</div>
+          <p className="panel-subtitle">Read-only SQL table viewer. Select an approved table, then search, filter, sort, and page through rows.</p>
+        </div>
+        <button className="secondary-button" type="button" onClick={resetControls}>Reset filters</button>
+      </div>
+      <div className="data-toolbar">
+        <label>
+          <span>Data table</span>
+          <select value={selectedTable} onChange={(event) => { setSelectedTable(event.target.value); setResult(null); setFilters({}); setSort(''); setDirection('asc'); setOffset(0); }}>
+            {catalog.map((table) => <option key={table.table_id} value={table.table_id}>{table.label}</option>)}
+          </select>
+        </label>
+        <form className="data-search-form" onSubmit={(event) => { event.preventDefault(); setOffset(0); setSearch(searchDraft.trim()); }}>
+          <label>
+            <span>Search all visible columns</span>
+            <input value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="Search table…" />
+          </label>
+          <button className="primary-action compact-action" type="submit">Search</button>
+        </form>
+      </div>
+      {selectedSpec ? <p className="dashboard-data-note">{selectedSpec.schema}.{selectedSpec.table} · {selectedSpec.description}</p> : null}
+      {error ? <div className="execution-reason">{error}</div> : null}
+      <div className="data-table-meta">
+        <span>{loading ? 'Loading…' : result ? `Showing ${pageStart}-${pageEnd} of ${result.total}` : 'No table loaded'}</span>
+        {result ? <span>Sorted by {result.sort} {result.direction.toUpperCase()}</span> : null}
+      </div>
+      {result ? (
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                {result.columns.map((column) => (
+                  <th key={column.name}>
+                    <button className="data-sort-button" type="button" onClick={() => chooseSort(column.name)}>
+                      <span>{column.name}</span>
+                      <small>{sort === column.name ? (direction === 'asc' ? '▲' : '▼') : column.data_type}</small>
+                    </button>
+                    <input
+                      aria-label={`Filter ${column.name}`}
+                      value={filters[column.name] ?? ''}
+                      onChange={(event) => updateFilter(column.name, event.target.value)}
+                      placeholder="Filter…"
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {result.rows.length ? result.rows.map((row, rowIndex) => (
+                <tr key={`${result.offset}-${rowIndex}`}>
+                  {result.columns.map((column) => <td key={column.name}>{dataCellText(row[column.name])}</td>)}
+                </tr>
+              )) : (
+                <tr><td colSpan={result.columns.length || 1}>No rows match the current filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : <div className="empty-chart compact">Select a data table to load rows.</div>}
+      <div className="data-pagination">
+        <button className="secondary-button" type="button" disabled={!canPageBack} onClick={() => setOffset((current) => Math.max(0, current - limit))}>Previous</button>
+        <span>Page size {limit}</span>
+        <button className="secondary-button" type="button" disabled={!canPageForward} onClick={() => setOffset((current) => current + limit)}>Next</button>
+      </div>
+    </section>
+  );
+}
+
 function DiagnosticsSummaryView({
   items,
   currentStatusModel: _currentStatusModel,
@@ -1046,7 +1214,7 @@ function App() {
     };
   }, [applyReadModel, loadReadModel]);
 
-  const activeReadModel = activeView === 'status' ? currentStatusModel : historicalModel;
+  const activeReadModel = activeView === 'status' || activeView === 'data' ? (currentStatusModel ?? historicalModel) : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
   const chart = useMemo(() => {
     if (!historicalModel || !isHistoricalChart(historicalModel.chart_payload)) return {} as HistoricalTaskProgressChartPayload;
@@ -1155,6 +1323,7 @@ function App() {
 
   const renderMainView = () => {
     if (activeView === 'status') return renderCurrentStatusView();
+    if (activeView === 'data') return <DataExplorerView />;
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
       return <DiagnosticsSummaryView items={diagnosticItems} currentStatusModel={currentStatusModel} historicalModel={historicalModel} />;
@@ -1226,8 +1395,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Current Status' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Current Status' : activeView === 'data' ? 'Data' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'SQL Tables / Dashboard' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);

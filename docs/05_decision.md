@@ -533,7 +533,7 @@ Chentong expects to resolve operational errors by talking directly with the agen
 
 ### Decision
 
-Diagnostics is placed last in the dashboard navigation. Its content is limited to read-only error/warning summary, current read-model status, and reference counts for agent-facing evidence. Detailed repair, rerun, provider action, workflow control, and account/broker actions remain outside the dashboard.
+Diagnostics is placed last in the dashboard navigation. Its content is limited to read-only error/warning summary with user-facing error numbers, occurrence time, severity, and handling status. Detailed repair, rerun, provider action, workflow control, and account/broker actions remain outside the dashboard.
 
 ### Consequences
 
@@ -559,3 +559,22 @@ Diagnostics presents severity filter cards for All, Critical, Errors, Warnings, 
 - Operators can scan actionable errors first and leave non-action notices visible but lower priority.
 - Agent handoff remains traceable through user-facing error numbers without exposing read-model/evidence plumbing.
 - Optional/offline-but-not-needed conditions can be represented as `No action needed` instead of appearing as unresolved failures.
+
+## D026 - Data page is an allowlisted read-only SQL table viewer
+
+Date: 2026-05-15
+Status: Accepted
+
+### Context
+
+Chentong wants a Data page under Tasks that brings selected SQL tables into the dashboard with table selection, filtering, sorting, and search. This is useful for owner inspection, but the dashboard must not become a raw SQL console or mutation surface.
+
+### Decision
+
+Add a `Data` navigation item directly below `Tasks`. The page uses an allowlisted read-only SQL table API for approved manager/control-plane tables and views. It supports table selection, global text search, per-column filters, clickable column sorting, and fixed-size pagination. The browser never accepts arbitrary SQL and the dashboard still performs no manager dispatch, provider call, model activation, broker/account action, or storage read-model write.
+
+### Consequences
+
+- Operators can inspect durable SQL rows without switching to a terminal for common table checks.
+- New SQL tables must be explicitly added to the dashboard allowlist before they appear.
+- The implementation remains presentation-only and bounded to read-only `SELECT` access.
