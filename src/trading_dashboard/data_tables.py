@@ -1,7 +1,8 @@
-"""Read-only dashboard SQL table explorer helpers.
+"""Read-only dashboard downloaded-data table explorer helpers.
 
-This module intentionally exposes an allowlisted table catalog rather than a raw SQL console.
-The dashboard may search, filter, sort, and page through approved tables only.
+This module intentionally exposes an allowlisted downloaded-data catalog rather
+than a raw SQL console. The dashboard may search, filter, sort, and page through
+approved trading_data source/feature tables only.
 """
 
 from __future__ import annotations
@@ -28,50 +29,69 @@ class DataTableSpec:
     schema: str
     table: str
     description: str
+    default_sort: str
+    default_direction: str = "asc"
 
 
 ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     DataTableSpec(
-        table_id="manager_task_summary",
-        label="Manager Task Summary",
-        schema="trading_manager",
-        table="task_summary",
-        description="Priority-ordered manager request/run/ready summary view.",
+        table_id="market_regime_bars",
+        label="Market Regime Bars",
+        schema="trading_data",
+        table="source_01_market_regime",
+        description="Downloaded bar rows for the reviewed market/sector ETF universe.",
+        default_sort="symbol",
     ),
     DataTableSpec(
-        table_id="manager_requests",
-        label="Manager Requests",
-        schema="trading_manager",
-        table="manager_request",
-        description="Durable manager request rows.",
+        table_id="target_state_bars_quotes",
+        label="Target State Bars + Quotes",
+        schema="trading_data",
+        table="source_03_target_state",
+        description="Downloaded target-symbol bars and quote-derived fields used by target-state inputs.",
+        default_sort="target_candidate_id",
     ),
     DataTableSpec(
-        table_id="input_bindings",
-        label="Input Bindings",
-        schema="trading_manager",
-        table="input_binding",
-        description="Inputs bound to manager requests.",
+        table_id="event_overlay_events",
+        label="Event Overlay Events",
+        schema="trading_data",
+        table="source_04_event_overlay",
+        description="Downloaded/normalized event rows used by the event-overlay source.",
+        default_sort="event_time",
+        default_direction="desc",
     ),
     DataTableSpec(
-        table_id="run_manifests",
-        label="Run Manifests",
-        schema="trading_manager",
-        table="run_manifest",
-        description="Component run status receipts normalized into manager SQL.",
+        table_id="market_regime_features",
+        label="Market Regime Features",
+        schema="trading_data",
+        table="feature_01_market_regime",
+        description="Generated market-regime feature payloads derived from downloaded source bars.",
+        default_sort="snapshot_time",
+        default_direction="desc",
     ),
     DataTableSpec(
-        table_id="artifact_refs",
-        label="Artifact References",
-        schema="trading_manager",
-        table="artifact_ref",
-        description="Output artifact references reported by component receipts.",
+        table_id="sector_context_features",
+        label="Sector Context Features",
+        schema="trading_data",
+        table="feature_02_sector_context",
+        description="Generated sector-context feature payloads derived from downloaded source bars.",
+        default_sort="snapshot_time",
+        default_direction="desc",
     ),
     DataTableSpec(
-        table_id="ready_signals",
-        label="Ready Signals",
-        schema="trading_manager",
-        table="ready_signal",
-        description="Durable readiness signals reported by completed component work.",
+        table_id="target_state_features",
+        label="Target State Features",
+        schema="trading_data",
+        table="feature_03_target_state_vector",
+        description="Generated target-state feature vectors derived from downloaded target data.",
+        default_sort="target_candidate_id",
+    ),
+    DataTableSpec(
+        table_id="event_overlay_features",
+        label="Event Overlay Features",
+        schema="trading_data",
+        table="feature_04_event_overlay",
+        description="Generated event-overlay feature payloads derived from downloaded event rows.",
+        default_sort="event_id",
     ),
 )
 
@@ -184,8 +204,9 @@ def query_table(
         if not columns:
             raise DataTableError(f"approved table has no visible columns: {table_id}")
         where_sql, params = _where_clause(columns=columns, search=search, filters=filters)
-        sort_column = sort if sort in columns else columns[0]
-        sort_direction = "DESC" if direction.lower() == "desc" else "ASC"
+        sort_column = sort if sort in columns else table.default_sort if table.default_sort in columns else columns[0]
+        selected_direction = direction if sort else table.default_direction
+        sort_direction = "DESC" if selected_direction.lower() == "desc" else "ASC"
         base_sql = _table_sql(table)
         with connection.cursor() as cursor:
             cursor.execute(f"SELECT count(*) FROM {base_sql}{where_sql}", params)

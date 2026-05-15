@@ -6,10 +6,12 @@ from trading_dashboard.data_tables import _where_clause, table_catalog
 
 
 class DataTablesTest(unittest.TestCase):
-    def test_catalog_exposes_allowlisted_tables(self) -> None:
+    def test_catalog_exposes_allowlisted_downloaded_data_tables(self) -> None:
         table_ids = {row["table_id"] for row in table_catalog()}
-        self.assertIn("manager_task_summary", table_ids)
-        self.assertIn("manager_requests", table_ids)
+        self.assertIn("market_regime_bars", table_ids)
+        self.assertIn("target_state_bars_quotes", table_ids)
+        self.assertIn("event_overlay_events", table_ids)
+        self.assertNotIn("manager_requests", table_ids)
 
     def test_where_clause_uses_only_known_filter_columns(self) -> None:
         where_sql, params = _where_clause(

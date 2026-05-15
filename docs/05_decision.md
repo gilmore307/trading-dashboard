@@ -560,21 +560,21 @@ Diagnostics presents severity filter cards for All, Critical, Errors, Warnings, 
 - Agent handoff remains traceable through user-facing error numbers without exposing read-model/evidence plumbing.
 - Optional/offline-but-not-needed conditions can be represented as `No action needed` instead of appearing as unresolved failures.
 
-## D026 - Data page is an allowlisted read-only SQL table viewer
+## D026 - Data page is an allowlisted read-only downloaded-data viewer
 
 Date: 2026-05-15
 Status: Accepted
 
 ### Context
 
-Chentong wants a Data page under Tasks that brings selected SQL tables into the dashboard with table selection, filtering, sorting, and search. This is useful for owner inspection, but the dashboard must not become a raw SQL console or mutation surface.
+Chentong wants a Data page under Tasks that brings downloaded/cleaned market data such as bars into the dashboard with table selection, filtering, sorting, and search. This is useful for owner inspection, but the dashboard must not become a raw SQL console, manager-control-plane browser, or mutation surface.
 
 ### Decision
 
-Add a `Data` navigation item directly below `Tasks`. The page uses an allowlisted read-only SQL table API for approved manager/control-plane tables and views. It supports table selection, global text search, per-column filters, clickable column sorting, and fixed-size pagination. The browser never accepts arbitrary SQL and the dashboard still performs no manager dispatch, provider call, model activation, broker/account action, or storage read-model write.
+Add a `Data` navigation item directly below `Tasks`. The page uses an allowlisted read-only table API for approved `trading_data` downloaded source tables and generated feature tables. It supports table selection, global text search, per-column filters, clickable column sorting, and fixed-size pagination. The browser never accepts arbitrary SQL and the dashboard still performs no manager dispatch, provider call, model activation, broker/account action, or storage read-model write.
 
 ### Consequences
 
-- Operators can inspect durable SQL rows without switching to a terminal for common table checks.
-- New SQL tables must be explicitly added to the dashboard allowlist before they appear.
+- Operators can inspect downloaded bars/events/features without switching to a terminal for common data checks.
+- New downloaded-data tables must be explicitly added to the dashboard allowlist before they appear.
 - The implementation remains presentation-only and bounded to read-only `SELECT` access.

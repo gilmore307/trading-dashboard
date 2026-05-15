@@ -4,6 +4,8 @@ export type DataTableSpec = {
   schema: string;
   table: string;
   description: string;
+  default_sort?: string;
+  default_direction?: 'asc' | 'desc';
 };
 
 export type DataTableColumn = {
