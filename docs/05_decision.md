@@ -464,3 +464,22 @@ The dashboard needs a resident browser-serving process instead of ad hoc `npm ru
 - Dashboard service startup may rebuild `dist/`, but the running dashboard still does not publish tasks, dispatch manager work, call providers, activate models, submit broker orders, mutate accounts, or write storage read models.
 - Storage remains the owner of dashboard read-model materialization and refresh cadence.
 - Host installation/restart of the service is an operational deployment action, not a dashboard UI control.
+
+## D021 - Task and status labels use owner-facing semantics
+
+Date: 2026-05-14
+Status: Accepted
+
+### Context
+
+Layer 3 and later historical model stages are target-specific, but the Task List only emphasized month, layer, worker, and workflow phase. Current Status also labeled the free-disk metric as `Storage`, which could be mistaken for total disk, storage service health, or storage lifecycle status. Runtime throughput labels such as `Window`, `Peak burst`, and `Idle / blocked` were also too terse for owner-facing interpretation.
+
+### Decision
+
+Task List rows for target-specific Layer 3+ work show the selected target symbol and include a Target filter. Current Status labels the disk-space card as `Available Storage`. Runtime throughput cards use fuller labels: `Peak completions`, `Observation window`, and `Idle/blocked decisions`.
+
+### Consequences
+
+- Target-specific modeling work can be filtered and scanned by symbol without exposing raw workflow checkpoint internals.
+- Storage capacity presentation is clear that the value is remaining available disk space.
+- Throughput cards remain read-only scheduler observations, but their labels better explain what is being counted.

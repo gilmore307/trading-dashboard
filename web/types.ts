@@ -156,6 +156,16 @@ export interface HistoricalTaskWorkerPayload {
   worker_kind?: string | null;
 }
 
+export interface HistoricalTaskDatasetUnitPayload {
+  unit_kind?: string | null;
+  unit_months?: number | null;
+  start_month?: string | null;
+  end_month?: string | null;
+  target_symbol?: string | null;
+  target_required?: boolean | null;
+  description?: string | null;
+}
+
 export interface HistoricalTaskTimelineDetailPayload {
   blockers?: string[];
   receipt_refs?: string[];
@@ -163,6 +173,7 @@ export interface HistoricalTaskTimelineDetailPayload {
   provider_calls_allowed?: boolean | null;
   model_activation_allowed?: boolean | null;
   broker_execution_allowed?: boolean | null;
+  dataset_unit?: HistoricalTaskDatasetUnitPayload | null;
   progress?: StageCoveragePayload;
   last_execution?: {
     status?: string | null;
@@ -182,6 +193,10 @@ export interface HistoricalTaskTimelineItemPayload {
   stage_type?: string | null;
   layer?: number | null;
   layer_key?: string | null;
+  dataset_unit_kind?: string | null;
+  dataset_unit_months?: number | null;
+  target_symbol?: string | null;
+  target_required?: boolean | null;
   worker_id?: string | null;
   worker_label?: string | null;
   worker_kind?: string | null;

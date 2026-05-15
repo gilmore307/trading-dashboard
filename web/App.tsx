@@ -158,6 +158,30 @@ function taskWorkerFilterValue(task: HistoricalTaskTimelineItemPayload): string 
   return task.worker_id || task.detail?.worker?.worker_id || task.worker_label || task.detail?.worker?.worker_label || 'unassigned_worker';
 }
 
+function taskTargetSymbol(task: HistoricalTaskTimelineItemPayload): string | null {
+  return task.target_symbol || task.detail?.dataset_unit?.target_symbol || null;
+}
+
+function taskTargetFilterValue(task: HistoricalTaskTimelineItemPayload): string {
+  const target = taskTargetSymbol(task);
+  if (target) return target;
+  if ((task.layer ?? 0) >= 3 || task.target_required || task.detail?.dataset_unit?.target_required) return 'target_pending';
+  return 'not_targeted';
+}
+
+function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
+  const target = taskTargetSymbol(task);
+  if (target) return target;
+  if ((task.layer ?? 0) >= 3 || task.target_required || task.detail?.dataset_unit?.target_required) return 'Target pending';
+  return 'Market / sector panel';
+}
+
+function taskTargetMetaLabel(task: HistoricalTaskTimelineItemPayload): string | null {
+  const target = taskTargetSymbol(task);
+  if (target && (task.layer ?? 0) >= 3) return `Target ${target}`;
+  return null;
+}
+
 function taskMonthFilterValue(task: HistoricalTaskTimelineItemPayload): string {
   return task.month ?? 'unscheduled';
 }
@@ -273,7 +297,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
         <div className="task-detail-card">
           <span>Task identity</span>
           <strong>{monthLabel(task.month)} · {layerLabel(task)} · {startCase(task.stage_type)}</strong>
-          <small>{task.task_id}</small>
+          <small>{[task.task_id, taskTargetMetaLabel(task)].filter(Boolean).join(' · ')}</small>
         </div>
         <div className="task-detail-card">
           <span>Status</span>
@@ -337,6 +361,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const [stateFilter, setStateFilter] = useState('current');
   const [workTypeFilter, setWorkTypeFilter] = useState('all');
   const [workerFilter, setWorkerFilter] = useState('all');
+  const [targetFilter, setTargetFilter] = useState('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const monthOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, (task) => monthLabel(task.month), monthOptionRank), [tasks]);
@@ -350,6 +375,10 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     () => uniqueTaskOptions(tasks, taskWorkerFilterValue, workerLabel),
     [tasks],
   );
+  const targetOptions = useMemo(
+    () => uniqueTaskOptions(tasks, taskTargetFilterValue, taskTargetLabel),
+    [tasks],
+  );
   const filteredTasks = useMemo(
     () => tasks.filter((task) => {
       if (monthFilter !== 'all' && taskMonthFilterValue(task) !== monthFilter) return false;
@@ -357,9 +386,10 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
       if (stateFilter !== 'all' && task.task_state !== stateFilter) return false;
       if (workTypeFilter !== 'all' && taskWorkTypeFilterValue(task) !== workTypeFilter) return false;
       if (workerFilter !== 'all' && taskWorkerFilterValue(task) !== workerFilter) return false;
+      if (targetFilter !== 'all' && taskTargetFilterValue(task) !== targetFilter) return false;
       return true;
     }),
-    [layerFilter, monthFilter, stateFilter, tasks, workerFilter, workTypeFilter],
+    [layerFilter, monthFilter, stateFilter, targetFilter, tasks, workerFilter, workTypeFilter],
   );
   const monthGroups = useMemo(() => groupTasksByMonth(filteredTasks), [filteredTasks]);
 
@@ -378,7 +408,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className="panel-heading">Task List</div>
           <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} child tasks</div>
         </div>
-        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('all'); setLayerFilter('all'); setStateFilter('current'); setWorkTypeFilter('all'); setWorkerFilter('all'); setExpandedTasks(new Set()); }}>
+        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('all'); setLayerFilter('all'); setStateFilter('current'); setWorkTypeFilter('all'); setWorkerFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
           Reset to Now
         </button>
       </div>
@@ -418,6 +448,13 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             {workerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
+        <label>
+          <span>Target</span>
+          <select value={targetFilter} onChange={(event) => setTargetFilter(event.target.value)}>
+            <option value="all">All targets</option>
+            {targetOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
       </div>
       {monthGroups.length ? (
         <div className="task-month-groups">
@@ -445,6 +482,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
                         <div className="task-meta">
                           <span>{monthLabel(task.month)}</span>
                           <span>{layerLabel(task)}</span>
+                          {taskTargetMetaLabel(task) ? <span>{taskTargetMetaLabel(task)}</span> : null}
                           <span>{startCase(task.stage_type)}</span>
                           <span>{workerLabel(task)}</span>
                           <span>{startCase(task.status)}</span>
@@ -598,7 +636,7 @@ function App() {
         <div className="resource-grid server-resource-grid">
           <MetricCard label="CPU" value={formatPercent(server.cpu_usage_percent)} />
           <MetricCard label="Memory" value={formatPercent(server.memory_usage_percent)} hint={`${server.memory_available_mb ?? 0} MB available`} />
-          <MetricCard label="Storage" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total ${server.storage_total_gb ?? 0} GB`} />
+          <MetricCard label="Available Storage" value={`${server.storage_available_gb ?? 0} GB`} hint={`Total capacity ${server.storage_total_gb ?? 0} GB`} />
           <MetricCard label="Download" value={formatNetworkRate(server.network_download_kbps)} />
           <MetricCard label="Upload" value={formatNetworkRate(server.network_upload_kbps)} />
           <MetricCard label="Uptime" value={`${Math.round((server.uptime_seconds ?? 0) / 3600)}h`} />
@@ -620,9 +658,9 @@ function App() {
           <MetricCard label="Runtime lanes" value={`${monthWorkers}+${modelWorkers}`} hint={`${runtime.total_worker_count ?? monthWorkers + modelWorkers} total workers`} />
           <MetricCard label="Fold cadence" value={`${runtime.fold_month_count ?? 6} months`} hint={rounds ? `${rounds} ingest rounds per fold` : 'non-overlapping folds'} />
           <MetricCard label="Completion rate" value={`${runtime.completion_rate_per_minute ?? 0}/min`} hint={`${runtime.executed_decision_count ?? 0} completed decisions`} />
-          <MetricCard label="Peak burst" value={`${runtime.max_completions_per_second ?? 0}/sec`} hint={`${runtime.multi_completion_second_count ?? 0} multi-completion seconds`} />
-          <MetricCard label="Window" value={`${runtime.window_minutes ?? 15}m`} hint={runtime.latest_decision_at_utc ? `latest ${formatTimestamp(runtime.latest_decision_at_utc)}` : 'no decision timestamp'} />
-          <MetricCard label="Idle / blocked" value={runtime.idle_or_blocked_decision_count ?? 0} hint={`${runtime.decision_count ?? 0} decisions observed`} />
+          <MetricCard label="Peak completions" value={`${runtime.max_completions_per_second ?? 0}/sec`} hint={`${runtime.multi_completion_second_count ?? 0} seconds had multiple completions`} />
+          <MetricCard label="Observation window" value={`${runtime.window_minutes ?? 15}m`} hint={runtime.latest_decision_at_utc ? `latest scheduler decision ${formatTimestamp(runtime.latest_decision_at_utc)}` : 'no decision timestamp'} />
+          <MetricCard label="Idle/blocked decisions" value={runtime.idle_or_blocked_decision_count ?? 0} hint={`${runtime.decision_count ?? 0} scheduler decisions observed`} />
         </div>
       </section>
     );
