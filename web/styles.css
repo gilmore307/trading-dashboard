@@ -98,6 +98,18 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .metric-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .metric-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .diagnostic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.diagnostics-summary-metrics { margin-bottom: 18px; }
+.diagnostics-summary-panel { margin-bottom: 18px; }
+.diagnostic-summary-list { display: grid; gap: 10px; }
+.diagnostic-summary-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
+.diagnostic-summary-row span { color: #dbeafe; font-weight: 850; }
+.diagnostic-summary-row small { color: #8fa2ba; line-height: 1.45; overflow-wrap: anywhere; }
+.diagnostic-summary-row strong { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
+.diagnostic-error { border-color: rgba(248, 113, 113, .38); background: rgba(127, 29, 29, .18); }
+.diagnostic-error strong { color: #fecaca; }
+.diagnostic-warn { border-color: rgba(250, 204, 21, .28); background: rgba(113, 63, 18, .14); }
+.diagnostic-warn strong { color: #fde68a; }
+.diagnostic-ok strong { color: #bbf7d0; }
 .interactive-panel { min-height: 260px; }
 .click-list { display: grid; gap: 8px; }
 .click-row { width: 100%; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; padding: 12px 13px; background: rgba(15, 23, 42, .45); color: #dbeafe; display: flex; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; text-align: left; }

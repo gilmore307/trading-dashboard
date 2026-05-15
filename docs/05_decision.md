@@ -521,3 +521,22 @@ Month and Target filters are typed dropdown selectors: operators can either open
 - Operators can jump directly to high-cardinality filter values without introducing an unstructured global search field.
 - Broad historical views remain responsive because the browser does not mount every task row at once.
 - The dashboard stays read-only and continues filtering only against storage-hosted summary payload fields.
+
+## D024 - Diagnostics is a final summary page, not a troubleshooting workbench
+
+Date: 2026-05-14
+Status: Accepted
+
+### Context
+
+Chentong expects to resolve operational errors by talking directly with the agent rather than using the dashboard as an interactive debugging console. The Diagnostics page should therefore not be prominent or behave like an artifact browser.
+
+### Decision
+
+Diagnostics is placed last in the dashboard navigation. Its content is limited to read-only error/warning summary, current read-model status, and reference counts for agent-facing evidence. Detailed repair, rerun, provider action, workflow control, and account/broker actions remain outside the dashboard.
+
+### Consequences
+
+- Primary pages stay focused on owner-facing status, tasks, models, and future business surfaces.
+- Diagnostics remains useful as a concise error-status report without duplicating agent troubleshooting flows.
+- Raw diagnostic references remain summarized/countable evidence rather than a primary browsing interface.

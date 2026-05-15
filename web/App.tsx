@@ -24,11 +24,11 @@ type ViewId = 'status' | 'tasks' | 'diagnostics' | 'models' | 'registry' | 'real
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'status', label: 'Current Status', state: 'Live' },
   { id: 'tasks', label: 'Tasks', state: 'Task list' },
-  { id: 'diagnostics', label: 'Diagnostics', state: 'Details' },
   { id: 'models', label: 'Models', state: 'Historical modeling' },
   { id: 'registry', label: 'Definitions', state: 'Coming soon' },
   { id: 'realtime', label: 'Realtime Signals', state: 'Coming soon' },
   { id: 'performance', label: 'Trading Performance', state: 'Coming soon' },
+  { id: 'diagnostics', label: 'Diagnostics', state: 'Error summary' },
 ];
 
 function isHistoricalChart(payload: DashboardReadModel['chart_payload']): payload is HistoricalTaskProgressChartPayload {
@@ -122,6 +122,31 @@ function sanitizedRefSummary(ref: unknown): string {
   if ('generated_at_utc' in record) parts.push(`Generated: ${formatTimestamp(String(record.generated_at_utc))}`);
   if ('source_system' in record) parts.push(`Source: ${publicSourceLabel(String(record.source_system))}`);
   return parts.length ? parts.join(' · ') : 'Reference available for diagnostics.';
+}
+
+type DiagnosticSummaryItem = {
+  title: string;
+  status: string;
+  detail: string;
+  severity: 'ok' | 'warn' | 'error';
+};
+
+function refDetail(ref: unknown): string {
+  if (typeof ref !== 'object' || ref === null) return String(ref);
+  const record = ref as Record<string, unknown>;
+  const detailParts = ['stage_id', 'status', 'path', 'receipt_path', 'stderr_path', 'generated_utc']
+    .filter((field) => record[field] !== undefined && record[field] !== null)
+    .map((field) => `${startCase(field)}: ${String(record[field])}`);
+  return detailParts.length ? detailParts.join(' · ') : 'Reference attached for agent follow-up.';
+}
+
+function refTitle(ref: unknown, fallback: string): string {
+  if (typeof ref !== 'object' || ref === null) return fallback;
+  const record = ref as Record<string, unknown>;
+  if (record.ref_type) return startCase(String(record.ref_type));
+  if (record.contract_type) return startCase(String(record.contract_type));
+  if (record.kind) return startCase(String(record.kind));
+  return fallback;
 }
 
 function taskStateSeverity(state?: string | null): string {
@@ -502,6 +527,72 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   );
 }
 
+function collectDiagnosticSummary(
+  currentStatusModel: DashboardReadModel | null,
+  historicalModel: DashboardReadModel | null,
+  systemChart: CurrentSystemStatusChartPayload,
+  chart: HistoricalTaskProgressChartPayload,
+): DiagnosticSummaryItem[] {
+  const items: DiagnosticSummaryItem[] = [];
+  if (currentStatusModel && currentStatusModel.status !== 'healthy') {
+    items.push({
+      title: 'Current Status read model',
+      status: startCase(currentStatusModel.status),
+      detail: currentStatusModel.summary,
+      severity: currentStatusModel.severity === 'critical' || currentStatusModel.severity === 'high' ? 'error' : 'warn',
+    });
+  }
+  if (historicalModel && !['complete', 'healthy'].includes(historicalModel.status)) {
+    items.push({
+      title: 'Historical task progress read model',
+      status: startCase(historicalModel.status),
+      detail: historicalModel.summary,
+      severity: historicalModel.severity === 'critical' || historicalModel.severity === 'high' ? 'error' : 'warn',
+    });
+  }
+  (systemChart.services ?? []).filter((service) => service.healthy === false).forEach((service) => {
+    items.push({
+      title: publicServiceLabel(service.unit),
+      status: startCase(service.active_state),
+      detail: `Systemd unit ${service.unit} is ${service.active_state}${service.substate ? `/${service.substate}` : ''}.`,
+      severity: 'error',
+    });
+  });
+  (systemChart.apis ?? []).filter((api) => api.healthy === false || (!api.healthy && !apiIsHealthy(api.status))).forEach((api) => {
+    items.push({
+      title: api.name,
+      status: apiStatusLabel(api.status),
+      detail: `${api.kind ? startCase(api.kind) : 'API'} is not currently reported as healthy.`,
+      severity: api.status === 'local_service_offline' ? 'warn' : 'error',
+    });
+  });
+  (systemChart.source_outputs ?? []).filter((output) => output.status !== 'available' || !output.exists).forEach((output) => {
+    items.push({
+      title: output.label,
+      status: startCase(output.status),
+      detail: output.freshness_note ?? sourceOutputStatus(output),
+      severity: 'warn',
+    });
+  });
+  (chart.task_timeline ?? []).filter((task) => task.task_state === 'failed' || String(task.status).toLowerCase() === 'failed').slice(0, 20).forEach((task) => {
+    items.push({
+      title: task.task_label,
+      status: 'Failed',
+      detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${startCase(task.stage_type)}${task.reason ? ` · ${task.reason}` : ''}`,
+      severity: 'error',
+    });
+  });
+  [...(currentStatusModel?.issue_refs ?? []), ...(historicalModel?.issue_refs ?? [])].forEach((ref, index) => {
+    items.push({
+      title: refTitle(ref, `Issue ${index + 1}`),
+      status: 'Issue ref',
+      detail: refDetail(ref),
+      severity: 'warn',
+    });
+  });
+  return items;
+}
+
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
   const [monthFilter, setMonthFilter] = useState('auto');
   const [layerFilter, setLayerFilter] = useState('all');
@@ -742,32 +833,70 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   );
 }
 
-function RefPanel({ title, refs }: { title: string; refs: unknown[] }) {
-  const [selected, setSelected] = useState<number | null>(refs.length ? 0 : null);
+function DiagnosticsSummaryView({
+  items,
+  currentStatusModel,
+  historicalModel,
+}: {
+  items: DiagnosticSummaryItem[];
+  currentStatusModel: DashboardReadModel | null;
+  historicalModel: DashboardReadModel | null;
+}) {
+  const errorCount = items.filter((item) => item.severity === 'error').length;
+  const warningCount = items.filter((item) => item.severity === 'warn').length;
+  const evidenceCount = (currentStatusModel?.diagnostic_refs.length ?? 0) + (historicalModel?.diagnostic_refs.length ?? 0);
+  const issueCount = (currentStatusModel?.issue_refs.length ?? 0) + (historicalModel?.issue_refs.length ?? 0);
   return (
-    <section className="panel interactive-panel">
-      <div className="panel-heading">{title}</div>
-      {refs.length ? (
-        <>
-          <div className="click-list">
-            {refs.map((ref, index) => (
-              <button
-                className={`click-row ${selected === index ? 'selected' : ''}`}
-                key={index}
-                type="button"
-                onClick={() => setSelected(index)}
-              >
-                <span>{safeRefLabel(ref, `${title} ${index + 1}`)}</span>
-                <small>Open details</small>
-              </button>
+    <>
+      <section className="metric-grid four diagnostics-summary-metrics">
+        <MetricCard label="Errors" value={errorCount} hint="Needs agent/operator follow-up" />
+        <MetricCard label="Warnings" value={warningCount} hint="Watch or clarify with agent" />
+        <MetricCard label="Issue refs" value={issueCount} hint="Structured issue references" />
+        <MetricCard label="Evidence refs" value={evidenceCount} hint="Agent-facing diagnostic references" />
+      </section>
+      <section className="panel diagnostics-summary-panel">
+        <div className="panel-heading">Error Summary</div>
+        <p className="panel-subtitle">This page summarizes visible errors and status only. Use the agent conversation for diagnosis, repair, reruns, or external actions.</p>
+        {items.length ? (
+          <div className="diagnostic-summary-list">
+            {items.map((item, index) => (
+              <div className={`diagnostic-summary-row diagnostic-${item.severity}`} key={`${item.title}-${index}`}>
+                <div className="dashboard-file-main">
+                  <span>{item.title}</span>
+                  <small>{item.detail}</small>
+                </div>
+                <strong>{item.status}</strong>
+              </div>
             ))}
           </div>
-          {selected !== null ? <p className="ref-summary">{sanitizedRefSummary(refs[selected])}</p> : null}
-        </>
-      ) : (
-        <div className="empty-chart compact">No {title.toLowerCase()} attached.</div>
-      )}
-    </section>
+        ) : (
+          <div className="empty-chart compact">No active errors or warnings are reported by the dashboard read models.</div>
+        )}
+      </section>
+      <section className="detail-grid">
+        <section className="panel">
+          <div className="panel-heading">Read Model Status</div>
+          <div className="service-list">
+            <div className="service-row">
+              <span>Current Status</span>
+              <strong className={currentStatusModel?.status === 'healthy' ? 'service-ok' : 'service-warn'}>{startCase(currentStatusModel?.status)}</strong>
+            </div>
+            <div className="service-row">
+              <span>Historical Tasks</span>
+              <strong className={historicalModel?.status === 'complete' ? 'service-ok' : 'service-warn'}>{startCase(historicalModel?.status)}</strong>
+            </div>
+          </div>
+        </section>
+        <section className="panel">
+          <div className="panel-heading">Reference Counts</div>
+          <div className="service-list">
+            <div className="service-row"><span>Lineage refs</span><strong>{(currentStatusModel?.lineage_refs.length ?? 0) + (historicalModel?.lineage_refs.length ?? 0)}</strong></div>
+            <div className="service-row"><span>Profile refs</span><strong>{(currentStatusModel?.profile_refs.length ?? 0) + (historicalModel?.profile_refs.length ?? 0)}</strong></div>
+            <div className="service-row"><span>Diagnostic refs</span><strong>{evidenceCount}</strong></div>
+          </div>
+        </section>
+      </section>
+    </>
   );
 }
 
@@ -847,6 +976,10 @@ function App() {
     if (!currentStatusModel || typeof currentStatusModel.chart_payload !== 'object' || Array.isArray(currentStatusModel.chart_payload)) return {} as CurrentSystemStatusChartPayload;
     return currentStatusModel.chart_payload as CurrentSystemStatusChartPayload;
   }, [currentStatusModel]);
+  const diagnosticItems = useMemo(
+    () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
+    [chart, currentStatusModel, historicalModel, systemChart],
+  );
 
   const renderServerResourcesPanel = () => {
     const server = systemChart.server ?? {};
@@ -944,14 +1077,7 @@ function App() {
     if (activeView === 'status') return renderCurrentStatusView();
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
-      return (
-        <section className="diagnostic-grid">
-          <RefPanel title="Diagnostic Refs" refs={historicalModel.diagnostic_refs} />
-          <RefPanel title="Issue Refs" refs={historicalModel.issue_refs} />
-          <RefPanel title="Lineage Refs" refs={historicalModel.lineage_refs} />
-          <RefPanel title="Profile Refs" refs={historicalModel.profile_refs} />
-        </section>
-      );
+      return <DiagnosticsSummaryView items={diagnosticItems} currentStatusModel={currentStatusModel} historicalModel={historicalModel} />;
     }
     if (activeView === 'tasks') {
       return <TaskTimelineList tasks={chart.task_timeline ?? []} />;
