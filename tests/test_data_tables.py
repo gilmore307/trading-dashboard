@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from trading_dashboard.data_tables import _where_clause, table_catalog
+from trading_dashboard.data_tables import _TABLE_BY_ID, _column_label, table_catalog, _where_clause
 
 
 class DataTablesTest(unittest.TestCase):
@@ -12,6 +12,11 @@ class DataTablesTest(unittest.TestCase):
         self.assertIn("target_state_bars_quotes", table_ids)
         self.assertIn("event_overlay_events", table_ids)
         self.assertNotIn("manager_requests", table_ids)
+
+    def test_event_table_puts_event_type_first(self) -> None:
+        spec = _TABLE_BY_ID["event_overlay_events"]
+        self.assertEqual(spec.preferred_columns[0], "event_category_type")
+        self.assertEqual(_column_label("event_category_type"), "event_type")
 
     def test_where_clause_uses_only_known_filter_columns(self) -> None:
         where_sql, params = _where_clause(

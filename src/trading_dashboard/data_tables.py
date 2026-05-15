@@ -31,6 +31,7 @@ class DataTableSpec:
     description: str
     default_sort: str
     default_direction: str = "asc"
+    preferred_columns: tuple[str, ...] = ()
 
 
 ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
@@ -58,6 +59,23 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         description="Downloaded/normalized event rows used by the event-overlay source.",
         default_sort="event_time",
         default_direction="desc",
+        preferred_columns=(
+            "event_category_type",
+            "information_role_type",
+            "event_time",
+            "available_time",
+            "scope_type",
+            "symbol",
+            "sector_type",
+            "title",
+            "summary",
+            "source_name",
+            "event_id",
+            "canonical_event_id",
+            "dedup_status",
+            "reference_type",
+            "reference",
+        ),
     ),
     DataTableSpec(
         table_id="market_regime_features",
@@ -144,6 +162,16 @@ def _json_default(value: Any) -> str | float | int | None:
     return str(value) if value is not None else None
 
 
+def _column_label(column_name: str) -> str:
+    labels = {
+        "event_category_type": "event_type",
+        "information_role_type": "information_role",
+        "scope_type": "event_scope",
+        "source_name": "event_source",
+    }
+    return labels.get(column_name, column_name)
+
+
 def _column_metadata(connection: Any, table: DataTableSpec) -> list[dict[str, str]]:
     with connection.cursor() as cursor:
         cursor.execute(
@@ -156,7 +184,11 @@ def _column_metadata(connection: Any, table: DataTableSpec) -> list[dict[str, st
             (table.schema, table.table),
         )
         rows = cursor.fetchall()
-    return [{"name": str(row[0]), "data_type": str(row[1])} for row in rows]
+    metadata = [{"name": str(row[0]), "label": _column_label(str(row[0])), "data_type": str(row[1])} for row in rows]
+    if not table.preferred_columns:
+        return metadata
+    order = {column: index for index, column in enumerate(table.preferred_columns)}
+    return sorted(metadata, key=lambda column: (order.get(column["name"], len(order)), column["name"]))
 
 
 def _where_clause(
@@ -208,12 +240,13 @@ def query_table(
         selected_direction = direction if sort else table.default_direction
         sort_direction = "DESC" if selected_direction.lower() == "desc" else "ASC"
         base_sql = _table_sql(table)
+        select_columns_sql = ", ".join(_quote_identifier(column) for column in columns)
         with connection.cursor() as cursor:
             cursor.execute(f"SELECT count(*) FROM {base_sql}{where_sql}", params)
             total = int(cursor.fetchone()[0])
             query_params = {**params, "limit": limit_value, "offset": offset_value}
             cursor.execute(
-                f"SELECT * FROM {base_sql}{where_sql} ORDER BY {_quote_identifier(sort_column)} {sort_direction} NULLS LAST LIMIT %(limit)s OFFSET %(offset)s",
+                f"SELECT {select_columns_sql} FROM {base_sql}{where_sql} ORDER BY {_quote_identifier(sort_column)} {sort_direction} NULLS LAST LIMIT %(limit)s OFFSET %(offset)s",
                 query_params,
             )
             rows = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]

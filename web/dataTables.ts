@@ -10,6 +10,7 @@ export type DataTableSpec = {
 
 export type DataTableColumn = {
   name: string;
+  label?: string;
   data_type: string;
 };
 

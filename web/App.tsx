@@ -962,7 +962,10 @@ function DataExplorerView() {
     })
       .then((payload) => {
         setResult(payload);
-        if (!sort) setSort(payload.sort);
+        if (!sort) {
+          setSort(payload.sort);
+          setDirection(payload.direction);
+        }
         setError(null);
       })
       .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : 'Unable to load data table rows.'))
@@ -1038,8 +1041,8 @@ function DataExplorerView() {
                 {result.columns.map((column) => (
                   <th key={column.name}>
                     <button className="data-sort-button" type="button" onClick={() => chooseSort(column.name)}>
-                      <span>{column.name}</span>
-                      <small>{sort === column.name ? (direction === 'asc' ? '▲' : '▼') : column.data_type}</small>
+                      <span>{column.label ?? column.name}</span>
+                      <small>{sort === column.name ? (direction === 'asc' ? '▲' : '▼') : column.name === (column.label ?? column.name) ? column.data_type : column.name}</small>
                     </button>
                     <input
                       aria-label={`Filter ${column.name}`}

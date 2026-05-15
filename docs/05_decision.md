@@ -578,3 +578,21 @@ Add a `Data` navigation item directly below `Tasks`. The page uses an allowliste
 - Operators can inspect downloaded bars/events/features without switching to a terminal for common data checks.
 - New downloaded-data tables must be explicitly added to the dashboard allowlist before they appear.
 - The implementation remains presentation-only and bounded to read-only `SELECT` access.
+
+## D027 - Event data table must surface event type first
+
+Date: 2026-05-15
+Status: Accepted
+
+### Context
+
+The downloaded event table has an `event_category_type` field, but the generic SQL-column ordering placed it behind internal identifiers. For owner inspection, the first visible event columns should answer what kind of event it is, such as news, earnings, macro, or abnormal activity, before showing raw ids and references.
+
+### Decision
+
+The Data page displays `event_category_type` as the user-facing `event_type` column and places it first for the Event Overlay Events table. `information_role_type` is displayed as `information_role`, `scope_type` as `event_scope`, and `source_name` as `event_source`. Raw column names remain available in the column header detail text for traceability.
+
+### Consequences
+
+- The current downloaded event rows visibly show their type as `equity_abnormal_activity`.
+- Future event-source ingestion for news, earnings, macro, filings, or other categories should populate the same event-type column rather than adding a separate UI-only category.
