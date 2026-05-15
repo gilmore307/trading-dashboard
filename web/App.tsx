@@ -365,7 +365,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
 }
 
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
-  const [monthFilter, setMonthFilter] = useState('all');
+  const [monthFilter, setMonthFilter] = useState('auto');
   const [layerFilter, setLayerFilter] = useState('all');
   const [stateFilter, setStateFilter] = useState('auto');
   const [workTypeFilter, setWorkTypeFilter] = useState('all');
@@ -388,14 +388,30 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     () => uniqueTaskOptions(tasks, taskTargetFilterValue, taskTargetLabel, targetOptionRank),
     [tasks],
   );
-  const defaultStateFilter = useMemo(
-    () => (tasks.some((task) => task.task_state === 'current') ? 'current' : 'all'),
+  const hasCurrentTasks = useMemo(
+    () => tasks.some((task) => task.task_state === 'current'),
     [tasks],
   );
+  const latestTaskMonthValue = useMemo(() => {
+    let selected = 'all';
+    let selectedRank = -1;
+    tasks.forEach((task) => {
+      const value = taskMonthFilterValue(task);
+      const rank = monthOptionRank(value);
+      if (rank < Number.MAX_SAFE_INTEGER - 1 && rank > selectedRank) {
+        selected = value;
+        selectedRank = rank;
+      }
+    });
+    return selected;
+  }, [tasks]);
+  const defaultStateFilter = hasCurrentTasks ? 'current' : 'all';
+  const defaultMonthFilter = hasCurrentTasks ? 'all' : latestTaskMonthValue;
   const effectiveStateFilter = stateFilter === 'auto' ? defaultStateFilter : stateFilter;
+  const effectiveMonthFilter = monthFilter === 'auto' ? defaultMonthFilter : monthFilter;
   const filteredTasks = useMemo(
     () => tasks.filter((task) => {
-      if (monthFilter !== 'all' && taskMonthFilterValue(task) !== monthFilter) return false;
+      if (effectiveMonthFilter !== 'all' && taskMonthFilterValue(task) !== effectiveMonthFilter) return false;
       if (layerFilter !== 'all' && taskLayerFilterValue(task) !== layerFilter) return false;
       if (effectiveStateFilter !== 'all' && task.task_state !== effectiveStateFilter) return false;
       if (workTypeFilter !== 'all' && taskWorkTypeFilterValue(task) !== workTypeFilter) return false;
@@ -403,7 +419,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
       if (targetFilter !== 'all' && taskTargetFilterValue(task) !== targetFilter) return false;
       return true;
     }),
-    [effectiveStateFilter, layerFilter, monthFilter, targetFilter, tasks, workerFilter, workTypeFilter],
+    [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, tasks, workerFilter, workTypeFilter],
   );
   const monthGroups = useMemo(() => groupTasksByMonth(filteredTasks), [filteredTasks]);
 
@@ -422,7 +438,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className="panel-heading">Task List</div>
           <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} child tasks</div>
         </div>
-        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('all'); setLayerFilter('all'); setStateFilter('auto'); setWorkTypeFilter('all'); setWorkerFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
+        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('auto'); setLayerFilter('all'); setStateFilter('auto'); setWorkTypeFilter('all'); setWorkerFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
           Reset filters
         </button>
       </div>
@@ -430,6 +446,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
         <label>
           <span>Month</span>
           <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)}>
+            <option value="auto">Now/latest period</option>
             <option value="all">All months</option>
             {monthOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
