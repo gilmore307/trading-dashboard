@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HistoricalProgressVisual, MetricCard, StatusPill } from './components';
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
@@ -263,6 +263,96 @@ function groupTasksByMonth(tasks: HistoricalTaskTimelineItemPayload[]) {
   return Array.from(groups.entries());
 }
 
+type TaskOption = [string, string];
+
+type TaskVirtualRow =
+  | { kind: 'month'; key: string; month: string; count: number }
+  | { kind: 'task'; key: string; task: HistoricalTaskTimelineItemPayload };
+
+function taskRowKey(task: HistoricalTaskTimelineItemPayload): string {
+  return `${task.month ?? 'unknown'}-${task.sequence}-${task.task_id}`;
+}
+
+function flattenTaskRows(monthGroups: [string, HistoricalTaskTimelineItemPayload[]][]): TaskVirtualRow[] {
+  return monthGroups.flatMap(([month, monthTasks]) => [
+    { kind: 'month' as const, key: `month-${month}`, month, count: monthTasks.length },
+    ...monthTasks.map((task) => ({ kind: 'task' as const, key: taskRowKey(task), task })),
+  ]);
+}
+
+function taskVirtualRowHeight(row: TaskVirtualRow, expandedTasks: Set<string>): number {
+  if (row.kind === 'month') return 56;
+  return expandedTasks.has(row.key) ? 430 : 132;
+}
+
+function optionLabel(options: TaskOption[], value: string, fallback: string): string {
+  return options.find(([optionValue]) => optionValue === value)?.[1] ?? fallback;
+}
+
+function findTypedOption(options: TaskOption[], text: string): TaskOption | null {
+  const query = text.trim().toLowerCase();
+  if (!query) return null;
+  return (
+    options.find(([value, label]) => value.toLowerCase() === query || label.toLowerCase() === query) ??
+    options.find(([value, label]) => value.toLowerCase().includes(query) || label.toLowerCase().includes(query)) ??
+    null
+  );
+}
+
+function SearchableFilter({
+  label,
+  value,
+  options,
+  onChange,
+  listId,
+}: {
+  label: string;
+  value: string;
+  options: TaskOption[];
+  onChange: (value: string) => void;
+  listId: string;
+}) {
+  const [inputValue, setInputValue] = useState(() => optionLabel(options, value, value));
+  useEffect(() => {
+    setInputValue(optionLabel(options, value, value));
+  }, [options, value]);
+  const commitTypedValue = useCallback(() => {
+    const selected = findTypedOption(options, inputValue);
+    if (selected) {
+      onChange(selected[0]);
+      setInputValue(selected[1]);
+    } else {
+      setInputValue(optionLabel(options, value, value));
+    }
+  }, [inputValue, onChange, options, value]);
+  return (
+    <label>
+      <span>{label}</span>
+      <input
+        list={listId}
+        value={inputValue}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setInputValue(nextValue);
+          const exact = options.find(([, optionLabelValue]) => optionLabelValue === nextValue);
+          if (exact) onChange(exact[0]);
+        }}
+        onBlur={commitTypedValue}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commitTypedValue();
+          }
+        }}
+        aria-label={label}
+      />
+      <datalist id={listId}>
+        {options.map(([optionValue, labelValue]) => <option key={optionValue} value={labelValue} />)}
+      </datalist>
+    </label>
+  );
+}
+
 function timestampText(value?: string | null): string {
   return value ? formatTimestamp(value) : 'Not recorded';
 }
@@ -422,6 +512,95 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, tasks, workerFilter, workTypeFilter],
   );
   const monthGroups = useMemo(() => groupTasksByMonth(filteredTasks), [filteredTasks]);
+  const virtualRows = useMemo(() => flattenTaskRows(monthGroups), [monthGroups]);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(640);
+  const virtualListRef = useRef<HTMLDivElement>(null);
+  const virtualRowHeights = useMemo(
+    () => virtualRows.map((row) => taskVirtualRowHeight(row, expandedTasks)),
+    [expandedTasks, virtualRows],
+  );
+  const virtualOffsets = useMemo(() => {
+    const offsets = [0];
+    virtualRowHeights.forEach((height) => offsets.push(offsets[offsets.length - 1] + height));
+    return offsets;
+  }, [virtualRowHeights]);
+  const totalVirtualHeight = virtualOffsets[virtualOffsets.length - 1] ?? 0;
+  const visibleRange = useMemo(() => {
+    if (!virtualRows.length) return { start: 0, end: 0 };
+    const overscan = 6;
+    let start = 0;
+    while (start < virtualRows.length && virtualOffsets[start + 1] < scrollTop) start += 1;
+    let end = start;
+    const visibleBottom = scrollTop + viewportHeight;
+    while (end < virtualRows.length && virtualOffsets[end] <= visibleBottom) end += 1;
+    return { start: Math.max(0, start - overscan), end: Math.min(virtualRows.length, end + overscan) };
+  }, [scrollTop, viewportHeight, virtualOffsets, virtualRows.length]);
+  const visibleRows = virtualRows.slice(visibleRange.start, visibleRange.end);
+  const topSpacerHeight = virtualOffsets[visibleRange.start] ?? 0;
+  const bottomSpacerHeight = Math.max(0, totalVirtualHeight - (virtualOffsets[visibleRange.end] ?? totalVirtualHeight));
+
+  useEffect(() => {
+    const element = virtualListRef.current;
+    if (!element) return;
+    const updateViewportHeight = () => setViewportHeight(element.clientHeight || 640);
+    updateViewportHeight();
+    const observer = new ResizeObserver(updateViewportHeight);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    setScrollTop(0);
+    if (virtualListRef.current) virtualListRef.current.scrollTop = 0;
+  }, [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, workerFilter, workTypeFilter]);
+
+  const renderTaskRow = (task: HistoricalTaskTimelineItemPayload) => {
+    const taskKey = taskRowKey(task);
+    const isExpanded = expandedTasks.has(taskKey);
+    return (
+      <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
+        <div className="task-index">{task.sequence}</div>
+        <div className="task-main">
+          <div className="task-title-row">
+            <strong>{task.task_label}</strong>
+            <div className="task-title-badges">
+              <span className="task-worker-chip">Worker: {workerLabel(task)}</span>
+              <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
+            </div>
+          </div>
+          <div className="task-meta">
+            <span>{monthLabel(task.month)}</span>
+            <span>{layerLabel(task)}</span>
+            {taskTargetMetaLabel(task) ? <span>{taskTargetMetaLabel(task)}</span> : null}
+            <span>{startCase(task.stage_type)}</span>
+            <span>{workerLabel(task)}</span>
+            <span>{startCase(task.status)}</span>
+            {task.status_updated_at_utc || task.updated_at_utc ? <span>Status updated {formatTimestamp((task.status_updated_at_utc ?? task.updated_at_utc) || undefined)}</span> : null}
+          </div>
+          {task.reason ? <div className="task-reason">{task.reason}</div> : null}
+          {isExpanded ? <TaskDetailPanel task={task} /> : null}
+        </div>
+        <div className="task-counts">
+          <span>{task.receipt_count ?? 0} receipts</span>
+          <span>{task.blocker_count ?? 0} blockers</span>
+          <button
+            className="detail-toggle"
+            type="button"
+            aria-expanded={isExpanded}
+            onClick={() => setExpandedTasks((current) => {
+              const next = new Set(current);
+              if (next.has(taskKey)) next.delete(taskKey);
+              else next.add(taskKey);
+              return next;
+            })}
+          >
+            {isExpanded ? 'Hide details' : 'Details'}
+          </button>
+        </div>
+      </article>
+    );
+  };
 
   if (!tasks.length) {
     return (
@@ -443,14 +622,13 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
         </button>
       </div>
       <div className="task-filters" aria-label="Task list filters">
-        <label>
-          <span>Month</span>
-          <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)}>
-            <option value="auto">Now/latest period</option>
-            <option value="all">All months</option>
-            {monthOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
+        <SearchableFilter
+          label="Month"
+          listId="task-month-options"
+          value={monthFilter}
+          options={[["auto", "Now/latest period"], ["all", "All months"], ...monthOptions]}
+          onChange={setMonthFilter}
+        />
         <label>
           <span>Layer</span>
           <select value={layerFilter} onChange={(event) => setLayerFilter(event.target.value)}>
@@ -480,72 +658,34 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             {workerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <label>
-          <span>Target</span>
-          <select value={targetFilter} onChange={(event) => setTargetFilter(event.target.value)}>
-            <option value="all">All targets</option>
-            {targetOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
+        <SearchableFilter
+          label="Target"
+          listId="task-target-options"
+          value={targetFilter}
+          options={[["all", "All targets"], ...targetOptions]}
+          onChange={setTargetFilter}
+        />
       </div>
-      {monthGroups.length ? (
-        <div className="task-month-groups">
-          {monthGroups.map(([month, monthTasks]) => (
-            <section className="task-month-group" key={month}>
-              <div className="task-month-heading">
-                <strong>{month}</strong>
-                <span>{monthTasks.length} child tasks</span>
-              </div>
-              <div className="task-list" role="list">
-                {monthTasks.map((task) => {
-                  const taskKey = `${task.month ?? 'unknown'}-${task.sequence}-${task.task_id}`;
-                  const isExpanded = expandedTasks.has(taskKey);
-                  return (
-                    <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
-                      <div className="task-index">{task.sequence}</div>
-                      <div className="task-main">
-                        <div className="task-title-row">
-                          <strong>{task.task_label}</strong>
-                          <div className="task-title-badges">
-                            <span className="task-worker-chip">Worker: {workerLabel(task)}</span>
-                            <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
-                          </div>
-                        </div>
-                        <div className="task-meta">
-                          <span>{monthLabel(task.month)}</span>
-                          <span>{layerLabel(task)}</span>
-                          {taskTargetMetaLabel(task) ? <span>{taskTargetMetaLabel(task)}</span> : null}
-                          <span>{startCase(task.stage_type)}</span>
-                          <span>{workerLabel(task)}</span>
-                          <span>{startCase(task.status)}</span>
-                          {task.status_updated_at_utc || task.updated_at_utc ? <span>Status updated {formatTimestamp((task.status_updated_at_utc ?? task.updated_at_utc) || undefined)}</span> : null}
-                        </div>
-                        {task.reason ? <div className="task-reason">{task.reason}</div> : null}
-                        {isExpanded ? <TaskDetailPanel task={task} /> : null}
-                      </div>
-                      <div className="task-counts">
-                        <span>{task.receipt_count ?? 0} receipts</span>
-                        <span>{task.blocker_count ?? 0} blockers</span>
-                        <button
-                          className="detail-toggle"
-                          type="button"
-                          aria-expanded={isExpanded}
-                          onClick={() => setExpandedTasks((current) => {
-                            const next = new Set(current);
-                            if (next.has(taskKey)) next.delete(taskKey);
-                            else next.add(taskKey);
-                            return next;
-                          })}
-                        >
-                          {isExpanded ? 'Hide details' : 'Details'}
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+      {virtualRows.length ? (
+        <div
+          className="virtual-task-list"
+          ref={virtualListRef}
+          role="list"
+          aria-label="Virtualized task timeline"
+          onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+        >
+          <div style={{ height: topSpacerHeight }} aria-hidden="true" />
+          <div className="task-virtual-window">
+            {visibleRows.map((row) => (
+              row.kind === 'month' ? (
+                <div className="task-month-heading" key={row.key}>
+                  <strong>{row.month}</strong>
+                  <span>{row.count} child tasks</span>
+                </div>
+              ) : renderTaskRow(row.task)
+            ))}
+          </div>
+          <div style={{ height: bottomSpacerHeight }} aria-hidden="true" />
         </div>
       ) : (
         <div className="empty-chart compact">No tasks match the selected filters.</div>

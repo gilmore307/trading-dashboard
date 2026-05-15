@@ -502,3 +502,22 @@ The default filters now use `Now/latest period`: they show current work when cur
 - An idle/completed workflow still shows useful historical task rows without rendering the entire multi-year timeline by default.
 - Six-month model fold ranges no longer drift to the bottom of the Month filter.
 - Target filtering is easier to scan because concrete symbols appear before broad market/sector rows.
+
+## D023 - High-cardinality task filters are typed selectors and task rows are windowed
+
+Date: 2026-05-14
+Status: Accepted
+
+### Context
+
+The task timeline can span thousands of child tasks across historical months and six-month model folds. Plain dropdowns are workable for low-cardinality dimensions such as Layer and Status, but Month and Target become slow to scan as history and target universes grow. Rendering every filtered row at once also wastes browser work when operators choose broad filters such as all months/all statuses.
+
+### Decision
+
+Month and Target filters are typed selectors: operators can type a month/fold/target and commit the nearest matching option while preserving structured filter values. Low-cardinality filters remain ordinary dropdowns. The task list renders through a windowed virtual row list with month headers and task rows, keeping only the visible slice plus overscan mounted in the DOM.
+
+### Consequences
+
+- Operators can jump directly to high-cardinality filter values without introducing an unstructured global search field.
+- Broad historical views remain responsive because the browser does not mount every task row at once.
+- The dashboard stays read-only and continues filtering only against storage-hosted summary payload fields.
