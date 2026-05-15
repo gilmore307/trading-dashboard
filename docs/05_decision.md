@@ -514,7 +514,7 @@ The task timeline can span thousands of child tasks across historical months and
 
 ### Decision
 
-Month and Target filters are typed selectors: operators can type a month/fold/target and commit the nearest matching option while preserving structured filter values. Low-cardinality filters remain ordinary dropdowns. The task list renders through a windowed virtual row list with month headers and task rows, keeping only the visible slice plus overscan mounted in the DOM.
+Month and Target filters are typed dropdown selectors: operators can either open a candidate list or type a month/fold/target and commit the nearest matching option while preserving structured filter values. Low-cardinality filters remain ordinary dropdowns. The task list renders through a windowed virtual row list with month headers and task rows, keeping only the visible slice plus overscan mounted in the DOM.
 
 ### Consequences
 

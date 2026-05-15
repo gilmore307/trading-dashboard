@@ -313,42 +313,90 @@ function SearchableFilter({
   listId: string;
 }) {
   const [inputValue, setInputValue] = useState(() => optionLabel(options, value, value));
+  const [isOpen, setIsOpen] = useState(false);
+  const filterRef = useRef<HTMLLabelElement>(null);
   useEffect(() => {
     setInputValue(optionLabel(options, value, value));
   }, [options, value]);
+  useEffect(() => {
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, []);
+  const selectedLabel = optionLabel(options, value, value);
+  const visibleOptions = useMemo(() => {
+    const query = inputValue.trim().toLowerCase();
+    const selectedQuery = selectedLabel.trim().toLowerCase();
+    const filtered = query && query !== selectedQuery
+      ? options.filter(([optionValue, labelValue]) => optionValue.toLowerCase().includes(query) || labelValue.toLowerCase().includes(query))
+      : options;
+    return filtered.slice(0, 120);
+  }, [inputValue, options, selectedLabel]);
+  const selectOption = useCallback((selected: TaskOption) => {
+    onChange(selected[0]);
+    setInputValue(selected[1]);
+    setIsOpen(false);
+  }, [onChange]);
   const commitTypedValue = useCallback(() => {
     const selected = findTypedOption(options, inputValue);
-    if (selected) {
-      onChange(selected[0]);
-      setInputValue(selected[1]);
-    } else {
-      setInputValue(optionLabel(options, value, value));
-    }
-  }, [inputValue, onChange, options, value]);
+    if (selected) selectOption(selected);
+    else setInputValue(optionLabel(options, value, value));
+  }, [inputValue, options, selectOption, value]);
   return (
-    <label>
+    <label className="searchable-filter" ref={filterRef}>
       <span>{label}</span>
-      <input
-        list={listId}
-        value={inputValue}
-        onChange={(event) => {
-          const nextValue = event.target.value;
-          setInputValue(nextValue);
-          const exact = options.find(([, optionLabelValue]) => optionLabelValue === nextValue);
-          if (exact) onChange(exact[0]);
-        }}
-        onBlur={commitTypedValue}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            commitTypedValue();
-          }
-        }}
-        aria-label={label}
-      />
-      <datalist id={listId}>
-        {options.map(([optionValue, labelValue]) => <option key={optionValue} value={labelValue} />)}
-      </datalist>
+      <div className="searchable-filter-control">
+        <input
+          value={inputValue}
+          onChange={(event) => {
+            setInputValue(event.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => window.setTimeout(commitTypedValue, 120)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              commitTypedValue();
+            }
+            if (event.key === 'Escape') setIsOpen(false);
+            if (event.key === 'ArrowDown') setIsOpen(true);
+          }}
+          aria-autocomplete="list"
+          aria-controls={listId}
+          aria-expanded={isOpen}
+          aria-label={label}
+          role="combobox"
+        />
+        <button
+          aria-label={`Show ${label} options`}
+          className="searchable-filter-toggle"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => setIsOpen((current) => !current)}
+          type="button"
+        >
+          ▾
+        </button>
+      </div>
+      {isOpen ? (
+        <div className="searchable-filter-menu" id={listId} role="listbox">
+          {visibleOptions.length ? visibleOptions.map((option) => (
+            <button
+              className={option[0] === value ? 'selected' : ''}
+              key={option[0]}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => selectOption(option)}
+              role="option"
+              type="button"
+              aria-selected={option[0] === value}
+            >
+              {option[1]}
+            </button>
+          )) : <div className="searchable-filter-empty">No matching options</div>}
+        </div>
+      ) : null}
     </label>
   );
 }

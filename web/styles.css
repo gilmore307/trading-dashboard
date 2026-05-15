@@ -149,6 +149,15 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .task-filters label { display: grid; gap: 7px; color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 850; }
 .task-filters select, .task-filters input { width: 100%; border: 1px solid rgba(148, 163, 184, .18); border-radius: 14px; padding: 10px 12px; color: #e7edf7; background: rgba(2, 6, 23, .68); font: inherit; font-size: 13px; font-weight: 750; outline: none; }
 .task-filters select:focus, .task-filters input:focus { border-color: rgba(125, 211, 252, .62); box-shadow: 0 0 0 3px rgba(14, 165, 233, .12); }
+.searchable-filter { position: relative; }
+.searchable-filter-control { display: grid; grid-template-columns: minmax(0, 1fr) 38px; }
+.searchable-filter-control input { border-radius: 14px 0 0 14px; }
+.searchable-filter-toggle { border: 1px solid rgba(148, 163, 184, .18); border-left: 0; border-radius: 0 14px 14px 0; color: #bae6fd; background: rgba(15, 23, 42, .82); font: inherit; font-size: 14px; font-weight: 900; cursor: pointer; }
+.searchable-filter-toggle:hover { background: rgba(14, 165, 233, .16); color: #e0f2fe; }
+.searchable-filter-menu { position: absolute; z-index: 50; top: calc(100% + 6px); left: 0; right: 0; max-height: 320px; overflow-y: auto; padding: 6px; border: 1px solid rgba(125, 211, 252, .30); border-radius: 14px; background: rgba(2, 6, 23, .98); box-shadow: 0 22px 60px rgba(0, 0, 0, .42); scrollbar-color: rgba(125, 211, 252, .35) rgba(15, 23, 42, .45); }
+.searchable-filter-menu button { width: 100%; border: 0; border-radius: 10px; padding: 9px 10px; color: #dbeafe; background: transparent; text-align: left; font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
+.searchable-filter-menu button:hover, .searchable-filter-menu button.selected { color: #f8fbff; background: rgba(14, 165, 233, .18); }
+.searchable-filter-empty { padding: 9px 10px; color: #7c8ea5; font-size: 13px; text-transform: none; letter-spacing: normal; }
 .secondary-button { border: 1px solid rgba(148, 163, 184, .22); color: #dbeafe; background: rgba(15, 23, 42, .55); border-radius: 999px; padding: 9px 12px; font-weight: 850; cursor: pointer; }
 .secondary-button:hover { border-color: rgba(125, 211, 252, .5); background: rgba(14, 165, 233, .14); }
 .virtual-task-list { max-height: 76vh; min-height: 360px; overflow-y: auto; padding-right: 4px; scrollbar-color: rgba(125, 211, 252, .35) rgba(15, 23, 42, .45); }
