@@ -60,5 +60,5 @@ Realtime Trading Signals and Trading Performance Summary remain parked until mat
 ## Current Status infrastructure slice
 
 - Current Status now consumes `current_system_status_summary` for server/API/systemd-service/read-model-refresh posture.
-- Historical task execution list remains under Tasks via `historical_task_progress_summary`; Layer 3+ target-specific rows show and filter by target symbol. Model-specific workflow progress/coverage lives under Models using the same storage-hosted summary until a dedicated model read model is accepted. Diagnostics remains a final, severity-filtered error/status table with issue/evidence refs demoted to agent handoff counts.
+- Historical task execution list remains under Tasks via `historical_task_progress_summary`; Layer 3+ target-specific rows show and filter by target symbol. Model-specific workflow progress/coverage lives under Models using the same storage-hosted summary until a dedicated model read model is accepted. Diagnostics remains a final, severity-filtered error/status table with user-facing error numbers and without read-model/evidence plumbing.
 - The page preserves the left-sidebar-only navigation rule and read-only dashboard boundaries.

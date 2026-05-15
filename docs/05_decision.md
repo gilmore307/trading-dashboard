@@ -552,10 +552,10 @@ Diagnostics should support quick agent-facing follow-up, not act as a raw refere
 
 ### Decision
 
-Diagnostics presents severity filter cards for All, Critical, Errors, Warnings, and Notices. Clicking a card filters the Error Summary table. The table includes stable diagnostic id, severity, category/status/detail, occurred time, handling state (`Open`, `Closed`, or `No action needed`), and evidence count. Issue/evidence refs are demoted to an Agent Evidence Summary panel rather than top-level cards.
+Diagnostics presents severity filter cards for All, Critical, Errors, Warnings, and Notices. Clicking a card filters the Error Summary table. The table includes user-facing error number (`ERR-000001` style), severity, category/status/detail, occurred time, and handling state (`Open`, `Closed`, or `No action needed`). Issue/evidence/read-model plumbing is hidden from the page because error handling happens through the agent conversation, not the website.
 
 ### Consequences
 
 - Operators can scan actionable errors first and leave non-action notices visible but lower priority.
-- Agent handoff remains traceable through ids and evidence counts without exposing a raw artifact browser.
+- Agent handoff remains traceable through user-facing error numbers without exposing read-model/evidence plumbing.
 - Optional/offline-but-not-needed conditions can be represented as `No action needed` instead of appearing as unresolved failures.
