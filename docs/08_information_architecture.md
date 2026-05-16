@@ -120,11 +120,11 @@ Subtabs:
 - Layer 1 — Market Regime
 - Layer 2 — Sector Context
 - Layer 3 — Target State Vector
-- Layer 4 — Event Overlay
-- Layer 5 — Alpha Confidence
-- Layer 6 — Position Projection
-- Layer 7 — Underlying Action
-- Layer 8 — Option Expression
+- Layer 4 — Alpha Confidence
+- Layer 5 — Position Projection
+- Layer 6 — Underlying Action
+- Layer 7 — Trading Guidance / Option Expression
+- Layer 8 — Event Risk Governor / Event Intelligence Overlay
 
 Visible content should include:
 

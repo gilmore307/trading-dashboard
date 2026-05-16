@@ -590,7 +590,7 @@ The downloaded event table has an `event_category_type` field, but the generic S
 
 ### Decision
 
-The Data page displays `event_category_type` as the user-facing `event_type` column and places it first for the Event Overlay Events table. `information_role_type` is displayed as `information_role`, `scope_type` as `event_scope`, and `source_name` as `event_source`. Raw column names remain available in the column header detail text for traceability.
+The Data page displays `event_category_type` as the user-facing `event_type` column and places it first for the Event Risk Governor Events table. `information_role_type` is displayed as `information_role`, `scope_type` as `event_scope`, and `source_name` as `event_source`. Raw column names remain available in the column header detail text for traceability.
 
 ### Consequences
 

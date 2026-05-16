@@ -10,11 +10,11 @@ class DataTablesTest(unittest.TestCase):
         table_ids = {row["table_id"] for row in table_catalog()}
         self.assertIn("market_regime_bars", table_ids)
         self.assertIn("target_state_bars_quotes", table_ids)
-        self.assertIn("event_overlay_events", table_ids)
+        self.assertIn("event_risk_governor_events", table_ids)
         self.assertNotIn("manager_requests", table_ids)
 
     def test_event_table_puts_event_type_first(self) -> None:
-        spec = _TABLE_BY_ID["event_overlay_events"]
+        spec = _TABLE_BY_ID["event_risk_governor_events"]
         self.assertEqual(spec.preferred_columns[0], "event_category_type")
         self.assertEqual(_column_label("event_category_type"), "event_type")
 

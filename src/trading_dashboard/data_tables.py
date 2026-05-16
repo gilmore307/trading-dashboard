@@ -52,11 +52,11 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         default_sort="target_candidate_id",
     ),
     DataTableSpec(
-        table_id="event_overlay_events",
-        label="Event Overlay Events",
+        table_id="event_risk_governor_events",
+        label="Event Risk Governor Events",
         schema="trading_data",
-        table="source_04_event_overlay",
-        description="Downloaded/normalized event rows used by the event-overlay source.",
+        table="source_08_event_risk_governor",
+        description="Downloaded/normalized event rows used by the event-risk-governor source.",
         default_sort="event_time",
         default_direction="desc",
         preferred_columns=(
@@ -104,11 +104,11 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         default_sort="target_candidate_id",
     ),
     DataTableSpec(
-        table_id="event_overlay_features",
-        label="Event Overlay Features",
+        table_id="event_risk_governor_features",
+        label="Event Risk Governor Features",
         schema="trading_data",
-        table="feature_04_event_overlay",
-        description="Generated event-overlay feature payloads derived from downloaded event rows.",
+        table="feature_08_event_risk_governor",
+        description="Generated event-risk-governor feature payloads derived from downloaded event rows.",
         default_sort="event_id",
     ),
 )
