@@ -1,4 +1,4 @@
-# Decision
+# Decisions
 
 
 ## D001 - Dashboard is downstream presentation
@@ -80,7 +80,7 @@ Status: Accepted
 
 ### Decision
 
-Close the current presentation-boundary phase. `docs/04_dashboard_closeout.md` is the authoritative closeout receipt.
+Close the current presentation-boundary phase. `docs/10_dashboard_acceptance.md` is the authoritative closeout receipt.
 
 No active dashboard-preparation tasks remain. Future dashboard work is deferred until a concrete reviewed output surface exists: first UI implementation slice, package/source/test layout, fixture policy, read models over manager/storage outputs, and storage/reference requirements.
 
@@ -118,7 +118,7 @@ Registry-backed field profiles remain useful as contextual hover/detail explanat
 
 ### Consequences
 
-- `docs/05_information_architecture.md` owns the initial page structure and visibility rules.
+- `docs/20_information_architecture.md` owns the initial page structure and visibility rules.
 - Implementation must not turn `trading-dashboard` into a general artifact browser, registry editor, maintenance console, or workflow controller. The Registry Dictionary is read-only explanation, and Alerts/Exceptions are owner-facing issue summaries.
 - First implementation slice should consume owner-facing summary/read-model outputs, not raw internal control-plane tables as primary UI content.
 - Advanced diagnostics must stay issue-focused and secondary.
@@ -135,7 +135,7 @@ The dashboard could accidentally become a complex internal-table UI if it reads 
 
 ### Decision
 
-Dashboard pages must consume owner-facing summary/read-model contracts materialized in `trading-storage`. `docs/06_dashboard_read_models.md` owns the dashboard-side initial contract set, and `trading-storage/docs/11_dashboard_read_models.md` owns the storage-home boundary:
+Dashboard pages must consume owner-facing summary/read-model contracts materialized in `trading-storage`. `docs/30_dashboard_read_models.md` owns the dashboard-side initial contract set, and `trading-storage/docs/40_dashboard_read_models.md` owns the storage-home boundary:
 
 - `current_system_status_summary`;
 - `alert_exception_summary`;
@@ -175,7 +175,7 @@ Semantic ownership does not move to storage: task/scheduler/promotion summary se
 ### Consequences
 
 - `trading-dashboard` remains presentation-only and read-only.
-- `trading-storage` defines the initial physical layout and validation boundary in `trading-storage/docs/12_dashboard_summary_layout.md`.
+- `trading-storage` defines the initial physical layout and validation boundary in `trading-storage/docs/41_dashboard_summary_layout.md`.
 - Shared summary contract names are routed through `trading-manager` registry migration `344_register_dashboard_read_model_contracts.sql` before cross-repository implementation depends on them.
 - The first implementation slice should request/consume storage-hosted summaries rather than raw component internals.
 

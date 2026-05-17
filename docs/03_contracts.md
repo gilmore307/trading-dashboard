@@ -1,4 +1,4 @@
-# Acceptance
+# Contracts
 
 ## Acceptance Summary
 
@@ -28,7 +28,7 @@ Documentation changes are acceptable when they:
 - mark unresolved contract/storage/runtime questions as open gaps;
 - avoid pretending implementation choices are settled before evidence exists;
 - keep internal maintenance and intermediate-artifact surfaces out of primary navigation unless explicitly accepted;
-- document any new dashboard read model in `docs/06_dashboard_read_models.md`, route its shared name through `trading-manager`, and ensure `trading-storage` has a storage layout/schema boundary before implementation consumes it.
+- document any new dashboard read model in `docs/30_dashboard_read_models.md`, route its shared name through `trading-manager`, and ensure `trading-storage` has a storage layout/schema boundary before implementation consumes it.
 
 ### For Implementation Changes
 
@@ -73,7 +73,7 @@ Every accepted change should provide:
 - storage impact;
 - test/verification output;
 - confirmation that no generated outputs, logs, notebooks, credentials, or secrets were committed;
-- unresolved gaps routed to `docs/80_task.md`.
+- unresolved gaps routed to `docs/04_task.md`.
 
 ## Rejection Reasons
 

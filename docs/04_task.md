@@ -1,4 +1,4 @@
-# Task
+# Tasks
 
 ## Active Tasks
 
@@ -28,8 +28,8 @@ These items are intentionally outside the current no-broker historical-training 
 - Added the first dashboard read adapter: `src/trading_dashboard/read_models.py` and `scripts/read_models/read_latest_dashboard_read_model.py` read storage-hosted `latest.json` summaries, starting with `historical_task_progress_summary`, without raw internal table access or side effects.
 - Added the first refreshable dashboard read model: `trading-manager` builds `historical_task_progress_summary` from read-only scheduler/status evidence, and `trading-storage` can refresh/materialize it through a storage-owned wrapper plus reviewed systemd service/timer templates. Dashboard UI remains future work.
 - Registered the storage-side dashboard read-model materializer through `trading-manager`: producer-supplied summaries can now be validated and materialized by `trading-storage` into snapshot/latest/schema/index files.
-- Registered the dashboard summary/read-model contract names through `trading-manager` and accepted the initial storage physical layout/validation boundary in `trading-storage/docs/12_dashboard_summary_layout.md`.
-- Closed the current presentation-boundary phase in `docs/04_dashboard_closeout.md`: downstream-only display role, provenance-preserving expectation, no dashboard-originated trading actions, and deferred implementation-layout policy are accepted. No dashboard runtime, provider call, manager dispatch, model activation, broker execution, or account mutation is enabled by this closeout.
+- Registered the dashboard summary/read-model contract names through `trading-manager` and accepted the initial storage physical layout/validation boundary in `trading-storage/docs/41_dashboard_summary_layout.md`.
+- Closed the current presentation-boundary phase in `docs/10_dashboard_acceptance.md`: downstream-only display role, provenance-preserving expectation, no dashboard-originated trading actions, and deferred implementation-layout policy are accepted. No dashboard runtime, provider call, manager dispatch, model activation, broker execution, or account mutation is enabled by this closeout.
 - Created initial `trading-dashboard` docs spine and repository boundary.
 - Added initial `.gitignore` for local environments, generated outputs, logs, and secrets.
 

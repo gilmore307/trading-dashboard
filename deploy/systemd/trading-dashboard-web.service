@@ -1,6 +1,6 @@
 [Unit]
 Description=Trading Dashboard Web UI
-Documentation=file:/root/projects/trading-dashboard/docs/06_dashboard_read_models.md
+Documentation=file:/root/projects/trading-dashboard/docs/30_dashboard_read_models.md
 After=network-online.target trading-storage-dashboard-read-model-refresh.timer
 Wants=network-online.target trading-storage-dashboard-read-model-refresh.timer
 
