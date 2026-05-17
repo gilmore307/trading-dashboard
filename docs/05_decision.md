@@ -80,14 +80,14 @@ Status: Accepted
 
 ### Decision
 
-Close the current presentation-boundary phase. `docs/10_dashboard_acceptance.md` is the authoritative closeout receipt.
+Close the current presentation-boundary phase. `docs/10_dashboard_acceptance.md` is the authoritative acceptance receipt.
 
 No active dashboard-preparation tasks remain. Future dashboard work is deferred until a concrete reviewed output surface exists: first UI implementation slice, package/source/test layout, fixture policy, read models over manager/storage outputs, and storage/reference requirements.
 
 ### Consequences
 
 - `trading-dashboard` remains a read-only presentation consumer unless a future mutation contract is explicitly accepted.
-- This closeout does not enable dashboard runtime, provider calls, manager dispatch, model activation, broker execution, or account mutation.
+- This acceptance does not enable dashboard runtime, provider calls, manager dispatch, model activation, broker execution, or account mutation.
 - New dashboard implementation must start from reviewed manager/storage output refs and preserve provenance.
 
 

@@ -1,18 +1,18 @@
 # Docs
 
-This directory is the authoritative documentation spine for `trading-dashboard`.
+This directory contains the current documentation spine for `trading-dashboard`.
 
 ## Files
 
-- `00_scope.md` — repository boundary, in-scope work, out-of-scope work, and owner intent.
-- `01_context.md` — why the repository exists, related systems, environment assumptions, and dependencies.
-- `02_workflow.md` — component workflow, handoffs, and operating sequence.
-- `03_acceptance.md` — acceptance gates, verification commands, evidence requirements, and rejection reasons.
-- `04_task.md` — current task state, queued work, blockers, and recently accepted work.
-- `05_decision.md` — ratified repository decisions.
-- `06_memory.md` — durable local continuity that does not fit narrower docs.
-- `07_dashboard_closeout.md` — current presentation-boundary phase closeout receipt.
-- `08_information_architecture.md` — owner-facing dashboard navigation, page boundaries, and profile/drilldown rules.
-- `09_dashboard_read_models.md` — owner-facing summary/read-model contracts and diagnostic access rules.
+- `00_scope.md` — Scope.
+- `01_context.md` — Context.
+- `02_architecture.md` — Architecture.
+- `03_contracts.md` — Contracts.
+- `04_task.md` — Tasks.
+- `05_decision.md` — Decisions.
+- `06_memory.md` — Memory.
+- `10_dashboard_acceptance.md` — Dashboard Acceptance.
+- `20_information_architecture.md` — Dashboard Information Architecture.
+- `30_dashboard_read_models.md` — Dashboard Read Models.
 
-Do not place generated data, artifacts, notebooks, logs, credentials, or implementation outputs in this directory.
+Keep generated data, artifacts, notebooks, logs, credentials, and runtime outputs out of this directory.

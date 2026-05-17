@@ -4,7 +4,7 @@
 
 | Docs band | Implementation surface | Purpose |
 |---|---|---|
-| `10_*` | repo-level acceptance surfaces | Dashboard acceptance and closeout evidence. |
+| `10_*` | repo-level acceptance surfaces | Dashboard acceptance and acceptance evidence. |
 | `20_*` | `web/`, `src/` UI/data-shape code | Owner-facing information architecture. |
 | `30_*` | `src/trading_dashboard/`, `scripts/read_models/` | Storage-backed dashboard read-model adapters. |
 

@@ -1,10 +1,10 @@
-# Dashboard Closeout
+# Dashboard Acceptance
 
 ## Status
 
 The current `trading-dashboard` presentation-boundary phase is closed.
 
-This closeout covers the dashboard-owned surfaces needed before the next component production phase:
+This acceptance covers the dashboard-owned surfaces needed before the next component production phase:
 
 - repository boundary and docs spine;
 - downstream-only presentation role;
@@ -29,7 +29,7 @@ Source, scripts, tests, and package layout remain intentionally absent until the
 
 ## Boundaries Preserved
 
-This closeout does not enable or claim:
+This acceptance does not enable or claim:
 
 - dashboard implementation;
 - dashboard API/server/runtime;
@@ -54,10 +54,10 @@ These are not blockers for current historical training.
 
 ## Acceptance Evidence
 
-The closeout is acceptable only while these gates pass:
+The acceptance is acceptable only while these gates pass:
 
 ```bash
 git diff --check
 ```
 
-No command in this closeout performs provider calls, manager dispatch, model activation, dashboard runtime startup, broker execution, or account mutation.
+No command in this acceptance performs provider calls, manager dispatch, model activation, dashboard runtime startup, broker execution, or account mutation.
