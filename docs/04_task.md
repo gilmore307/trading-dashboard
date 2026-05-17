@@ -38,7 +38,7 @@ These items are intentionally outside the current no-broker historical-training 
 - Current Status — high-level server/resource/API/service/scheduler/realtime posture, with alert summary.
 - Alerts and Exceptions — owner-actionable unresolved issues, severity, impact, and suggested next action.
 - Tasks — historical modeling and realtime trading subtabs, focused on owner-facing progress/blockers.
-- Models — eight layer subtabs for parameters, version/update history, performance, and promotion posture.
+- Models — nine layer subtabs for parameters, version/update history, performance, and promotion posture.
 - Realtime Trading Signals — parked until realtime components are stable enough to provide meaningful signal summaries.
 - Trading Performance Summary — parked until live trading produces stable performance evidence.
 - Registry Dictionary — read-only searchable explanation surface for accepted fields, terms, statuses, contracts, configs, and scripts.

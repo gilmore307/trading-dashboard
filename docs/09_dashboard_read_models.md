@@ -162,7 +162,7 @@ If realtime work is parked, the read model should say so plainly instead of fabr
 
 ### `model_layer_readiness_summary`
 
-Purpose: support the Models page and eight layer subtabs.
+Purpose: support the Models page and nine layer subtabs.
 
 Owner-facing fields per layer:
 
