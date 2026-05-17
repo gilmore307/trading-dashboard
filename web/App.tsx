@@ -1041,8 +1041,11 @@ function DataExplorerView() {
                 {result.columns.map((column) => (
                   <th key={column.name}>
                     <button className="data-sort-button" type="button" onClick={() => chooseSort(column.name)}>
-                      <span>{column.label ?? column.name}</span>
-                      <small>{sort === column.name ? (direction === 'asc' ? '▲' : '▼') : column.name === (column.label ?? column.name) ? column.data_type : column.name}</small>
+                      <span className="data-column-heading">
+                        <span className="data-column-label">{column.label ?? column.name}</span>
+                        <small>{column.name === (column.label ?? column.name) ? column.data_type : column.name}</small>
+                      </span>
+                      <span className="data-sort-indicator" aria-hidden="true">{sort === column.name ? (direction === 'asc' ? '▲' : '▼') : '↕'}</span>
                     </button>
                     <input
                       aria-label={`Filter ${column.name}`}
