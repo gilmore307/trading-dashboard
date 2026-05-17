@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
@@ -114,6 +115,8 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
 )
 
 _TABLE_BY_ID = {table.table_id: table for table in ALLOWED_TABLES}
+_LAYERED_TABLE_RE = re.compile(r"^(source|feature|model)_(\d{2})_")
+_SURFACE_ORDER = {"source": 0, "feature": 1, "model": 2}
 MAX_LIMIT = 200
 DEFAULT_LIMIT = 50
 
@@ -130,8 +133,16 @@ def database_url(explicit: str | None = None) -> str:
     raise DataTableError("database URL is not configured")
 
 
+def _catalog_sort_key(table: DataTableSpec) -> tuple[int, int, str]:
+    match = _LAYERED_TABLE_RE.match(table.table)
+    if not match:
+        return (99, 99, table.label)
+    surface, layer = match.groups()
+    return (int(layer), _SURFACE_ORDER[surface], table.label)
+
+
 def table_catalog() -> list[dict[str, str]]:
-    return [asdict(table) for table in ALLOWED_TABLES]
+    return [asdict(table) for table in sorted(ALLOWED_TABLES, key=_catalog_sort_key)]
 
 
 def _quote_identifier(identifier: str) -> str:

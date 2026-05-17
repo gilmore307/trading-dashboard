@@ -13,6 +13,21 @@ class DataTablesTest(unittest.TestCase):
         self.assertIn("event_risk_governor_events", table_ids)
         self.assertNotIn("manager_requests", table_ids)
 
+    def test_catalog_orders_tables_by_layer_then_surface(self) -> None:
+        table_ids = [row["table_id"] for row in table_catalog()]
+        self.assertEqual(
+            table_ids,
+            [
+                "market_regime_bars",
+                "market_regime_features",
+                "sector_context_features",
+                "target_state_bars_quotes",
+                "target_state_features",
+                "event_risk_governor_events",
+                "event_risk_governor_features",
+            ],
+        )
+
     def test_catalog_labels_layer_owned_tables_with_layer_prefixes(self) -> None:
         labels = {row["table_id"]: row["label"] for row in table_catalog()}
         self.assertTrue(labels["market_regime_bars"].startswith("Layer 01 · "))
