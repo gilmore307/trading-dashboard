@@ -24,7 +24,7 @@ When a new website page or read adapter begins depending on additional original 
 
 ## Shared Read-Model Envelope
 
-Every storage-hosted dashboard read model should follow the common envelope accepted in `trading-storage/docs/97_dashboard_summary_layout.md`. At dashboard level, the visible fields include these concepts where applicable:
+Every storage-hosted dashboard read model should follow the common envelope accepted in `trading-storage/docs/12_dashboard_summary_layout.md`. At dashboard level, the visible fields include these concepts where applicable:
 
 | Field | Purpose |
 |---|---|
@@ -348,4 +348,4 @@ Responsibilities split as follows:
 - `trading-dashboard` owns presentation only.
 - `trading-manager` remains the registry/governance route for shared contract names before implementation.
 
-The companion storage-side design contracts are `trading-storage/docs/96_dashboard_read_models.md` and `trading-storage/docs/97_dashboard_summary_layout.md`. Shared contract names are registered through `trading-manager` migration `344_register_dashboard_read_model_contracts.sql`.
+The companion storage-side design contracts are `trading-storage/docs/11_dashboard_read_models.md` and `trading-storage/docs/12_dashboard_summary_layout.md`. Shared contract names are registered through `trading-manager` migration `344_register_dashboard_read_model_contracts.sql`.

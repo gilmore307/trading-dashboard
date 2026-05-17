@@ -17,7 +17,7 @@ tests/       First-party dashboard adapter tests.
 web/         Vite/React browser UI for accepted read-model summaries.
 ```
 
-The first implementation slice is a read-only storage-hosted read-model adapter plus a Vite/React Historical Modeling page. It does not create workflow controls, provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes. `src/` owns reusable Python adapters, `web/` owns the browser UI, `scripts/` owns executable entrypoints, and `tests/` owns verification; `scripts/` may import `src/`, but `src/` must not import `scripts/`. `docs/07_dashboard_closeout.md` records the presentation-boundary closeout.
+The first implementation slice is a read-only storage-hosted read-model adapter plus a Vite/React Historical Modeling page. It does not create workflow controls, provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes. `src/` owns reusable Python adapters, `web/` owns the browser UI, `scripts/` owns executable entrypoints, and `tests/` owns verification; `scripts/` may import `src/`, but `src/` must not import `scripts/`. `docs/04_dashboard_closeout.md` records the presentation-boundary closeout.
 
 ## Docs Spine
 
