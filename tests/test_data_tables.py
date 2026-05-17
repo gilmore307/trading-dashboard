@@ -28,12 +28,15 @@ class DataTablesTest(unittest.TestCase):
             ],
         )
 
-    def test_catalog_labels_layer_owned_tables_with_layer_prefixes(self) -> None:
+    def test_catalog_labels_layer_owned_tables_with_layer_and_flow_prefixes(self) -> None:
         labels = {row["table_id"]: row["label"] for row in table_catalog()}
-        self.assertTrue(labels["market_regime_bars"].startswith("Layer 01 · "))
-        self.assertTrue(labels["sector_context_features"].startswith("Layer 02 · "))
-        self.assertTrue(labels["target_state_bars_quotes"].startswith("Layer 03 · "))
-        self.assertTrue(labels["event_risk_governor_events"].startswith("Layer 09 · "))
+        self.assertEqual(labels["market_regime_bars"], "Layer 01 · Source · Market Regime Bars")
+        self.assertEqual(labels["market_regime_features"], "Layer 01 · Features · Market Regime")
+        self.assertEqual(labels["sector_context_features"], "Layer 02 · Features · Sector Context")
+        self.assertEqual(labels["target_state_bars_quotes"], "Layer 03 · Source · Target State Bars + Quotes")
+        self.assertEqual(labels["target_state_features"], "Layer 03 · Features · Target State")
+        self.assertEqual(labels["event_risk_governor_events"], "Layer 09 · Source · Event Risk Governor Events")
+        self.assertEqual(labels["event_risk_governor_features"], "Layer 09 · Features · Event Risk Governor")
 
     def test_event_table_puts_event_type_first(self) -> None:
         spec = _TABLE_BY_ID["event_risk_governor_events"]

@@ -38,7 +38,7 @@ class DataTableSpec:
 ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     DataTableSpec(
         table_id="market_regime_bars",
-        label="Layer 01 · Market Regime Bars",
+        label="Layer 01 · Source · Market Regime Bars",
         schema="trading_data",
         table="source_01_market_regime",
         description="Downloaded bar rows for the reviewed market/sector ETF universe.",
@@ -46,7 +46,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="target_state_bars_quotes",
-        label="Layer 03 · Target State Bars + Quotes",
+        label="Layer 03 · Source · Target State Bars + Quotes",
         schema="trading_data",
         table="source_03_target_state",
         description="Downloaded target-symbol bars and quote-derived fields used by target-state inputs.",
@@ -54,7 +54,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="event_risk_governor_events",
-        label="Layer 09 · Event Risk Governor Events",
+        label="Layer 09 · Source · Event Risk Governor Events",
         schema="trading_data",
         table="source_09_event_risk_governor",
         description="Downloaded/normalized event rows used by the event-risk-governor source.",
@@ -80,7 +80,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="market_regime_features",
-        label="Layer 01 · Market Regime Features",
+        label="Layer 01 · Features · Market Regime",
         schema="trading_data",
         table="feature_01_market_regime",
         description="Generated market-regime feature payloads derived from downloaded source bars.",
@@ -89,7 +89,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="sector_context_features",
-        label="Layer 02 · Sector Context Features",
+        label="Layer 02 · Features · Sector Context",
         schema="trading_data",
         table="feature_02_sector_context",
         description="Generated sector-context feature payloads derived from downloaded source bars.",
@@ -98,7 +98,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="target_state_features",
-        label="Layer 03 · Target State Features",
+        label="Layer 03 · Features · Target State",
         schema="trading_data",
         table="feature_03_target_state_vector",
         description="Generated target-state feature vectors derived from downloaded target data.",
@@ -106,7 +106,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="event_risk_governor_features",
-        label="Layer 09 · Event Risk Governor Features",
+        label="Layer 09 · Features · Event Risk Governor",
         schema="trading_data",
         table="feature_09_event_risk_governor",
         description="Generated event-risk-governor feature payloads derived from downloaded event rows.",
