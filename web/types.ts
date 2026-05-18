@@ -228,4 +228,27 @@ export interface HistoricalTaskProgressChartPayload {
   stage_coverage?: StageCoveragePayload;
   last_stage_execution?: StageExecutionPayload;
   task_timeline?: HistoricalTaskTimelineItemPayload[];
+  agent_error_summary?: AgentErrorSummaryPayload[];
+}
+
+export interface AgentErrorSummaryPayload {
+  error_ref?: string | null;
+  error_number?: number | null;
+  error_kind?: string | null;
+  error_scope?: string | null;
+  source_component?: string | null;
+  source_repo?: string | null;
+  summary?: string | null;
+  occurred_at_utc?: string | null;
+  created_at_utc?: string | null;
+  severity?: string | null;
+  dashboard_severity?: string | null;
+  diagnosis_status?: string | null;
+  repair_status?: string | null;
+  handling_status?: string | null;
+  retry_recommendation?: string | null;
+  root_cause?: string | null;
+  files_changed?: string[];
+  request_path?: string | null;
+  diagnosis_path?: string | null;
 }

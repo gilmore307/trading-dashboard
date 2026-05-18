@@ -552,7 +552,7 @@ Diagnostics should support quick agent-facing follow-up, not act as a raw refere
 
 ### Decision
 
-Diagnostics presents severity filter cards for All, Critical, Errors, Warnings, and Notices. Clicking a card filters the Error Summary table. The table includes user-facing error number (`ERR-000001` style), severity, category/status/detail, occurred time, and handling state (`Open`, `Closed`, or `No action needed`). Issue/evidence/read-model plumbing is hidden from the page because error handling happens through the agent conversation, not the website.
+Diagnostics presents severity filter cards for All, Critical, Errors, Warnings, and Notices. Clicking a card filters the Error Summary table. The table includes user-facing error number (`ERR-000001` style), severity, category/status/detail, occurred time, and handling state (`Open`, `Awaiting retry`, `Closed`, or `No action needed`). For manager agent-error rows, the permanent `ERR-*` ref comes from the server error catalog instead of a UI hash. Issue/evidence/read-model plumbing is hidden from the page because error handling happens through the agent conversation, not the website.
 
 ### Consequences
 

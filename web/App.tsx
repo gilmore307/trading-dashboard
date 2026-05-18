@@ -134,7 +134,7 @@ function sanitizedRefSummary(ref: unknown): string {
 }
 
 type DiagnosticSeverity = 'critical' | 'error' | 'warning' | 'notice';
-type DiagnosticHandlingStatus = 'open' | 'closed' | 'no_action_required';
+type DiagnosticHandlingStatus = 'open' | 'closed' | 'no_action_required' | 'awaiting_retry';
 
 type DiagnosticSummaryItem = {
   id: string;
@@ -144,6 +144,7 @@ type DiagnosticSummaryItem = {
   detail: string;
   severity: DiagnosticSeverity;
   handlingStatus: DiagnosticHandlingStatus;
+  errorRef?: string | null;
   occurredAt?: string | null;
 };
 
@@ -172,6 +173,7 @@ function diagnosticSeverityRank(severity: DiagnosticSeverity): number {
 function handlingStatusLabel(status: DiagnosticHandlingStatus): string {
   if (status === 'open') return 'Open';
   if (status === 'closed') return 'Closed';
+  if (status === 'awaiting_retry') return 'Awaiting retry';
   return 'No action needed';
 }
 
@@ -180,6 +182,22 @@ function diagnosticSeverityLabel(severity: DiagnosticSeverity): string {
   if (severity === 'error') return 'Error';
   if (severity === 'warning') return 'Warning';
   return 'Notice';
+}
+
+function diagnosticSeverityFromValue(value: unknown): DiagnosticSeverity {
+  const severity = String(value ?? '').toLowerCase();
+  if (severity === 'critical') return 'critical';
+  if (severity === 'error') return 'error';
+  if (severity === 'warning') return 'warning';
+  return 'notice';
+}
+
+function diagnosticHandlingFromValue(value: unknown): DiagnosticHandlingStatus {
+  const status = String(value ?? '').toLowerCase();
+  if (status === 'closed') return 'closed';
+  if (status === 'no_action_required') return 'no_action_required';
+  if (status === 'awaiting_retry') return 'awaiting_retry';
+  return 'open';
 }
 
 function stableHashHex(value: string): string {
@@ -228,6 +246,10 @@ function diagnosticRefIdentity(ref: unknown, fallback: string): string {
 
 function stableDiagnosticNumber(id: string): string {
   return `ERR-${stableHashHex(id)}`;
+}
+
+function diagnosticErrorNumber(item: DiagnosticSummaryItem): string {
+  return item.errorRef || stableDiagnosticNumber(item.id);
 }
 
 function maybeRecord(ref: unknown): Record<string, unknown> {
@@ -714,6 +736,23 @@ function collectDiagnosticSummary(
       severity: 'error',
       handlingStatus: 'open',
       occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
+    });
+  });
+  (chart.agent_error_summary ?? []).forEach((error) => {
+    const errorRef = String(error.error_ref ?? '').trim();
+    const repairStatus = String(error.repair_status ?? error.diagnosis_status ?? 'unknown');
+    const rootCause = String(error.root_cause ?? error.summary ?? 'Agent error diagnosis recorded.');
+    const retry = error.retry_recommendation ? ` · ${String(error.retry_recommendation)}` : '';
+    items.push({
+      id: stableDiagnosticId('agent-error', errorRef || String(error.error_number ?? error.summary ?? 'unknown')),
+      errorRef: errorRef || null,
+      title: errorRef ? `${errorRef} ${startCase(String(error.error_kind ?? 'agent error'))}` : startCase(String(error.error_kind ?? 'Agent error')),
+      category: 'Agent error',
+      status: startCase(repairStatus),
+      detail: `${rootCause}${retry}`,
+      severity: diagnosticSeverityFromValue(error.dashboard_severity ?? error.severity),
+      handlingStatus: diagnosticHandlingFromValue(error.handling_status),
+      occurredAt: error.occurred_at_utc ?? error.created_at_utc,
     });
   });
   [...(currentStatusModel?.issue_refs ?? []), ...(historicalModel?.issue_refs ?? [])].forEach((ref, index) => {
@@ -1205,7 +1244,7 @@ function DiagnosticsSummaryView({
               <span>Handling</span>
             </div>
             {filteredItems.map((item) => {
-              const errorNumber = stableDiagnosticNumber(item.id);
+              const errorNumber = diagnosticErrorNumber(item);
               return (
               <div className={`diagnostic-table-row diagnostic-${item.severity}`} key={item.id} role="row">
                 <code>{errorNumber}</code>
