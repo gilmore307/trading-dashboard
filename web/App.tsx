@@ -182,9 +182,52 @@ function diagnosticSeverityLabel(severity: DiagnosticSeverity): string {
   return 'Notice';
 }
 
+function stableHashHex(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).toUpperCase().padStart(8, '0');
+}
+
 function stableDiagnosticId(prefix: string, value: string, index = 0): string {
-  const normalized = `${prefix}-${value}-${index}`.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, '').slice(0, 42);
-  return normalized || `${prefix}-${index + 1}`;
+  const raw = `${prefix}-${value}-${index}`;
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-|-$/gu, '').slice(0, 64);
+  return normalized ? `${prefix}-${stableHashHex(raw)}-${normalized}` : `${prefix}-${stableHashHex(raw)}`;
+}
+
+function stableDiagnosticKey(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableDiagnosticKey).join(',')}]`;
+  if (typeof value === 'object' && value !== null) {
+    return `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${key}:${stableDiagnosticKey((value as Record<string, unknown>)[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function diagnosticRefIdentity(ref: unknown, fallback: string): string {
+  const record = maybeRecord(ref);
+  const stableFields = [
+    'issue_id',
+    'issue_ref',
+    'ref_id',
+    'path',
+    'stage_id',
+    'task_id',
+    'unit',
+    'ref_type',
+    'contract_type',
+    'issue_type',
+    'kind',
+  ];
+  const parts = stableFields
+    .filter((field) => record[field] !== undefined && record[field] !== null)
+    .map((field) => `${field}=${String(record[field])}`);
+  return parts.length ? parts.join('|') : stableDiagnosticKey(ref) || fallback;
+}
+
+function stableDiagnosticNumber(id: string): string {
+  return `ERR-${stableHashHex(id)}`;
 }
 
 function maybeRecord(ref: unknown): Record<string, unknown> {
@@ -605,9 +648,9 @@ function collectDiagnosticSummary(
       occurredAt: historicalModel.generated_at_utc,
     });
   }
-  (systemChart.services ?? []).filter((service) => service.healthy === false).forEach((service, index) => {
+  (systemChart.services ?? []).filter((service) => service.healthy === false).forEach((service) => {
     items.push({
-      id: stableDiagnosticId('service', service.unit, index),
+      id: stableDiagnosticId('service', service.unit),
       title: publicServiceLabel(service.unit),
       category: 'Service',
       status: startCase(service.active_state),
@@ -617,10 +660,10 @@ function collectDiagnosticSummary(
       occurredAt: currentStatusModel?.generated_at_utc,
     });
   });
-  (systemChart.apis ?? []).filter((api) => api.healthy === false || (!api.healthy && !apiIsHealthy(api.status))).forEach((api, index) => {
+  (systemChart.apis ?? []).filter((api) => api.healthy === false || (!api.healthy && !apiIsHealthy(api.status))).forEach((api) => {
     const optionalLocalOffline = api.status === 'local_service_offline';
     items.push({
-      id: stableDiagnosticId('api', api.name, index),
+      id: stableDiagnosticId('api', api.name),
       title: api.name,
       category: 'API',
       status: apiStatusLabel(api.status),
@@ -633,9 +676,9 @@ function collectDiagnosticSummary(
   (systemChart.source_outputs ?? []).filter((output) => {
     if (['not_started', 'not_recorded_yet'].includes(output.status)) return false;
     return output.status !== 'available' || !output.exists;
-  }).forEach((output, index) => {
+  }).forEach((output) => {
     items.push({
-      id: stableDiagnosticId('source-output', output.label, index),
+      id: stableDiagnosticId('source-output', output.label),
       title: output.label,
       category: 'Dashboard data',
       status: startCase(output.status),
@@ -645,9 +688,9 @@ function collectDiagnosticSummary(
       occurredAt: output.latest_updated_at_utc ?? currentStatusModel?.generated_at_utc,
     });
   });
-  (chart.task_timeline ?? []).filter((task) => task.task_state === 'failed' || String(task.status).toLowerCase() === 'failed').slice(0, 20).forEach((task, index) => {
+  (chart.task_timeline ?? []).filter((task) => task.task_state === 'failed' || String(task.status).toLowerCase() === 'failed').slice(0, 20).forEach((task) => {
     items.push({
-      id: stableDiagnosticId('task', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`, index),
+      id: stableDiagnosticId('task', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`),
       title: task.task_label,
       category: 'Task',
       status: 'Failed',
@@ -660,10 +703,10 @@ function collectDiagnosticSummary(
   (chart.task_timeline ?? []).filter((task) => {
     const progress = task.detail?.progress;
     return progress && (progress.failed_count ?? 0) > 0 && progress.can_unlock_downstream !== true;
-  }).slice(0, 20).forEach((task, index) => {
+  }).slice(0, 20).forEach((task) => {
     const progress = task.detail?.progress;
     items.push({
-      id: stableDiagnosticId('task-coverage', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`, index),
+      id: stableDiagnosticId('task-coverage', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`),
       title: task.task_label,
       category: 'Task coverage',
       status: 'Action Required',
@@ -678,8 +721,9 @@ function collectDiagnosticSummary(
     if (record.owner_action_required === false) return;
     const status = String(record.status ?? 'issue_ref');
     const closed = ['closed', 'resolved', 'complete', 'succeeded'].includes(status.toLowerCase());
+    const identity = diagnosticRefIdentity(ref, `Issue ${index + 1}`);
     items.push({
-      id: stableDiagnosticId('issue', refTitle(ref, `Issue ${index + 1}`), index),
+      id: stableDiagnosticId('issue', identity),
       title: refTitle(ref, `Issue ${index + 1}`),
       category: 'Issue ref',
       status: startCase(status),
@@ -1161,7 +1205,7 @@ function DiagnosticsSummaryView({
               <span>Handling</span>
             </div>
             {filteredItems.map((item) => {
-              const errorNumber = `ERR-${String(items.findIndex((candidate) => candidate.id === item.id) + 1).padStart(6, '0')}`;
+              const errorNumber = stableDiagnosticNumber(item.id);
               return (
               <div className={`diagnostic-table-row diagnostic-${item.severity}`} key={item.id} role="row">
                 <code>{errorNumber}</code>
