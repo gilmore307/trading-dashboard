@@ -283,6 +283,24 @@ def _column_metadata(connection: Any, table: DataTableSpec) -> list[dict[str, st
     return sorted(metadata, key=lambda column: (order.get(column["name"], len(order)), column["name"]))
 
 
+def _non_empty_column_metadata(
+    connection: Any,
+    table: DataTableSpec,
+    columns_metadata: Sequence[dict[str, str]],
+    where_sql: str,
+    params: Mapping[str, Any],
+    total: int,
+) -> list[dict[str, str]]:
+    if total == 0:
+        return list(columns_metadata)
+    count_sql = ", ".join(f"count({_quote_identifier(column['name'])}) AS {_quote_identifier(column['name'])}" for column in columns_metadata)
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT {count_sql} FROM {_table_sql(table)}{where_sql}", params)
+        non_null_counts = cursor.fetchone()
+    visible_columns = [column for column, count in zip(columns_metadata, non_null_counts, strict=True) if int(count) > 0]
+    return visible_columns or list(columns_metadata)
+
+
 def _where_clause(
     *,
     columns: Sequence[str],
@@ -332,19 +350,21 @@ def query_table(
         selected_direction = direction if sort else table.default_direction
         sort_direction = "DESC" if selected_direction.lower() == "desc" else "ASC"
         base_sql = _table_sql(table)
-        select_columns_sql = ", ".join(_quote_identifier(column) for column in columns)
         with connection.cursor() as cursor:
             cursor.execute(f"SELECT count(*) FROM {base_sql}{where_sql}", params)
             total = int(cursor.fetchone()[0])
+            visible_columns_metadata = _non_empty_column_metadata(connection, table, columns_metadata, where_sql, params, total)
+            visible_columns = [column["name"] for column in visible_columns_metadata]
+            select_columns_sql = ", ".join(_quote_identifier(column) for column in visible_columns)
             query_params = {**params, "limit": limit_value, "offset": offset_value}
             cursor.execute(
                 f"SELECT {select_columns_sql} FROM {base_sql}{where_sql} ORDER BY {_quote_identifier(sort_column)} {sort_direction} NULLS LAST LIMIT %(limit)s OFFSET %(offset)s",
                 query_params,
             )
-            rows = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
+            rows = [dict(zip(visible_columns, row, strict=True)) for row in cursor.fetchall()]
     return {
         "table": asdict(table),
-        "columns": columns_metadata,
+        "columns": visible_columns_metadata,
         "rows": json.loads(json.dumps(rows, default=_json_default)),
         "total": total,
         "limit": limit_value,

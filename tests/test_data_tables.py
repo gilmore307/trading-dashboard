@@ -2,7 +2,32 @@ from __future__ import annotations
 
 import unittest
 
-from trading_dashboard.data_tables import _TABLE_BY_ID, _column_label, table_catalog, _where_clause
+from trading_dashboard.data_tables import _TABLE_BY_ID, _column_label, _non_empty_column_metadata, table_catalog, _where_clause
+
+
+class _FakeCursor:
+    def __init__(self, row: tuple[int, ...]):
+        self.row = row
+
+    def __enter__(self) -> "_FakeCursor":
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def execute(self, _sql: str, _params: object) -> None:
+        return None
+
+    def fetchone(self) -> tuple[int, ...]:
+        return self.row
+
+
+class _FakeConnection:
+    def __init__(self, row: tuple[int, ...]):
+        self.row = row
+
+    def cursor(self) -> _FakeCursor:
+        return _FakeCursor(self.row)
 
 
 class DataTablesTest(unittest.TestCase):
@@ -76,6 +101,29 @@ class DataTablesTest(unittest.TestCase):
         self.assertNotIn("unknown", where_sql)
         self.assertEqual(params["search"], "%abc%")
         self.assertEqual(params["filter_0"], "%ready%")
+
+    def test_non_empty_column_metadata_omits_all_null_columns_for_visible_rows(self) -> None:
+        spec = _TABLE_BY_ID["market_regime_model_output"]
+        metadata = [
+            {"name": "available_time", "label": "available_time", "data_type": "timestamp"},
+            {"name": "empty_score", "label": "empty_score", "data_type": "numeric"},
+            {"name": "filled_score", "label": "filled_score", "data_type": "numeric"},
+        ]
+
+        visible = _non_empty_column_metadata(_FakeConnection((10, 0, 8)), spec, metadata, "", {}, 10)
+
+        self.assertEqual([column["name"] for column in visible], ["available_time", "filled_score"])
+
+    def test_non_empty_column_metadata_keeps_schema_when_no_rows_match(self) -> None:
+        spec = _TABLE_BY_ID["market_regime_model_output"]
+        metadata = [
+            {"name": "available_time", "label": "available_time", "data_type": "timestamp"},
+            {"name": "empty_score", "label": "empty_score", "data_type": "numeric"},
+        ]
+
+        visible = _non_empty_column_metadata(_FakeConnection((0, 0)), spec, metadata, "", {}, 0)
+
+        self.assertEqual(visible, metadata)
 
 
 if __name__ == "__main__":

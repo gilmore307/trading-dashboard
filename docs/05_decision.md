@@ -577,6 +577,7 @@ Add a `Data` navigation item directly below `Tasks`. The page uses an allowliste
 
 - Operators can inspect downloaded bars/events/features and main model outputs without switching to a terminal for common data checks.
 - New source, feature, or model-output tables must be explicitly added to the dashboard allowlist before they appear.
+- The table API omits columns that are entirely empty for the current result set, so compatibility or not-yet-populated fields do not make populated model-output tables look blank.
 - Model dataset, promotion, diagnostics, explainability, config, and manager control-plane tables remain outside the Data page unless a separate read-only surface is accepted.
 - The implementation remains presentation-only and bounded to read-only `SELECT` access.
 
