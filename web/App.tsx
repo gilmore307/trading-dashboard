@@ -631,7 +631,7 @@ function collectDiagnosticSummary(
     });
   });
   (systemChart.source_outputs ?? []).filter((output) => {
-    if (output.status === 'not_started' && !historicalSchedulerActive) return false;
+    if (['not_started', 'not_recorded_yet'].includes(output.status)) return false;
     return output.status !== 'available' || !output.exists;
   }).forEach((output, index) => {
     items.push({
