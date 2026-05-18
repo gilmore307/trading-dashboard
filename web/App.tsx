@@ -659,6 +659,7 @@ function collectDiagnosticSummary(
   });
   [...(currentStatusModel?.issue_refs ?? []), ...(historicalModel?.issue_refs ?? [])].forEach((ref, index) => {
     const record = maybeRecord(ref);
+    if (record.owner_action_required === false) return;
     const status = String(record.status ?? 'issue_ref');
     const closed = ['closed', 'resolved', 'complete', 'succeeded'].includes(status.toLowerCase());
     items.push({
