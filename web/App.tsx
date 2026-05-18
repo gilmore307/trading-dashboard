@@ -337,7 +337,7 @@ type TaskVirtualRow =
   | { kind: 'task'; key: string; task: HistoricalTaskTimelineItemPayload };
 
 function taskRowKey(task: HistoricalTaskTimelineItemPayload): string {
-  return `${task.month ?? 'unknown'}-${task.sequence}-${task.task_id}`;
+  return task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}-${task.task_number ?? task.sequence}`;
 }
 
 function flattenTaskRows(monthGroups: [string, HistoricalTaskTimelineItemPayload[]][]): TaskVirtualRow[] {
@@ -647,7 +647,7 @@ function collectDiagnosticSummary(
   });
   (chart.task_timeline ?? []).filter((task) => task.task_state === 'failed' || String(task.status).toLowerCase() === 'failed').slice(0, 20).forEach((task, index) => {
     items.push({
-      id: stableDiagnosticId('task', `${task.month ?? 'unknown'}-${task.task_id}`, index),
+      id: stableDiagnosticId('task', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`, index),
       title: task.task_label,
       category: 'Task',
       status: 'Failed',
@@ -786,7 +786,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     const isExpanded = expandedTasks.has(taskKey);
     return (
       <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
-        <div className="task-index">{task.sequence}</div>
+        <div className="task-index">{task.task_number ?? task.sequence}</div>
         <div className="task-main">
           <div className="task-title-row">
             <strong>{task.task_label}</strong>

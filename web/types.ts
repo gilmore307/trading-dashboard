@@ -186,6 +186,8 @@ export interface HistoricalTaskTimelineDetailPayload {
 
 export interface HistoricalTaskTimelineItemPayload {
   sequence: number;
+  task_number?: number | null;
+  task_uid?: string | null;
   month?: string | null;
   task_id: string;
   task_label: string;
