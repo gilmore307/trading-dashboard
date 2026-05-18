@@ -1,8 +1,8 @@
-"""Read-only dashboard downloaded-data table explorer helpers.
+"""Read-only dashboard data and model-output table explorer helpers.
 
-This module intentionally exposes an allowlisted downloaded-data catalog rather
+This module intentionally exposes an allowlisted table catalog rather
 than a raw SQL console. The dashboard may search, filter, sort, and page through
-approved trading_data source/feature tables only.
+approved source, feature, and model-output tables only.
 """
 
 from __future__ import annotations
@@ -88,12 +88,30 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         default_direction="desc",
     ),
     DataTableSpec(
+        table_id="market_regime_model_output",
+        label="Layer 01 · Model Output · Market Regime",
+        schema="trading_model",
+        table="model_01_market_regime",
+        description="Market-regime model output rows generated from reviewed Layer 1 features.",
+        default_sort="available_time",
+        default_direction="desc",
+    ),
+    DataTableSpec(
         table_id="sector_context_features",
         label="Layer 02 · Features · Sector Context",
         schema="trading_data",
         table="feature_02_sector_context",
         description="Generated sector-context feature payloads derived from downloaded source bars.",
         default_sort="snapshot_time",
+        default_direction="desc",
+    ),
+    DataTableSpec(
+        table_id="sector_context_model_output",
+        label="Layer 02 · Model Output · Sector Context",
+        schema="trading_model",
+        table="model_02_sector_context",
+        description="Sector-context model output rows generated from reviewed Layer 2 features.",
+        default_sort="available_time",
         default_direction="desc",
     ),
     DataTableSpec(
@@ -105,12 +123,75 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         default_sort="target_candidate_id",
     ),
     DataTableSpec(
+        table_id="target_state_model_output",
+        label="Layer 03 · Model Output · Target State",
+        schema="trading_model",
+        table="model_03_target_state_vector",
+        description="Target-state model output rows generated from reviewed Layer 3 features.",
+        default_sort="available_time",
+        default_direction="desc",
+    ),
+    DataTableSpec(
+        table_id="event_failure_risk_model_output",
+        label="Layer 04 · Model Output · Event Failure Risk",
+        schema="trading_model",
+        table="model_04_event_failure_risk",
+        description="Event-failure-risk model output rows generated from reviewed Layer 4 context.",
+        default_sort="available_time",
+        default_direction="desc",
+    ),
+    DataTableSpec(
+        table_id="alpha_confidence_model_output",
+        label="Layer 05 · Model Output · Alpha Confidence",
+        schema="trading_model",
+        table="model_05_alpha_confidence",
+        description="Alpha-confidence model output rows generated from upstream state and event context.",
+        default_sort="available_time",
+        default_direction="desc",
+    ),
+    DataTableSpec(
+        table_id="position_projection_model_output",
+        label="Layer 06 · Model Output · Position Projection",
+        schema="trading_model",
+        table="model_06_position_projection",
+        description="Position-projection model output rows generated from alpha confidence and position context.",
+        default_sort="available_time",
+        default_direction="desc",
+    ),
+    DataTableSpec(
+        table_id="underlying_action_model_output",
+        label="Layer 07 · Model Output · Underlying Action",
+        schema="trading_model",
+        table="model_07_underlying_action",
+        description="Underlying-action model output rows generated from position projection and upstream context.",
+        default_sort="available_time",
+        default_direction="desc",
+    ),
+    DataTableSpec(
+        table_id="option_expression_model_output",
+        label="Layer 08 · Model Output · Option Expression",
+        schema="trading_model",
+        table="model_08_option_expression",
+        description="Option-expression model output rows generated from underlying-action and option-chain context.",
+        default_sort="available_time",
+        default_direction="desc",
+    ),
+    DataTableSpec(
         table_id="event_risk_governor_features",
         label="Layer 09 · Features · Event Risk Governor",
         schema="trading_data",
         table="feature_09_event_risk_governor",
         description="Generated event-risk-governor feature payloads derived from downloaded event rows.",
         default_sort="event_id",
+    ),
+    DataTableSpec(
+        table_id="event_risk_governor_model_output",
+        label="Layer 09 · Model Output · Event Risk Governor",
+        schema="trading_model",
+        table="model_09_event_risk_governor",
+        description="Event-risk-governor model output rows generated from reviewed Layer 9 feature/context inputs.",
+        default_sort="available_time",
+        default_direction="desc",
     ),
 )
 

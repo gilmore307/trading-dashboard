@@ -31,7 +31,7 @@ type ViewId = 'status' | 'tasks' | 'data' | 'diagnostics' | 'models' | 'registry
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'status', label: 'Current Status', state: 'Live' },
   { id: 'tasks', label: 'Tasks', state: 'Task list' },
-  { id: 'data', label: 'Data', state: 'Downloaded data' },
+  { id: 'data', label: 'Data', state: 'Data + model outputs' },
   { id: 'models', label: 'Models', state: 'Historical modeling' },
   { id: 'registry', label: 'Definitions', state: 'Coming soon' },
   { id: 'realtime', label: 'Realtime Signals', state: 'Coming soon' },
@@ -1140,7 +1140,7 @@ function DataExplorerView() {
       <div className="task-list-header">
         <div>
           <div className="panel-heading">Data Tables</div>
-          <p className="panel-subtitle">Read-only downloaded-data viewer. Select bars, events, or generated feature tables, then search, filter, sort, and page through rows.</p>
+          <p className="panel-subtitle">Read-only data and model-output viewer. Select source, feature, or model output tables, then search, filter, sort, and page through rows.</p>
         </div>
         <button className="secondary-button" type="button" onClick={resetControls}>Reset filters</button>
       </div>
@@ -1536,7 +1536,7 @@ function App() {
   };
 
   const pageTitle = activeView === 'status' ? 'Current Status' : activeView === 'data' ? 'Data' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Downloaded Data / Dashboard' : `${startCase(activeView)} / Dashboard`;
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);

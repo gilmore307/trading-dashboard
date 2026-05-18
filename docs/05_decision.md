@@ -560,7 +560,7 @@ Diagnostics presents severity filter cards for All, Critical, Errors, Warnings, 
 - Agent handoff remains traceable through user-facing error numbers without exposing read-model/evidence plumbing.
 - Optional/offline-but-not-needed conditions can be represented as `No action needed` instead of appearing as unresolved failures.
 
-## D026 - Data page is an allowlisted read-only downloaded-data viewer
+## D026 - Data page is an allowlisted read-only data and model-output viewer
 
 Date: 2026-05-15
 Status: Accepted
@@ -571,12 +571,13 @@ Chentong wants a Data page under Tasks that brings downloaded/cleaned market dat
 
 ### Decision
 
-Add a `Data` navigation item directly below `Tasks`. The page uses an allowlisted read-only table API for approved `trading_data` downloaded source tables and generated feature tables. It supports table selection, global text search, per-column filters, clickable column sorting, and fixed-size pagination. The browser never accepts arbitrary SQL and the dashboard still performs no manager dispatch, provider call, model activation, broker/account action, or storage read-model write.
+Add a `Data` navigation item directly below `Tasks`. The page uses an allowlisted read-only table API for approved `trading_data` source/feature tables and the main `trading_model` layer output tables. It supports table selection, global text search, per-column filters, clickable column sorting, and fixed-size pagination. The browser never accepts arbitrary SQL and the dashboard still performs no manager dispatch, provider call, model activation, broker/account action, or storage read-model write.
 
 ### Consequences
 
-- Operators can inspect downloaded bars/events/features without switching to a terminal for common data checks.
-- New downloaded-data tables must be explicitly added to the dashboard allowlist before they appear.
+- Operators can inspect downloaded bars/events/features and main model outputs without switching to a terminal for common data checks.
+- New source, feature, or model-output tables must be explicitly added to the dashboard allowlist before they appear.
+- Model dataset, promotion, diagnostics, explainability, config, and manager control-plane tables remain outside the Data page unless a separate read-only surface is accepted.
 - The implementation remains presentation-only and bounded to read-only `SELECT` access.
 
 ## D027 - Event data table must surface event type first
