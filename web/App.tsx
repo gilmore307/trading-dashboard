@@ -657,6 +657,22 @@ function collectDiagnosticSummary(
       occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
     });
   });
+  (chart.task_timeline ?? []).filter((task) => {
+    const progress = task.detail?.progress;
+    return progress && (progress.failed_count ?? 0) > 0 && progress.can_unlock_downstream !== true;
+  }).slice(0, 20).forEach((task, index) => {
+    const progress = task.detail?.progress;
+    items.push({
+      id: stableDiagnosticId('task-coverage', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`, index),
+      title: task.task_label,
+      category: 'Task coverage',
+      status: 'Action Required',
+      detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${progress?.failed_count ?? 0}/${progress?.expected_count ?? 0} requests failed; downstream remains blocked.`,
+      severity: 'error',
+      handlingStatus: 'open',
+      occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
+    });
+  });
   [...(currentStatusModel?.issue_refs ?? []), ...(historicalModel?.issue_refs ?? [])].forEach((ref, index) => {
     const record = maybeRecord(ref);
     if (record.owner_action_required === false) return;
