@@ -592,7 +592,7 @@ function collectDiagnosticSummary(
       occurredAt: currentStatusModel.generated_at_utc,
     });
   }
-  if (historicalModel && !['complete', 'healthy'].includes(historicalModel.status)) {
+  if (historicalModel && !['complete', 'healthy', 'ready', 'running'].includes(historicalModel.status)) {
     const severity = historicalModel.severity === 'critical' ? 'critical' : historicalModel.severity === 'high' ? 'error' : 'warning';
     items.push({
       id: stableDiagnosticId('read-model', HISTORICAL_TASK_PROGRESS),
