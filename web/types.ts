@@ -52,6 +52,7 @@ export interface CurrentSystemServicePayload {
   active_state: string;
   enabled_state?: string;
   substate?: string;
+  result?: string;
   healthy?: boolean;
 }
 

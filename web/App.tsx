@@ -68,6 +68,13 @@ function apiIsHealthy(status?: string | null): boolean {
   return status === 'connected' || status === 'configured' || status === 'available' || status === 'local_service_online';
 }
 
+function serviceStatusLabel(activeState?: string | null, healthy?: boolean | null): string {
+  if (activeState === 'active') return healthy === false ? 'Needs attention' : 'Running';
+  if (activeState === 'activating') return 'Starting';
+  if (activeState === 'inactive') return 'Stopped';
+  return startCase(activeState);
+}
+
 function formatAgeSeconds(ageSeconds?: number | null): string {
   if (typeof ageSeconds !== 'number' || !Number.isFinite(ageSeconds)) return 'age unknown';
   if (ageSeconds < 60) return `${Math.round(ageSeconds)}s ago`;
@@ -569,6 +576,9 @@ function collectDiagnosticSummary(
   chart: HistoricalTaskProgressChartPayload,
 ): DiagnosticSummaryItem[] {
   const items: DiagnosticSummaryItem[] = [];
+  const historicalSchedulerActive = (systemChart.services ?? []).some(
+    (service) => service.unit === 'trading-manager-historical-scheduler.service' && service.active_state === 'active',
+  );
   if (currentStatusModel && currentStatusModel.status !== 'healthy') {
     const severity = currentStatusModel.severity === 'critical' ? 'critical' : currentStatusModel.severity === 'high' ? 'error' : 'warning';
     items.push({
@@ -620,7 +630,10 @@ function collectDiagnosticSummary(
       occurredAt: currentStatusModel?.generated_at_utc,
     });
   });
-  (systemChart.source_outputs ?? []).filter((output) => output.status !== 'available' || !output.exists).forEach((output, index) => {
+  (systemChart.source_outputs ?? []).filter((output) => {
+    if (output.status === 'not_started' && !historicalSchedulerActive) return false;
+    return output.status !== 'available' || !output.exists;
+  }).forEach((output, index) => {
     items.push({
       id: stableDiagnosticId('source-output', output.label, index),
       title: output.label,
@@ -1302,7 +1315,9 @@ function App() {
               {services.map((service) => (
                 <div className="service-row" key={service.unit}>
                   <span>{publicServiceLabel(service.unit)}</span>
-                  <strong className={service.healthy ? 'service-ok' : 'service-warn'}>{service.healthy ? 'Healthy' : startCase(service.active_state)}</strong>
+                  <strong className={service.healthy && service.active_state === 'active' ? 'service-ok' : 'service-warn'}>
+                    {serviceStatusLabel(service.active_state, service.healthy)}
+                  </strong>
                 </div>
               ))}
             </div>
