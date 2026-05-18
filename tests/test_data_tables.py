@@ -12,7 +12,11 @@ class DataTablesTest(unittest.TestCase):
         self.assertIn("target_state_bars_quotes", table_ids)
         self.assertIn("event_risk_governor_events", table_ids)
         self.assertIn("market_regime_model_output", table_ids)
+        self.assertIn("market_regime_model_diagnostics", table_ids)
+        self.assertIn("market_regime_model_explainability", table_ids)
         self.assertIn("option_expression_model_output", table_ids)
+        self.assertIn("option_expression_model_diagnostics", table_ids)
+        self.assertIn("option_expression_model_explainability", table_ids)
         self.assertIn("event_risk_governor_model_output", table_ids)
         self.assertNotIn("manager_requests", table_ids)
         self.assertNotIn("model_dataset_snapshot", table_ids)
@@ -25,19 +29,37 @@ class DataTablesTest(unittest.TestCase):
                 "market_regime_bars",
                 "market_regime_features",
                 "market_regime_model_output",
+                "market_regime_model_diagnostics",
+                "market_regime_model_explainability",
                 "sector_context_features",
                 "sector_context_model_output",
+                "sector_context_model_diagnostics",
+                "sector_context_model_explainability",
                 "target_state_bars_quotes",
                 "target_state_features",
                 "target_state_model_output",
+                "target_state_model_diagnostics",
+                "target_state_model_explainability",
                 "event_failure_risk_model_output",
+                "event_failure_risk_model_diagnostics",
+                "event_failure_risk_model_explainability",
                 "alpha_confidence_model_output",
+                "alpha_confidence_model_diagnostics",
+                "alpha_confidence_model_explainability",
                 "position_projection_model_output",
+                "position_projection_model_diagnostics",
+                "position_projection_model_explainability",
                 "underlying_action_model_output",
+                "underlying_action_model_diagnostics",
+                "underlying_action_model_explainability",
                 "option_expression_model_output",
+                "option_expression_model_diagnostics",
+                "option_expression_model_explainability",
                 "event_risk_governor_events",
                 "event_risk_governor_features",
                 "event_risk_governor_model_output",
+                "event_risk_governor_model_diagnostics",
+                "event_risk_governor_model_explainability",
             ],
         )
 
@@ -46,6 +68,14 @@ class DataTablesTest(unittest.TestCase):
             self.assertEqual(row["label"], f"{row['schema']}.{row['table']}")
         labels = {row["table_id"]: row["label"] for row in table_catalog()}
         self.assertEqual(labels["target_state_model_output"], "trading_model.model_03_target_state_vector")
+        self.assertEqual(
+            labels["target_state_model_diagnostics"],
+            "trading_model.model_03_target_state_vector_diagnostics",
+        )
+        self.assertEqual(
+            labels["target_state_model_explainability"],
+            "trading_model.model_03_target_state_vector_explainability",
+        )
 
     def test_event_table_puts_event_type_first(self) -> None:
         spec = _TABLE_BY_ID["event_risk_governor_events"]

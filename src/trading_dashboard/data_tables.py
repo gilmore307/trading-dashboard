@@ -35,6 +35,39 @@ class DataTableSpec:
     preferred_columns: tuple[str, ...] = ()
 
 
+def _model_output_specs(*, table_id_prefix: str, table: str, description: str) -> tuple[DataTableSpec, ...]:
+    label = f"trading_model.{table}"
+    return (
+        DataTableSpec(
+            table_id=f"{table_id_prefix}_output",
+            label=label,
+            schema="trading_model",
+            table=table,
+            description=description,
+            default_sort="available_time",
+            default_direction="desc",
+        ),
+        DataTableSpec(
+            table_id=f"{table_id_prefix}_diagnostics",
+            label=f"{label}_diagnostics",
+            schema="trading_model",
+            table=f"{table}_diagnostics",
+            description=f"Diagnostics and quality-control support rows for {label}.",
+            default_sort="available_time",
+            default_direction="desc",
+        ),
+        DataTableSpec(
+            table_id=f"{table_id_prefix}_explainability",
+            label=f"{label}_explainability",
+            schema="trading_model",
+            table=f"{table}_explainability",
+            description=f"Explainability and JSON/vector support rows for {label}.",
+            default_sort="available_time",
+            default_direction="desc",
+        ),
+    )
+
+
 ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     DataTableSpec(
         table_id="market_regime_bars",
@@ -87,14 +120,10 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         default_sort="snapshot_time",
         default_direction="desc",
     ),
-    DataTableSpec(
-        table_id="market_regime_model_output",
-        label="trading_model.model_01_market_regime",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="market_regime_model",
         table="model_01_market_regime",
         description="Market-regime model output rows generated from reviewed Layer 1 features.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
     DataTableSpec(
         table_id="sector_context_features",
@@ -105,14 +134,10 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         default_sort="snapshot_time",
         default_direction="desc",
     ),
-    DataTableSpec(
-        table_id="sector_context_model_output",
-        label="trading_model.model_02_sector_context",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="sector_context_model",
         table="model_02_sector_context",
         description="Sector-context model output rows generated from reviewed Layer 2 features.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
     DataTableSpec(
         table_id="target_state_features",
@@ -122,59 +147,35 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         description="Generated target-state feature vectors derived from downloaded target data.",
         default_sort="target_candidate_id",
     ),
-    DataTableSpec(
-        table_id="target_state_model_output",
-        label="trading_model.model_03_target_state_vector",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="target_state_model",
         table="model_03_target_state_vector",
         description="Target-state model output rows generated from reviewed Layer 3 features.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
-    DataTableSpec(
-        table_id="event_failure_risk_model_output",
-        label="trading_model.model_04_event_failure_risk",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="event_failure_risk_model",
         table="model_04_event_failure_risk",
         description="Event-failure-risk model output rows generated from reviewed Layer 4 context.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
-    DataTableSpec(
-        table_id="alpha_confidence_model_output",
-        label="trading_model.model_05_alpha_confidence",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="alpha_confidence_model",
         table="model_05_alpha_confidence",
         description="Alpha-confidence model output rows generated from upstream state and event context.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
-    DataTableSpec(
-        table_id="position_projection_model_output",
-        label="trading_model.model_06_position_projection",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="position_projection_model",
         table="model_06_position_projection",
         description="Position-projection model output rows generated from alpha confidence and position context.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
-    DataTableSpec(
-        table_id="underlying_action_model_output",
-        label="trading_model.model_07_underlying_action",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="underlying_action_model",
         table="model_07_underlying_action",
         description="Underlying-action model output rows generated from position projection and upstream context.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
-    DataTableSpec(
-        table_id="option_expression_model_output",
-        label="trading_model.model_08_option_expression",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="option_expression_model",
         table="model_08_option_expression",
         description="Option-expression model output rows generated from underlying-action and option-chain context.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
     DataTableSpec(
         table_id="event_risk_governor_features",
@@ -184,20 +185,17 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         description="Generated event-risk-governor feature payloads derived from downloaded event rows.",
         default_sort="event_id",
     ),
-    DataTableSpec(
-        table_id="event_risk_governor_model_output",
-        label="trading_model.model_09_event_risk_governor",
-        schema="trading_model",
+    *_model_output_specs(
+        table_id_prefix="event_risk_governor_model",
         table="model_09_event_risk_governor",
         description="Event-risk-governor model output rows generated from reviewed Layer 9 feature/context inputs.",
-        default_sort="available_time",
-        default_direction="desc",
     ),
 )
 
 _TABLE_BY_ID = {table.table_id: table for table in ALLOWED_TABLES}
 _LAYERED_TABLE_RE = re.compile(r"^(source|feature|model)_(\d{2})_")
 _SURFACE_ORDER = {"source": 0, "feature": 1, "model": 2}
+_MODEL_SUPPORT_ORDER = {"primary": 0, "diagnostics": 1, "explainability": 2}
 MAX_LIMIT = 200
 DEFAULT_LIMIT = 50
 
@@ -214,12 +212,20 @@ def database_url(explicit: str | None = None) -> str:
     raise DataTableError("database URL is not configured")
 
 
-def _catalog_sort_key(table: DataTableSpec) -> tuple[int, int, str]:
+def _model_support_rank(table: DataTableSpec) -> int:
+    if table.table.endswith("_diagnostics"):
+        return _MODEL_SUPPORT_ORDER["diagnostics"]
+    if table.table.endswith("_explainability"):
+        return _MODEL_SUPPORT_ORDER["explainability"]
+    return _MODEL_SUPPORT_ORDER["primary"]
+
+
+def _catalog_sort_key(table: DataTableSpec) -> tuple[int, int, int, str]:
     match = _LAYERED_TABLE_RE.match(table.table)
     if not match:
-        return (99, 99, table.label)
+        return (99, 99, 99, table.label)
     surface, layer = match.groups()
-    return (int(layer), _SURFACE_ORDER[surface], table.label)
+    return (int(layer), _SURFACE_ORDER[surface], _model_support_rank(table), table.label)
 
 
 def table_catalog() -> list[dict[str, str]]:
