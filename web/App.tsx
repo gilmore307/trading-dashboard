@@ -3,7 +3,13 @@ import { HistoricalProgressVisual, MetricCard, StatusPill } from './components';
 import { fetchDataTableCatalog, fetchDataTableRows, type DataTableQueryResult, type DataTableSpec } from './dataTables';
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
-import type { CurrentSystemStatusChartPayload, DashboardReadModel, HistoricalTaskProgressChartPayload, HistoricalTaskTimelineItemPayload } from './types';
+import type {
+  CurrentSystemServicePayload,
+  CurrentSystemStatusChartPayload,
+  DashboardReadModel,
+  HistoricalTaskProgressChartPayload,
+  HistoricalTaskTimelineItemPayload,
+} from './types';
 import './styles.css';
 
 const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
@@ -68,13 +74,26 @@ function apiIsHealthy(status?: string | null): boolean {
   return status === 'connected' || status === 'configured' || status === 'available' || status === 'local_service_online';
 }
 
-function serviceStatusLabel(activeState?: string | null, healthy?: boolean | null): string {
-  if (activeState === 'active') return healthy === false ? 'Needs attention' : 'Running';
-  if (activeState === 'activating') return 'Starting';
-  if (activeState === 'inactive') return 'Stopped';
-  return startCase(activeState);
+function serviceIsHealthyForDisplay(service: CurrentSystemServicePayload): boolean {
+  if (service.healthy === false) return false;
+  if (service.active_state === 'active') return true;
+  if (service.unit === 'trading-storage-dashboard-read-model-refresh.service') {
+    return service.active_state === 'activating' || (service.active_state === 'inactive' && service.result === 'success');
+  }
+  return false;
 }
 
+function serviceStatusLabel(service: CurrentSystemServicePayload): string {
+  if (service.unit === 'trading-storage-dashboard-read-model-refresh.service') {
+    if (service.healthy === false) return 'Needs attention';
+    if (service.active_state === 'activating') return 'Refreshing';
+    if (service.active_state === 'inactive' && service.result === 'success') return 'Idle';
+  }
+  if (service.active_state === 'active') return service.healthy === false ? 'Needs attention' : 'Running';
+  if (service.active_state === 'activating') return 'Starting';
+  if (service.active_state === 'inactive') return 'Stopped';
+  return startCase(service.active_state);
+}
 function formatAgeSeconds(ageSeconds?: number | null): string {
   if (typeof ageSeconds !== 'number' || !Number.isFinite(ageSeconds)) return 'age unknown';
   if (ageSeconds < 60) return `${Math.round(ageSeconds)}s ago`;
@@ -1415,8 +1434,8 @@ function App() {
               {services.map((service) => (
                 <div className="service-row" key={service.unit}>
                   <span>{publicServiceLabel(service.unit)}</span>
-                  <strong className={service.healthy && service.active_state === 'active' ? 'service-ok' : 'service-warn'}>
-                    {serviceStatusLabel(service.active_state, service.healthy)}
+                  <strong className={serviceIsHealthyForDisplay(service) ? 'service-ok' : 'service-warn'}>
+                    {serviceStatusLabel(service)}
                   </strong>
                 </div>
               ))}
