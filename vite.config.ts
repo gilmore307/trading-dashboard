@@ -57,6 +57,8 @@ function sendReadModelSnapshot(socket: WebSocket, contractType: string): void {
 
 function attachReadModelSocket(socket: WebSocket, contractType: string): void {
   let lastMtimeMs = -1;
+  let watcher: fs.FSWatcher | undefined;
+  let fallbackInterval: ReturnType<typeof setInterval> | undefined;
   const pushIfChanged = () => {
     try {
       const mtimeMs = fs.statSync(latestReadModelPath(contractType)).mtimeMs;
@@ -67,8 +69,22 @@ function attachReadModelSocket(socket: WebSocket, contractType: string): void {
       sendReadModelSnapshot(socket, contractType);
     }
   };
+
+  const attachWatcher = () => {
+    const latestPath = latestReadModelPath(contractType);
+    const latestDir = path.dirname(latestPath);
+    const latestFile = path.basename(latestPath);
+    watcher = fs.watch(latestDir, (_eventType, filename) => {
+      if (!filename || filename.toString() === latestFile) pushIfChanged();
+    });
+  };
+
   pushIfChanged();
-  const watchInterval = setInterval(pushIfChanged, 1_000);
+  try {
+    attachWatcher();
+  } catch {
+    fallbackInterval = setInterval(pushIfChanged, 1_000);
+  }
   const heartbeatInterval = setInterval(() => {
     socket.send(JSON.stringify({
       type: 'read_model_heartbeat',
@@ -77,7 +93,8 @@ function attachReadModelSocket(socket: WebSocket, contractType: string): void {
     }));
   }, 30_000);
   socket.on('close', () => {
-    clearInterval(watchInterval);
+    watcher?.close();
+    if (fallbackInterval) clearInterval(fallbackInterval);
     clearInterval(heartbeatInterval);
   });
 }
