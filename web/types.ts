@@ -8,7 +8,7 @@ export interface DashboardReadModel {
   status: string;
   severity?: Severity;
   summary: string;
-  chart_payload: HistoricalTaskProgressChartPayload | CurrentSystemStatusChartPayload | Record<string, unknown> | unknown[];
+  chart_payload: HistoricalTaskProgressChartPayload | CurrentSystemStatusChartPayload | RealtimeSignalChartPayload | Record<string, unknown> | unknown[];
   profile_refs: unknown[];
   issue_refs: unknown[];
   diagnostic_refs: unknown[];
@@ -229,6 +229,38 @@ export interface HistoricalTaskProgressChartPayload {
   last_stage_execution?: StageExecutionPayload;
   task_timeline?: HistoricalTaskTimelineItemPayload[];
   agent_error_summary?: AgentErrorSummaryPayload[];
+}
+
+export interface RealtimeSignalCardPayload {
+  label?: string;
+  value?: string | number | boolean | null;
+  status?: string | null;
+  hint?: string | null;
+}
+
+export interface RealtimeSignalChartPayload {
+  mode?: string | null;
+  monitor?: {
+    status?: string | null;
+    latest_receipt_path?: string | null;
+    latest_updated_at_utc?: string | null;
+    age_seconds?: number | null;
+    cycle_count?: number;
+    failed_cycle_count?: number;
+  };
+  readiness?: {
+    feature_snapshot_readiness?: string | null;
+    decision_input_readiness?: string | null;
+  };
+  safety?: {
+    provider_calls_performed?: number;
+    broker_calls_performed?: number;
+    model_activation_performed?: boolean;
+    broker_order_construction_performed?: boolean;
+    account_mutation_performed?: boolean;
+  };
+  signal_cards?: RealtimeSignalCardPayload[];
+  gaps?: string[];
 }
 
 export interface AgentErrorSummaryPayload {

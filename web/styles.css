@@ -97,6 +97,12 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .primary-action:disabled { cursor: progress; opacity: .65; transform: none; }
 .metric-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .metric-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.signal-card-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.signal-card { min-height: 148px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 18px; padding: 16px; background: rgba(15, 23, 42, .46); display: grid; align-content: start; gap: 12px; }
+.signal-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.signal-card-head span { color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 850; }
+.signal-card strong { color: #f8fbff; font-size: 20px; line-height: 1.15; overflow-wrap: anywhere; }
+.signal-card small { color: #8fa2ba; line-height: 1.45; }
 .diagnostic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .diagnostic-filter-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
 .diagnostic-filter-card { min-height: 116px; border: 1px solid rgba(148, 163, 184, .16); border-radius: 20px; padding: 16px; background: linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.52)); color: #e7edf7; text-align: left; cursor: pointer; }
@@ -227,6 +233,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .mini-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #38bdf8, #22c55e); }
 @media (max-width: 1220px) {
   .task-detail-grid, .task-timestamp-grid { grid-template-columns: 1fr; }
+  .signal-card-grid { grid-template-columns: 1fr; }
 }
 
 /* Data table explorer */

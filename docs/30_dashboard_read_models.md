@@ -14,7 +14,7 @@ Instead, each page should consume a small storage-hosted summary contract design
 raw internal evidence -> upstream/component aggregation -> trading-storage materialized dashboard summary -> chart-first UI
 ```
 
-`trading-storage` now has the first materialization and refresh helpers for the storage step: `scripts/dashboard/materialize_read_model.py` validates a producer-supplied common envelope, and `scripts/dashboard/refresh_historical_task_progress_read_model.py` runs the manager-owned historical progress producer before writing snapshot/latest/schema/index files under the accepted `storage/dashboard/` layout. `trading-dashboard` now has the first read adapter and website slice: `src/trading_dashboard/read_models.py` reads accepted `latest.json` summaries, while the Vite/React Historical Modeling page renders `historical_task_progress_summary` without querying raw internals.
+`trading-storage` now has materialization and refresh helpers for the storage step: `scripts/dashboard/materialize_read_model.py` validates a producer-supplied common envelope, `scripts/dashboard/refresh_historical_task_progress_read_model.py` runs the manager-owned historical progress producer, and `scripts/dashboard/refresh_realtime_signal_summary_read_model.py` builds the execution-owned realtime signal summary before writing snapshot/latest/schema/index files under the accepted `storage/dashboard/` layout. `trading-dashboard` reads accepted `latest.json` summaries through the Vite API/WebSocket layer and renders Current Status, Tasks, Models, Diagnostics, Data, and Realtime Signals without querying raw internals.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -160,6 +160,20 @@ Owner-facing fields:
 - next expected system action.
 
 If realtime work is parked, the read model should say so plainly instead of fabricating signal or performance metrics.
+If realtime monitoring has not started, `realtime_signal_summary` should say `not_started` with zero provider/model/broker/account mutations and an explicit gap message.
+
+### `realtime_signal_summary`
+
+Purpose: support the Realtime Signals page.
+
+Current implementation: `trading-storage` builds this summary from execution-owned realtime monitor receipts when they exist, or from an explicit safe empty state when they do not. The dashboard displays monitor mode/state, completed/failed cycles, provider-observation count, signal-readiness cards, handoff-readiness cards, safety-boundary flags, and visible gaps.
+
+Hidden by default:
+
+- raw monitor receipt payloads;
+- provider payloads;
+- order, broker, account, or adapter internals;
+- model activation internals.
 
 ### `model_layer_readiness_summary`
 

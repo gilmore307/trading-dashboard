@@ -9,11 +9,13 @@ import type {
   DashboardReadModel,
   HistoricalTaskProgressChartPayload,
   HistoricalTaskTimelineItemPayload,
+  RealtimeSignalChartPayload,
 } from './types';
 import './styles.css';
 
 const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
+const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
 
 const SOURCE_LABELS: Record<string, string> = {
   'trading-storage': 'System Monitor',
@@ -34,12 +36,16 @@ const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'data', label: 'Data', state: 'Data + model outputs' },
   { id: 'models', label: 'Models', state: 'Historical modeling' },
   { id: 'registry', label: 'Definitions', state: 'Coming soon' },
-  { id: 'realtime', label: 'Realtime Signals', state: 'Coming soon' },
+  { id: 'realtime', label: 'Realtime Signals', state: 'Shadow monitor' },
   { id: 'performance', label: 'Trading Performance', state: 'Coming soon' },
   { id: 'diagnostics', label: 'Diagnostics', state: 'Error summary' },
 ];
 
 function isHistoricalChart(payload: DashboardReadModel['chart_payload']): payload is HistoricalTaskProgressChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+function isRealtimeSignalChart(payload: DashboardReadModel['chart_payload']): payload is RealtimeSignalChartPayload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
 
@@ -139,6 +145,21 @@ function workflowGateLabel(ok?: boolean | null): string {
 
 function providerPostureIsOk(status?: string | null): boolean {
   return status === 'ready' || status === 'available' || status === 'no_provider_work_selected' || status === 'not_required' || status === 'idle';
+}
+
+function signalStatusSeverity(status?: string | null): string {
+  const normalized = String(status ?? '').toLowerCase();
+  if (['unsafe', 'failed', 'violation'].includes(normalized)) return 'critical';
+  if (['degraded', 'blocked', 'unknown'].includes(normalized)) return 'medium';
+  if (['safe', 'shadow_ready', 'observed', 'ready_for_fixture_or_shadow_model_decision_input', 'ready_for_historical_model_decision_handoff'].includes(normalized)) return 'low';
+  return 'info';
+}
+
+function displayValue(value: unknown): string | number {
+  if (typeof value === 'number' || typeof value === 'string') return value;
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (value === null || value === undefined || value === '') return '—';
+  return String(value);
 }
 
 
@@ -1298,6 +1319,7 @@ function PlaceholderView({ title }: { title: string }) {
 function App() {
   const [currentStatusModel, setCurrentStatusModel] = useState<DashboardReadModel | null>(null);
   const [historicalModel, setHistoricalModel] = useState<DashboardReadModel | null>(null);
+  const [realtimeModel, setRealtimeModel] = useState<DashboardReadModel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<ViewId>('status');
@@ -1307,6 +1329,7 @@ function App() {
   const applyReadModel = useCallback((payload: DashboardReadModel) => {
     if (payload.contract_type === CURRENT_SYSTEM_STATUS) setCurrentStatusModel(payload);
     if (payload.contract_type === HISTORICAL_TASK_PROGRESS) setHistoricalModel(payload);
+    if (payload.contract_type === REALTIME_SIGNAL_SUMMARY) setRealtimeModel(payload);
     setError(null);
     setLastRefresh(new Date().toISOString());
   }, []);
@@ -1328,8 +1351,10 @@ function App() {
     const controller = new AbortController();
     void loadReadModel(CURRENT_SYSTEM_STATUS, controller.signal);
     void loadReadModel(HISTORICAL_TASK_PROGRESS, controller.signal);
+    void loadReadModel(REALTIME_SIGNAL_SUMMARY, controller.signal);
     let hasLivePayload = false;
-    const sockets = [CURRENT_SYSTEM_STATUS, HISTORICAL_TASK_PROGRESS].map((contractType) => openLatestReadModelSocket(contractType, {
+    const contracts = [CURRENT_SYSTEM_STATUS, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY];
+    const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         hasLivePayload = true;
         applyReadModel(payload);
@@ -1342,7 +1367,7 @@ function App() {
     }));
     const fallbackIntervalId = window.setInterval(() => {
       sockets.forEach((socket, index) => {
-        if (socket.readyState !== WebSocket.OPEN) void loadReadModel(index === 0 ? CURRENT_SYSTEM_STATUS : HISTORICAL_TASK_PROGRESS);
+        if (socket.readyState !== WebSocket.OPEN) void loadReadModel(contracts[index]);
       });
     }, 60_000);
     return () => {
@@ -1352,7 +1377,11 @@ function App() {
     };
   }, [applyReadModel, loadReadModel]);
 
-  const activeReadModel = activeView === 'status' || activeView === 'data' ? (currentStatusModel ?? historicalModel) : historicalModel;
+  const activeReadModel = activeView === 'status' || activeView === 'data'
+    ? (currentStatusModel ?? historicalModel)
+    : activeView === 'realtime'
+      ? (realtimeModel ?? historicalModel)
+      : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
   const chart = useMemo(() => {
     if (!historicalModel || !isHistoricalChart(historicalModel.chart_payload)) return {} as HistoricalTaskProgressChartPayload;
@@ -1362,6 +1391,10 @@ function App() {
     if (!currentStatusModel || typeof currentStatusModel.chart_payload !== 'object' || Array.isArray(currentStatusModel.chart_payload)) return {} as CurrentSystemStatusChartPayload;
     return currentStatusModel.chart_payload as CurrentSystemStatusChartPayload;
   }, [currentStatusModel]);
+  const realtimeChart = useMemo(() => {
+    if (!realtimeModel || !isRealtimeSignalChart(realtimeModel.chart_payload)) return {} as RealtimeSignalChartPayload;
+    return realtimeModel.chart_payload;
+  }, [realtimeModel]);
   const diagnosticItems = useMemo(
     () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
     [chart, currentStatusModel, historicalModel, systemChart],
@@ -1461,6 +1494,72 @@ function App() {
     );
   };
 
+  const renderRealtimeSignalsView = () => {
+    if (!realtimeModel) {
+      return <section className="panel loading-panel">Loading realtime signal summary…</section>;
+    }
+    const monitor = realtimeChart.monitor ?? {};
+    const safety = realtimeChart.safety ?? {};
+    const readiness = realtimeChart.readiness ?? {};
+    const signalCards = realtimeChart.signal_cards ?? [];
+    return (
+      <>
+        <section className="metric-grid">
+          <MetricCard label="Mode" value={startCase(realtimeChart.mode)} />
+          <MetricCard label="Monitor" value={startCase(monitor.status)} hint={monitor.latest_updated_at_utc ? 'latest ' + formatTimestamp(monitor.latest_updated_at_utc) : 'No monitor receipt yet'} />
+          <MetricCard label="Cycles" value={monitor.cycle_count ?? 0} hint={(monitor.failed_cycle_count ?? 0) + ' failed cycles'} />
+          <MetricCard label="Provider observations" value={safety.provider_calls_performed ?? 0} hint="Read-only observations only" />
+        </section>
+        <section className="panel">
+          <div className="panel-heading">Signal Readiness</div>
+          <p className="panel-subtitle">{realtimeModel.summary}</p>
+          <div className="signal-card-grid">
+            {signalCards.map((card) => (
+              <section className="signal-card" key={String(card.label) + '-' + String(card.status)}>
+                <div className="signal-card-head">
+                  <span>{card.label}</span>
+                  <StatusPill status={card.status ?? 'unknown'} severity={signalStatusSeverity(card.status)} />
+                </div>
+                <strong>{displayValue(card.value)}</strong>
+                {card.hint ? <small>{card.hint}</small> : null}
+              </section>
+            ))}
+          </div>
+        </section>
+        <section className="detail-grid">
+          <section className="panel">
+            <div className="panel-heading">Handoff Readiness</div>
+            <div className="service-list">
+              <div className="service-row">
+                <span>Realtime feature snapshot</span>
+                <strong className={signalStatusSeverity(readiness.feature_snapshot_readiness) === 'low' ? 'service-ok' : 'service-warn'}>{startCase(readiness.feature_snapshot_readiness)}</strong>
+              </div>
+              <div className="service-row">
+                <span>Model decision input</span>
+                <strong className={signalStatusSeverity(readiness.decision_input_readiness) === 'low' ? 'service-ok' : 'service-warn'}>{startCase(readiness.decision_input_readiness)}</strong>
+              </div>
+            </div>
+          </section>
+          <section className="panel">
+            <div className="panel-heading">Safety Boundary</div>
+            <div className="service-list">
+              <div className="service-row"><span>Broker calls</span><strong className={(safety.broker_calls_performed ?? 0) === 0 ? 'service-ok' : 'service-warn'}>{safety.broker_calls_performed ?? 0}</strong></div>
+              <div className="service-row"><span>Model activation</span><strong className={!safety.model_activation_performed ? 'service-ok' : 'service-warn'}>{safety.model_activation_performed ? 'Performed' : 'Disabled'}</strong></div>
+              <div className="service-row"><span>Order construction</span><strong className={!safety.broker_order_construction_performed ? 'service-ok' : 'service-warn'}>{safety.broker_order_construction_performed ? 'Performed' : 'Disabled'}</strong></div>
+              <div className="service-row"><span>Account mutation</span><strong className={!safety.account_mutation_performed ? 'service-ok' : 'service-warn'}>{safety.account_mutation_performed ? 'Performed' : 'Disabled'}</strong></div>
+            </div>
+          </section>
+        </section>
+        {realtimeChart.gaps?.length ? (
+          <section className="panel">
+            <div className="panel-heading">Visible Gaps</div>
+            <div className="chips">{realtimeChart.gaps.map((gap) => <span className="chip" key={gap}>{startCase(gap)}</span>)}</div>
+          </section>
+        ) : null}
+      </>
+    );
+  };
+
   const renderMainView = () => {
     if (activeView === 'status') return renderCurrentStatusView();
     if (activeView === 'data') return <DataExplorerView />;
@@ -1510,7 +1609,7 @@ function App() {
       );
     }
     if (activeView === 'registry') return <PlaceholderView title="Definitions" />;
-    if (activeView === 'realtime') return <PlaceholderView title="Realtime Signals" />;
+    if (activeView === 'realtime') return renderRealtimeSignalsView();
     if (activeView === 'performance') return <PlaceholderView title="Trading Performance" />;
     return (
       <>
@@ -1541,6 +1640,7 @@ function App() {
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);
     void loadReadModel(HISTORICAL_TASK_PROGRESS);
+    void loadReadModel(REALTIME_SIGNAL_SUMMARY);
   };
 
   return (
