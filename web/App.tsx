@@ -318,17 +318,26 @@ function diagnosticHandlingFromValue(value: unknown): DiagnosticHandlingStatus {
   return 'open';
 }
 
-function agentInterventionStatus(diagnosisStatus: unknown, repairStatus: unknown): string {
+function agentRunnerLabel(runnerCommand: unknown): string {
+  const runner = String(runnerCommand ?? '').toLowerCase();
+  if (runner.includes('openclaw_agent') || runner.includes('run_agent_error_agent.py')) return 'Agent';
+  if (runner.includes('safe_error_repair') || runner.includes('run_safe_error_repair.py')) return 'Safe repair';
+  if (!runner.trim()) return 'Agent';
+  return 'Repair runner';
+}
+
+function agentInterventionStatus(diagnosisStatus: unknown, repairStatus: unknown, runnerCommand: unknown): string {
   const diagnosis = String(diagnosisStatus ?? '').toLowerCase();
   const repair = String(repairStatus ?? '').toLowerCase();
   const reviewed = diagnosis === 'completed';
-  if (repair === 'repaired') return reviewed ? 'Agent repaired' : 'Repair recorded';
-  if (repair === 'not_supported') return reviewed ? 'Agent reviewed · Not supported' : 'Not supported';
-  if (repair === 'queued') return 'Agent queued';
-  if (repair === 'agent_call_failed') return 'Agent call failed';
-  if (repair === 'repair_attempted') return 'Agent repair attempted';
-  if (repair === 'diagnosed') return 'Agent diagnosed';
-  if (reviewed) return 'Agent reviewed';
+  const runnerLabel = agentRunnerLabel(runnerCommand);
+  if (repair === 'repaired') return reviewed ? `${runnerLabel} repaired` : 'Repair recorded';
+  if (repair === 'not_supported') return reviewed ? `${runnerLabel} reviewed · Not supported` : 'Not supported';
+  if (repair === 'queued') return `${runnerLabel} queued`;
+  if (repair === 'agent_call_failed') return `${runnerLabel} call failed`;
+  if (repair === 'repair_attempted') return `${runnerLabel} attempted repair`;
+  if (repair === 'diagnosed') return `${runnerLabel} diagnosed`;
+  if (reviewed) return `${runnerLabel} reviewed`;
   return startCase(repair || diagnosis || 'unknown');
 }
 
@@ -886,7 +895,7 @@ function collectDiagnosticSummary(
   });
   (chart.agent_error_summary ?? []).forEach((error) => {
     const errorRef = String(error.error_ref ?? '').trim();
-    const repairStatus = agentInterventionStatus(error.diagnosis_status, error.repair_status);
+    const repairStatus = agentInterventionStatus(error.diagnosis_status, error.repair_status, error.runner_command);
     const rootCause = diagnosticText(error.root_cause ?? error.summary, 'Agent error diagnosis recorded.');
     const retryRecommendation = diagnosticText(error.retry_recommendation, '');
     const retry = retryRecommendation ? ` · ${retryRecommendation}` : '';

@@ -286,6 +286,8 @@ export interface AgentErrorSummaryPayload {
   severity?: string | null;
   dashboard_severity?: string | null;
   diagnosis_status?: string | null;
+  runner_command?: string | null;
+  discord_notification?: unknown;
   repair_status?: string | null;
   handling_status?: string | null;
   retry_recommendation?: string | null;
