@@ -260,6 +260,7 @@ type DiagnosticSummaryItem = {
   severity: DiagnosticSeverity;
   handlingStatus: DiagnosticHandlingStatus;
   errorRef?: string | null;
+  displayRef?: string | null;
   occurredAt?: string | null;
 };
 
@@ -404,7 +405,7 @@ function diagnosticGeneratedPrefix(category: string): string {
 }
 
 function diagnosticReference(item: DiagnosticSummaryItem): string {
-  return item.errorRef || `${diagnosticGeneratedPrefix(item.category)}-${stableHashHex(item.id)}`;
+  return item.displayRef || item.errorRef || `${diagnosticGeneratedPrefix(item.category)}-${stableHashHex(item.id)}`;
 }
 
 function maybeRecord(ref: unknown): Record<string, unknown> {
@@ -933,7 +934,10 @@ function collectDiagnosticSummary(
     diagnosticSeverityRank(left.severity) - diagnosticSeverityRank(right.severity)
     || String(right.occurredAt ?? '').localeCompare(String(left.occurredAt ?? ''))
     || left.id.localeCompare(right.id),
-  );
+  ).map((item, index) => ({
+    ...item,
+    displayRef: `ERR-${String(index + 1).padStart(6, '0')}`,
+  }));
 }
 
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
