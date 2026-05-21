@@ -4,6 +4,7 @@ import { fetchDataTableCatalog, fetchDataTableRows, type DataTableQueryResult, t
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
 import type {
+  CurrentSystemSourceOutputPayload,
   CurrentSystemServicePayload,
   CurrentSystemStatusChartPayload,
   DashboardReadModel,
@@ -33,6 +34,36 @@ const SERVICE_LABELS: Record<string, string> = {
   'trading-execution-realtime-runtime-check.path': 'Realtime Runtime Check Watcher',
   'trading-storage-dashboard-read-model-refresh.timer': 'Dashboard Refresh Schedule',
   'trading-storage-dashboard-read-model-refresh.service': 'Dashboard Refresh Worker',
+};
+
+const BACKGROUND_SERVICE_DISPLAY_ORDER: Record<string, number> = {
+  'trading-dashboard-web.service': 10,
+  'trading-storage-dashboard-read-model-refresh.timer': 20,
+  'trading-storage-dashboard-read-model-refresh.service': 30,
+  'trading-manager-historical-scheduler.service': 40,
+  'trading-execution-realtime-monitor-loop.service': 50,
+  'trading-execution-realtime-runtime-check.path': 60,
+  'trading-execution-realtime-runtime-check.timer': 70,
+  'trading-execution-realtime-runtime-check.service': 80,
+};
+
+const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
+  storage_dashboard_current_status_latest: 10,
+  storage_dashboard_historical_task_progress_latest: 20,
+  storage_dashboard_realtime_signal_latest: 30,
+  storage_dashboard_execution_runtime_latest: 40,
+  storage_dashboard_read_model_index: 50,
+  manager_scheduler_state: 100,
+  manager_scheduler_decision_log: 110,
+  manager_workflow_state: 120,
+  manager_stage_coverage: 130,
+  manager_stage_run_dashboard: 140,
+  execution_runtime_status: 200,
+  execution_realtime_monitor_receipt: 210,
+  execution_realtime_monitor_cycle: 220,
+  trading_economics_calendar_receipt: 300,
+  trading_economics_calendar_events: 310,
+  trading_economics_historical_seed_receipt: 320,
 };
 
 type ViewId = 'status' | 'tasks' | 'data' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
@@ -72,6 +103,19 @@ function publicSourceLabel(sourceSystem?: string | null): string {
 function publicServiceLabel(unit?: string | null): string {
   if (!unit) return 'System Service';
   return SERVICE_LABELS[unit] ?? startCase(unit.replace(/\.(service|timer|path)$/u, ''));
+}
+
+function serviceDisplayRank(service: CurrentSystemServicePayload): number {
+  return BACKGROUND_SERVICE_DISPLAY_ORDER[service.unit] ?? 900;
+}
+
+function dashboardDataDisplayRank(output: CurrentSystemSourceOutputPayload): number {
+  return DASHBOARD_DATA_DISPLAY_ORDER[output.kind ?? ''] ?? 900;
+}
+
+function compareDisplayRank<T>(left: T, right: T, rankFor: (value: T) => number, labelFor: (value: T) => string): number {
+  const rankDelta = rankFor(left) - rankFor(right);
+  return rankDelta || labelFor(left).localeCompare(labelFor(right));
 }
 
 function apiStatusLabel(status?: string | null): string {
@@ -1479,12 +1523,16 @@ function App() {
 
   const renderCurrentStatusView = () => {
     const services = systemChart.services ?? [];
-    const sourceOutputs = systemChart.source_outputs ?? [];
+    const sourceOutputs = [...(systemChart.source_outputs ?? [])].sort((left, right) =>
+      compareDisplayRank(left, right, dashboardDataDisplayRank, (output) => output.label),
+    );
     const sourceConnections = systemChart.source_connections ?? systemChart.apis ?? [];
     const sourceConnectionUnits = new Set(
       sourceConnections.flatMap((connection) => [connection.unit, connection.service_unit, connection.timer_unit]).filter((unit): unit is string => Boolean(unit)),
     );
-    const backgroundServices = services.filter((service) => !sourceConnectionUnits.has(service.unit));
+    const backgroundServices = services
+      .filter((service) => !sourceConnectionUnits.has(service.unit))
+      .sort((left, right) => compareDisplayRank(left, right, serviceDisplayRank, (service) => publicServiceLabel(service.unit)));
     return (
       <>
         {renderServerResourcesPanel()}
