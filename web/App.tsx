@@ -148,6 +148,7 @@ function serviceIsHealthyForDisplay(service: CurrentSystemServicePayload): boole
 
 function serviceStatusLabel(service: CurrentSystemServicePayload): string {
   if (service.healthy === false) return 'Needs attention';
+  if (service.active_state === 'activating' && service.substate === 'auto-restart' && service.result === 'success') return 'Cycling';
   if (service.unit === 'trading-storage-dashboard-read-model-refresh.service' && service.active_state === 'activating') return 'Refreshing';
   if (service.unit_kind === 'timer' && service.active_state === 'active') return 'Scheduled';
   if (service.unit_kind === 'path' && service.active_state === 'active') return 'Watching';
@@ -220,7 +221,6 @@ function displayValue(value: unknown): string | number {
   return String(value);
 }
 
-
 function sanitizedRefSummary(ref: unknown): string {
   if (typeof ref !== 'object' || ref === null) return String(ref);
   const record = ref as Record<string, unknown>;
@@ -229,6 +229,22 @@ function sanitizedRefSummary(ref: unknown): string {
   if ('generated_at_utc' in record) parts.push(`Generated: ${formatTimestamp(String(record.generated_at_utc))}`);
   if ('source_system' in record) parts.push(`Source: ${publicSourceLabel(String(record.source_system))}`);
   return parts.length ? parts.join(' · ') : 'Reference available for diagnostics.';
+}
+
+function diagnosticText(value: unknown, fallback = 'Diagnostic evidence attached.'): string {
+  if (typeof value === 'string') return value.trim() || fallback;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null || value === undefined) return fallback;
+  if (Array.isArray(value)) {
+    const parts = value.map((item) => diagnosticText(item, '')).filter(Boolean);
+    return parts.length ? parts.join(' · ') : fallback;
+  }
+  const record = maybeRecord(value);
+  for (const field of ['summary', 'message', 'reason', 'detail', 'description', 'root_cause']) {
+    const candidate = record[field];
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return sanitizedRefSummary(value);
 }
 
 type DiagnosticSeverity = 'critical' | 'error' | 'warning' | 'notice';
@@ -249,7 +265,7 @@ type DiagnosticSummaryItem = {
 function refDetail(ref: unknown): string {
   if (typeof ref !== 'object' || ref === null) return String(ref);
   const record = ref as Record<string, unknown>;
-  const detailParts = ['stage_id', 'status', 'path', 'receipt_path', 'stderr_path', 'generated_utc']
+  const detailParts = ['issue_type', 'unit', 'stage_id', 'status', 'path', 'receipt_path', 'stderr_path', 'generated_utc']
     .filter((field) => record[field] !== undefined && record[field] !== null)
     .map((field) => `${startCase(field)}: ${String(record[field])}`);
   return detailParts.length ? detailParts.join(' · ') : 'Reference attached for agent follow-up.';
@@ -260,6 +276,7 @@ function refTitle(ref: unknown, fallback: string): string {
   const record = ref as Record<string, unknown>;
   if (record.ref_type) return startCase(String(record.ref_type));
   if (record.contract_type) return startCase(String(record.contract_type));
+  if (record.issue_type) return startCase(String(record.issue_type));
   if (record.kind) return startCase(String(record.kind));
   return fallback;
 }
@@ -342,12 +359,19 @@ function diagnosticRefIdentity(ref: unknown, fallback: string): string {
   return parts.length ? parts.join('|') : stableDiagnosticKey(ref) || fallback;
 }
 
-function stableDiagnosticNumber(id: string): string {
-  return `ERR-${stableHashHex(id)}`;
+function diagnosticGeneratedPrefix(category: string): string {
+  const normalized = category.toLowerCase();
+  if (normalized.includes('service')) return 'SVC';
+  if (normalized.includes('source')) return 'SRC';
+  if (normalized.includes('read model')) return 'READMODEL';
+  if (normalized.includes('dashboard data')) return 'DATA';
+  if (normalized.includes('issue')) return 'ISSUE';
+  if (normalized.includes('task')) return 'TASK';
+  return 'DIAG';
 }
 
-function diagnosticErrorNumber(item: DiagnosticSummaryItem): string {
-  return item.errorRef || stableDiagnosticNumber(item.id);
+function diagnosticReference(item: DiagnosticSummaryItem): string {
+  return item.errorRef || `${diagnosticGeneratedPrefix(item.category)}-${stableHashHex(item.id)}`;
 }
 
 function maybeRecord(ref: unknown): Record<string, unknown> {
@@ -840,8 +864,9 @@ function collectDiagnosticSummary(
   (chart.agent_error_summary ?? []).forEach((error) => {
     const errorRef = String(error.error_ref ?? '').trim();
     const repairStatus = String(error.repair_status ?? error.diagnosis_status ?? 'unknown');
-    const rootCause = String(error.root_cause ?? error.summary ?? 'Agent error diagnosis recorded.');
-    const retry = error.retry_recommendation ? ` · ${String(error.retry_recommendation)}` : '';
+    const rootCause = diagnosticText(error.root_cause ?? error.summary, 'Agent error diagnosis recorded.');
+    const retryRecommendation = diagnosticText(error.retry_recommendation, '');
+    const retry = retryRecommendation ? ` · ${retryRecommendation}` : '';
     items.push({
       id: stableDiagnosticId('agent-error', errorRef || String(error.error_number ?? error.summary ?? 'unknown')),
       errorRef: errorRef || null,
@@ -1336,14 +1361,14 @@ function DiagnosticsSummaryView({
         {filteredItems.length ? (
           <div className="diagnostic-table" role="table" aria-label="Diagnostics error summary">
             <div className="diagnostic-table-row diagnostic-table-head" role="row">
-              <span>Error No.</span>
+              <span>Ref</span>
               <span>Severity</span>
               <span>Error / status</span>
               <span>Occurred</span>
               <span>Handling</span>
             </div>
             {filteredItems.map((item) => {
-              const errorNumber = diagnosticErrorNumber(item);
+              const errorNumber = diagnosticReference(item);
               return (
               <div className={`diagnostic-table-row diagnostic-${item.severity}`} key={item.id} role="row">
                 <code>{errorNumber}</code>

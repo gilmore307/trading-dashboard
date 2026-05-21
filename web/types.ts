@@ -289,7 +289,7 @@ export interface AgentErrorSummaryPayload {
   repair_status?: string | null;
   handling_status?: string | null;
   retry_recommendation?: string | null;
-  root_cause?: string | null;
+  root_cause?: unknown;
   files_changed?: string[];
   request_path?: string | null;
   diagnosis_path?: string | null;
