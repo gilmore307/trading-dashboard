@@ -109,9 +109,9 @@ def latest_read_model_path(storage_root: Path, contract_type: str) -> Path:
 
     requested_contract_type = contract_type
     contract_type = _safe_contract_type(contract_type)
-    canonical_path = Path(storage_root) / "dashboard" / "read_models" / contract_type / "latest.json"
+    canonical_path = Path(storage_root) / "06_dashboard_cache" / "read_models" / contract_type / "latest.json"
     if requested_contract_type != contract_type:
-        legacy_path = Path(storage_root) / "dashboard" / "read_models" / requested_contract_type / "latest.json"
+        legacy_path = Path(storage_root) / "06_dashboard_cache" / "read_models" / requested_contract_type / "latest.json"
         return canonical_path if canonical_path.exists() else legacy_path
     return canonical_path
 

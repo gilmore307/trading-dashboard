@@ -197,7 +197,7 @@ The first dashboard implementation slice is a read-only adapter over storage-hos
 - executable helper: `scripts/read_models/read_latest_dashboard_read_model.py`;
 - first consumed contract: `historical_task_progress_summary`.
 
-The adapter reads only accepted `storage/dashboard/read_models/<contract_type>/latest.json` summaries, validates the common dashboard envelope shape, and projects the payload into a UI-ready dictionary. It does not query raw manager/model/data/execution/storage internals and does not perform provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.
+The adapter reads only accepted `storage/06_dashboard_cache/read_models/<contract_type>/latest.json` summaries, validates the common dashboard envelope shape, and projects the payload into a UI-ready dictionary. It does not query raw manager/model/data/execution/storage internals and does not perform provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.
 
 ### Consequences
 
@@ -218,7 +218,7 @@ The read-model pipeline is now concrete enough to stop discussing the dashboard 
 
 The first website/runtime slice uses Vite + React + TypeScript and implements one read-only page: Tasks / Historical Modeling / Historical Task Progress.
 
-The page consumes `historical_task_progress_summary` through the dashboard read-model boundary and the local Vite development API, which reads `trading-storage/storage/dashboard/read_models/<contract_type>/latest.json`. The page displays status, freshness, current month, active stage, provider/lock posture, progress, stage counts, optional stage coverage, next expected system action, blocker category, and diagnostic refs. The left navigation is the only page-switching entry point; main content stays informational, while manual refresh, read-only WebSocket streaming, HTTP fallback polling, and in-view diagnostic expansion remain read-only controls.
+The page consumes `historical_task_progress_summary` through the dashboard read-model boundary and the local Vite development API, which reads `trading-storage/storage/06_dashboard_cache/read_models/<contract_type>/latest.json`. The page displays status, freshness, current month, active stage, provider/lock posture, progress, stage counts, optional stage coverage, next expected system action, blocker category, and diagnostic refs. The left navigation is the only page-switching entry point; main content stays informational, while manual refresh, read-only WebSocket streaming, HTTP fallback polling, and in-view diagnostic expansion remain read-only controls.
 
 ### Consequences
 

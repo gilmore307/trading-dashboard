@@ -57,9 +57,9 @@ function canonicalContractType(contractType: string): string {
 
 function latestReadModelPath(contractType: string): string {
   const canonicalType = canonicalContractType(contractType);
-  const canonicalPath = path.join(storageRoot(), 'dashboard', 'read_models', canonicalType, 'latest.json');
+  const canonicalPath = path.join(storageRoot(), '06_dashboard_cache', 'read_models', canonicalType, 'latest.json');
   if (canonicalType !== contractType) {
-    const legacyPath = path.join(storageRoot(), 'dashboard', 'read_models', contractType, 'latest.json');
+    const legacyPath = path.join(storageRoot(), '06_dashboard_cache', 'read_models', contractType, 'latest.json');
     return fs.existsSync(canonicalPath) ? canonicalPath : legacyPath;
   }
   return canonicalPath;

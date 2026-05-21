@@ -35,14 +35,14 @@ def sample_payload(**overrides):
         "diagnostic_refs": [{"ref_type": "manager_historical_scheduler_status"}],
         "lineage_refs": [{"contract_type": "manager_historical_scheduler_status"}],
         "freshness": {"class": "runtime_status_snapshot", "status": "fresh", "stale_after_seconds": 900},
-        "schema_ref": "storage/dashboard/schemas/historical_task_progress_summary.schema.json",
+        "schema_ref": "storage/06_dashboard_cache/schemas/historical_task_progress_summary.schema.json",
     }
     payload.update(overrides)
     return payload
 
 
 def write_latest(storage_root: Path, payload: dict) -> Path:
-    latest = storage_root / "dashboard" / "read_models" / payload["contract_type"] / "latest.json"
+    latest = storage_root / "06_dashboard_cache" / "read_models" / payload["contract_type"] / "latest.json"
     latest.parent.mkdir(parents=True, exist_ok=True)
     latest.write_text(json.dumps(payload), encoding="utf-8")
     return latest
@@ -75,7 +75,7 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
     def test_rejects_contract_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
             storage_root = Path(tmp)
-            latest = storage_root / "dashboard" / "read_models" / HISTORICAL_TASK_PROGRESS_CONTRACT / "latest.json"
+            latest = storage_root / "06_dashboard_cache" / "read_models" / HISTORICAL_TASK_PROGRESS_CONTRACT / "latest.json"
             latest.parent.mkdir(parents=True, exist_ok=True)
             latest.write_text(
                 json.dumps(sample_payload(contract_type="current_system_status_summary")),
