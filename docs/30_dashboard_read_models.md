@@ -199,11 +199,13 @@ Canonical layer map:
 | 1 | Market Regime | `market_context_state` |
 | 2 | Sector Context | `sector_context_state` |
 | 3 | Target State Vector | `target_context_state` |
-| 4 | Alpha Confidence | `alpha_confidence_vector` |
-| 5 | Position Projection | `position_projection_vector` |
-| 6 | Underlying Action | `underlying_action_plan` / `underlying_action_vector` |
-| 7 | Trading Guidance / Option Expression | `trading_guidance_record` plus optional `option_expression_plan` / `expression_vector` |
-| 8 | Event Risk Governor / Event Intelligence Overlay | `event_risk_intervention` / event-adjusted risk guidance |
+| 4 | Event Failure Risk | `event_failure_risk_vector` |
+| 5 | Alpha Confidence | `alpha_confidence_vector` |
+| 6 | Dynamic Risk Policy | `dynamic_risk_policy_state` |
+| 7 | Position Projection | `position_projection_vector` |
+| 8 | Underlying Action | `underlying_action_plan` / `underlying_action_vector` |
+| 9 | Trading Guidance / Option Expression | `trading_guidance_record` plus optional `option_expression_plan` / `expression_vector` |
+| 10 | Event Risk Governor / Event Intelligence Overlay | `event_risk_intervention` / event-adjusted risk guidance |
 
 Dashboard model pages must follow the accepted current layer map and must not revive old EventOverlay-as-Layer-4 or OptionExpression-as-Layer-8 wording.
 

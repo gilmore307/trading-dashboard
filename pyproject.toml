@@ -3,6 +3,9 @@ name = "trading-dashboard"
 version = "0.1.0"
 description = "Read-only dashboard adapters for storage-hosted trading summaries."
 requires-python = ">=3.11"
+dependencies = [
+  "psycopg[binary]>=3.1",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

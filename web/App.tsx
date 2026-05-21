@@ -1316,12 +1316,18 @@ function PlaceholderView({ title }: { title: string }) {
   );
 }
 
+function contractForView(view: ViewId): string {
+  if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
+  if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
+  return HISTORICAL_TASK_PROGRESS;
+}
+
 function App() {
   const [currentStatusModel, setCurrentStatusModel] = useState<DashboardReadModel | null>(null);
   const [historicalModel, setHistoricalModel] = useState<DashboardReadModel | null>(null);
   const [realtimeModel, setRealtimeModel] = useState<DashboardReadModel | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [readModelErrors, setReadModelErrors] = useState<Record<string, string>>({});
+  const [loadingContracts, setLoadingContracts] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<ViewId>('status');
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
   const [streamStatus, setStreamStatus] = useState<ReadModelStreamStatus>('connecting');
@@ -1330,20 +1336,30 @@ function App() {
     if (payload.contract_type === CURRENT_SYSTEM_STATUS) setCurrentStatusModel(payload);
     if (payload.contract_type === HISTORICAL_TASK_PROGRESS) setHistoricalModel(payload);
     if (payload.contract_type === REALTIME_SIGNAL_SUMMARY) setRealtimeModel(payload);
-    setError(null);
+    setReadModelErrors((previous) => {
+      const next = { ...previous };
+      delete next[payload.contract_type];
+      return next;
+    });
     setLastRefresh(new Date().toISOString());
   }, []);
 
   const loadReadModel = useCallback((contractType: string, signal?: AbortSignal) => {
-    setLoading(true);
+    setLoadingContracts((previous) => new Set(previous).add(contractType));
     return fetchLatestReadModel(contractType, signal)
       .then(applyReadModel)
       .catch((problem: Error) => {
         if (problem.name === 'AbortError' || signal?.aborted) return;
-        setError(problem.message);
+        setReadModelErrors((previous) => ({ ...previous, [contractType]: problem.message }));
       })
       .finally(() => {
-        if (!signal?.aborted) setLoading(false);
+        if (!signal?.aborted) {
+          setLoadingContracts((previous) => {
+            const next = new Set(previous);
+            next.delete(contractType);
+            return next;
+          });
+        }
       });
   }, [applyReadModel]);
 
@@ -1352,17 +1368,23 @@ function App() {
     void loadReadModel(CURRENT_SYSTEM_STATUS, controller.signal);
     void loadReadModel(HISTORICAL_TASK_PROGRESS, controller.signal);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY, controller.signal);
-    let hasLivePayload = false;
+    const liveContracts = new Set<string>();
     const contracts = [CURRENT_SYSTEM_STATUS, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
-        hasLivePayload = true;
+        liveContracts.add(contractType);
         applyReadModel(payload);
-        setLoading(false);
+        setLoadingContracts((previous) => {
+          const next = new Set(previous);
+          next.delete(contractType);
+          return next;
+        });
       },
       onStatus: setStreamStatus,
       onError: (message) => {
-        if (!hasLivePayload) setError(message);
+        if (!liveContracts.has(contractType)) {
+          setReadModelErrors((previous) => ({ ...previous, [contractType]: message }));
+        }
       },
     }));
     const fallbackIntervalId = window.setInterval(() => {
@@ -1377,12 +1399,15 @@ function App() {
     };
   }, [applyReadModel, loadReadModel]);
 
+  const activeContractType = contractForView(activeView);
   const activeReadModel = activeView === 'status' || activeView === 'data'
-    ? (currentStatusModel ?? historicalModel)
+    ? currentStatusModel
     : activeView === 'realtime'
-      ? (realtimeModel ?? historicalModel)
+      ? realtimeModel
       : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
+  const activeError = readModelErrors[activeContractType] ?? null;
+  const loading = loadingContracts.size > 0;
   const chart = useMemo(() => {
     if (!historicalModel || !isHistoricalChart(historicalModel.chart_payload)) return {} as HistoricalTaskProgressChartPayload;
     return historicalModel.chart_payload;
@@ -1669,8 +1694,8 @@ function App() {
           </div>
           <div className="top-status-meta">
             <span>Last refreshed {lastRefresh ? formatTimestamp(lastRefresh) : 'Unknown'}</span>
-            <button className="primary-action compact-action" type="button" onClick={refreshAll} disabled={loading}>
-              {loading ? 'Refreshing…' : 'Refresh'}
+            <button className="primary-action compact-action" type="button" onClick={refreshAll} disabled={loadingContracts.size > 0}>
+              {loadingContracts.size > 0 ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
         </section>
@@ -1684,10 +1709,10 @@ function App() {
 
         {loading && !activeReadModel ? <section className="panel loading-panel">Loading latest dashboard status…</section> : null}
 
-        {error ? (
+        {activeError ? (
           <section className="panel error-panel">
             <div className="panel-heading">Dashboard data unavailable</div>
-            <p>{error}</p>
+            <p>{activeError}</p>
           </section>
         ) : null}
 

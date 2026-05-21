@@ -113,7 +113,7 @@ Those internals may be reachable only through an advanced diagnostic drawer when
 
 ### 4. Models
 
-Purpose: answer “What do the nine models currently look like, how recently were they updated, and how well are they performing?”
+Purpose: answer “What do the ten models currently look like, how recently were they updated, and how well are they performing?”
 
 Subtabs:
 
@@ -122,10 +122,11 @@ Subtabs:
 - Layer 3 — Target State Vector
 - Layer 4 — Event Failure Risk
 - Layer 5 — Alpha Confidence
-- Layer 6 — Position Projection
-- Layer 7 — Underlying Action
-- Layer 8 — Trading Guidance / Option Expression
-- Layer 9 — Event Risk Governor / Event Intelligence Overlay
+- Layer 6 — Dynamic Risk Policy
+- Layer 7 — Position Projection
+- Layer 8 — Underlying Action
+- Layer 9 — Trading Guidance / Option Expression
+- Layer 10 — Event Risk Governor / Event Intelligence Overlay
 
 Visible content should include:
 

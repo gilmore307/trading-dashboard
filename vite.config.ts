@@ -11,13 +11,48 @@ const DEFAULT_STORAGE_ROOT = '/root/projects/trading-storage/storage';
 const SAFE_CONTRACT_RE = /^[a-z][a-z0-9_]*$/;
 const SAFE_TABLE_ID_RE = /^[a-z][a-z0-9_]*$/;
 const DASHBOARD_ROOT = path.dirname(fileURLToPath(import.meta.url));
+const REGISTERED_READ_MODELS = new Set([
+  'current_system_status_summary',
+  'alert_exception_summary',
+  'historical_task_progress_summary',
+  'realtime_task_progress_summary',
+  'model_layer_readiness_summary',
+  'model_promotion_posture_summary',
+  'registry_dictionary_profile',
+  'realtime_signal_summary',
+  'runtime_decision_quality_summary',
+  'trading_performance_summary',
+  'storage_lifecycle_status_summary',
+]);
+const REQUIRED_READ_MODEL_FIELDS = [
+  'contract_type',
+  'schema_version',
+  'generated_at_utc',
+  'source_system',
+  'status',
+  'summary',
+  'chart_payload',
+  'profile_refs',
+  'issue_refs',
+  'diagnostic_refs',
+  'lineage_refs',
+  'freshness',
+  'schema_ref',
+];
 
 function storageRoot(): string {
   return process.env.TRADING_DASHBOARD_STORAGE_ROOT ?? DEFAULT_STORAGE_ROOT;
 }
 
 function canonicalContractType(contractType: string): string {
-  return contractType.replace(/_v[0-9]+$/, '');
+  if (!SAFE_CONTRACT_RE.test(contractType)) {
+    throw new Error(`unsafe dashboard read-model contract_type: ${contractType}`);
+  }
+  const canonicalType = contractType.replace(/_v[0-9]+$/, '');
+  if (!REGISTERED_READ_MODELS.has(canonicalType)) {
+    throw new Error(`unregistered dashboard read-model contract_type: ${contractType}`);
+  }
+  return canonicalType;
 }
 
 function latestReadModelPath(contractType: string): string {
@@ -30,25 +65,60 @@ function latestReadModelPath(contractType: string): string {
   return canonicalPath;
 }
 
-function readLatestPayload(contractType: string): string {
-  return fs.readFileSync(latestReadModelPath(contractType), 'utf8');
+function validateReadModelPayload(payload: unknown, expectedContractType: string): Record<string, unknown> {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('dashboard read-model latest payload must be a JSON object');
+  }
+  const record = payload as Record<string, unknown>;
+  const missing = REQUIRED_READ_MODEL_FIELDS.filter((field) => !(field in record));
+  if (missing.length) {
+    throw new Error(`missing required dashboard read-model fields: ${missing.join(', ')}`);
+  }
+  if (canonicalContractType(String(record.contract_type)) !== expectedContractType) {
+    throw new Error(`latest payload contract_type does not match expected ${expectedContractType}`);
+  }
+  if (!Number.isInteger(record.schema_version) || Number(record.schema_version) < 1) {
+    throw new Error('schema_version must be a positive integer');
+  }
+  for (const field of ['generated_at_utc', 'source_system', 'status', 'summary', 'schema_ref']) {
+    if (typeof record[field] !== 'string' || !String(record[field]).trim()) {
+      throw new Error(`${field} must be a non-empty string`);
+    }
+  }
+  if (typeof record.chart_payload !== 'object' || record.chart_payload === null) {
+    throw new Error('chart_payload must be a JSON object or array');
+  }
+  if (typeof record.freshness !== 'object' || record.freshness === null || Array.isArray(record.freshness)) {
+    throw new Error('freshness must be a JSON object');
+  }
+  for (const field of ['profile_refs', 'issue_refs', 'diagnostic_refs', 'lineage_refs']) {
+    if (!Array.isArray(record[field])) {
+      throw new Error(`${field} must be a JSON array`);
+    }
+  }
+  return record;
+}
+
+function readLatestPayload(contractType: string): { payload: Record<string, unknown>; contractType: string; latestPath: string } {
+  const canonicalType = canonicalContractType(contractType);
+  const latestPath = latestReadModelPath(contractType);
+  const payload = JSON.parse(fs.readFileSync(latestPath, 'utf8'));
+  return { payload: validateReadModelPayload(payload, canonicalType), contractType: canonicalType, latestPath };
 }
 
 function sendReadModelSnapshot(socket: WebSocket, contractType: string): void {
-  const latestPath = latestReadModelPath(contractType);
   try {
-    const payload = JSON.parse(readLatestPayload(contractType));
+    const snapshot = readLatestPayload(contractType);
     socket.send(JSON.stringify({
       type: 'read_model_snapshot',
-      contract_type: canonicalContractType(contractType),
-      payload,
+      contract_type: snapshot.contractType,
+      payload: snapshot.payload,
       sent_at_utc: new Date().toISOString(),
     }));
   } catch (error) {
     socket.send(JSON.stringify({
       type: 'read_model_error',
-      contract_type: canonicalContractType(contractType),
-      latest_path: latestPath,
+      contract_type: SAFE_CONTRACT_RE.test(contractType) ? contractType.replace(/_v[0-9]+$/, '') : contractType,
       error: error instanceof Error ? error.message : 'unknown read-model websocket error',
       sent_at_utc: new Date().toISOString(),
     }));
@@ -56,6 +126,7 @@ function sendReadModelSnapshot(socket: WebSocket, contractType: string): void {
 }
 
 function attachReadModelSocket(socket: WebSocket, contractType: string): void {
+  const canonicalType = canonicalContractType(contractType);
   let lastMtimeMs = -1;
   let watcher: fs.FSWatcher | undefined;
   let fallbackInterval: ReturnType<typeof setInterval> | undefined;
@@ -88,7 +159,7 @@ function attachReadModelSocket(socket: WebSocket, contractType: string): void {
   const heartbeatInterval = setInterval(() => {
     socket.send(JSON.stringify({
       type: 'read_model_heartbeat',
-      contract_type: canonicalContractType(contractType),
+      contract_type: canonicalType,
       sent_at_utc: new Date().toISOString(),
     }));
   }, 30_000);
@@ -175,18 +246,16 @@ function attachDashboardReadModelApi(server: ViteDevServer | PreviewServer): voi
       res.end(JSON.stringify({ error: 'unknown read-model route' }));
       return;
     }
-    const latestPath = latestReadModelPath(match[1]);
     try {
-      const payload = readLatestPayload(match[1]);
+      const snapshot = readLatestPayload(match[1]);
       res.setHeader('content-type', 'application/json; charset=utf-8');
-      res.end(payload);
-    } catch {
+      res.end(JSON.stringify(snapshot.payload));
+    } catch (error) {
       res.statusCode = 404;
       res.setHeader('content-type', 'application/json; charset=utf-8');
       res.end(JSON.stringify({
-        error: 'dashboard read-model latest.json not found',
+        error: error instanceof Error ? error.message : 'dashboard read-model latest.json not found',
         contract_type: match[1],
-        latest_path: latestPath,
       }));
     }
   });
@@ -196,8 +265,16 @@ function attachDashboardReadModelApi(server: ViteDevServer | PreviewServer): voi
     const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
     const match = pathname.match(/^\/ws\/read-models\/([a-z][a-z0-9_]*)\/latest$/);
     if (!match || !SAFE_CONTRACT_RE.test(match[1])) return;
+    let contractType: string;
+    try {
+      contractType = canonicalContractType(match[1]);
+    } catch {
+      socket.write('HTTP/1.1 404 Not Found\r\n\r\n');
+      socket.destroy();
+      return;
+    }
     wss.handleUpgrade(request, socket, head, (webSocket) => {
-      attachReadModelSocket(webSocket, match[1]);
+      attachReadModelSocket(webSocket, contractType);
     });
   });
 }

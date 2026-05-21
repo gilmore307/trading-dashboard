@@ -107,7 +107,7 @@ The dashboard primary navigation will focus on owner-facing summary and explanat
 1. Current Status
 2. Alerts and Exceptions
 3. Tasks, with Historical Modeling and Realtime Trading subtabs
-4. Models, with one subtab for each of the eight model layers
+4. Models, with one subtab for each of the ten model layers
 5. Realtime Trading Signals
 6. Trading Performance Summary
 7. Registry Dictionary
