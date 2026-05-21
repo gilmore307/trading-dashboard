@@ -82,12 +82,14 @@ function apiStatusLabel(status?: string | null): string {
   if (status === 'local_service_offline') return 'Local service offline';
   if (status === 'scheduled') return 'Scheduled';
   if (status === 'refreshing') return 'Refreshing';
+  if (status === 'idle') return 'Idle';
+  if (status === 'disabled') return 'Disabled';
   if (status === 'missing_output') return 'Missing output';
   return startCase(status);
 }
 
 function apiIsHealthy(status?: string | null): boolean {
-  return status === 'connected' || status === 'configured' || status === 'available' || status === 'scheduled' || status === 'refreshing' || status === 'local_service_online';
+  return status === 'connected' || status === 'configured' || status === 'available' || status === 'scheduled' || status === 'refreshing' || status === 'idle' || status === 'local_service_online';
 }
 
 function serviceIsHealthyForDisplay(service: CurrentSystemServicePayload): boolean {
@@ -1479,6 +1481,10 @@ function App() {
     const services = systemChart.services ?? [];
     const sourceOutputs = systemChart.source_outputs ?? [];
     const sourceConnections = systemChart.source_connections ?? systemChart.apis ?? [];
+    const sourceConnectionUnits = new Set(
+      sourceConnections.flatMap((connection) => [connection.unit, connection.service_unit, connection.timer_unit]).filter((unit): unit is string => Boolean(unit)),
+    );
+    const backgroundServices = services.filter((service) => !sourceConnectionUnits.has(service.unit));
     return (
       <>
         {renderServerResourcesPanel()}
@@ -1501,7 +1507,7 @@ function App() {
           <section className="panel">
             <div className="panel-heading">Background Services</div>
             <div className="service-list">
-              {services.map((service) => (
+              {backgroundServices.map((service) => (
                 <div className="service-row" key={service.unit}>
                   <span>{publicServiceLabel(service.unit)}</span>
                   <strong className={serviceIsHealthyForDisplay(service) ? 'service-ok' : 'service-warn'}>

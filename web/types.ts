@@ -75,6 +75,7 @@ export interface CurrentSystemApiPayload {
   kind?: string;
   status: string;
   healthy?: boolean;
+  unit?: string;
   service_unit?: string;
   timer_unit?: string;
   latest_updated_at_utc?: string | null;
