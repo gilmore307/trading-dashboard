@@ -4,6 +4,7 @@ import { fetchDataTableCatalog, fetchDataTableRows, type DataTableQueryResult, t
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
 import type {
+  AgentErrorSummaryPayload,
   CurrentSystemSourceOutputPayload,
   CurrentSystemServicePayload,
   CurrentSystemStatusChartPayload,
@@ -248,7 +249,7 @@ function diagnosticText(value: unknown, fallback = 'Diagnostic evidence attached
 }
 
 type DiagnosticSeverity = 'critical' | 'error' | 'warning' | 'notice';
-type DiagnosticHandlingStatus = 'open' | 'closed' | 'no_action_required' | 'awaiting_retry';
+type DiagnosticHandlingStatus = 'open' | 'closed' | 'no_action_required' | 'awaiting_retry' | 'manual_review';
 
 type DiagnosticSummaryItem = {
   id: string;
@@ -289,6 +290,7 @@ function handlingStatusLabel(status: DiagnosticHandlingStatus): string {
   if (status === 'open') return 'Open';
   if (status === 'closed') return 'Closed';
   if (status === 'awaiting_retry') return 'Awaiting retry';
+  if (status === 'manual_review') return 'Manual review';
   return 'No action needed';
 }
 
@@ -312,7 +314,28 @@ function diagnosticHandlingFromValue(value: unknown): DiagnosticHandlingStatus {
   if (status === 'closed') return 'closed';
   if (status === 'no_action_required') return 'no_action_required';
   if (status === 'awaiting_retry') return 'awaiting_retry';
+  if (status === 'manual_review') return 'manual_review';
   return 'open';
+}
+
+function agentInterventionStatus(diagnosisStatus: unknown, repairStatus: unknown): string {
+  const diagnosis = String(diagnosisStatus ?? '').toLowerCase();
+  const repair = String(repairStatus ?? '').toLowerCase();
+  const reviewed = diagnosis === 'completed';
+  if (repair === 'repaired') return reviewed ? 'Agent repaired' : 'Repair recorded';
+  if (repair === 'not_supported') return reviewed ? 'Agent reviewed · Not supported' : 'Not supported';
+  if (repair === 'queued') return 'Agent queued';
+  if (repair === 'agent_call_failed') return 'Agent call failed';
+  if (repair === 'repair_attempted') return 'Agent repair attempted';
+  if (repair === 'diagnosed') return 'Agent diagnosed';
+  if (reviewed) return 'Agent reviewed';
+  return startCase(repair || diagnosis || 'unknown');
+}
+
+function agentHandlingStatus(error: AgentErrorSummaryPayload): DiagnosticHandlingStatus {
+  const repair = String(error.repair_status ?? '').toLowerCase();
+  if (repair === 'not_supported') return 'manual_review';
+  return diagnosticHandlingFromValue(error.handling_status);
 }
 
 function stableHashHex(value: string): string {
@@ -863,7 +886,7 @@ function collectDiagnosticSummary(
   });
   (chart.agent_error_summary ?? []).forEach((error) => {
     const errorRef = String(error.error_ref ?? '').trim();
-    const repairStatus = String(error.repair_status ?? error.diagnosis_status ?? 'unknown');
+    const repairStatus = agentInterventionStatus(error.diagnosis_status, error.repair_status);
     const rootCause = diagnosticText(error.root_cause ?? error.summary, 'Agent error diagnosis recorded.');
     const retryRecommendation = diagnosticText(error.retry_recommendation, '');
     const retry = retryRecommendation ? ` · ${retryRecommendation}` : '';
@@ -875,7 +898,7 @@ function collectDiagnosticSummary(
       status: startCase(repairStatus),
       detail: `${rootCause}${retry}`,
       severity: diagnosticSeverityFromValue(error.dashboard_severity ?? error.severity),
-      handlingStatus: diagnosticHandlingFromValue(error.handling_status),
+      handlingStatus: agentHandlingStatus(error),
       occurredAt: error.occurred_at_utc ?? error.created_at_utc,
     });
   });
