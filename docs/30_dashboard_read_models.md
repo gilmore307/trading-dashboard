@@ -177,7 +177,7 @@ Hidden by default:
 
 ### `model_layer_readiness_summary`
 
-Purpose: support the Models page and nine layer subtabs.
+Purpose: support the Models page and ten layer subtabs.
 
 Owner-facing fields per layer:
 

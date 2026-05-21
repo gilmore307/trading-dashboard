@@ -32,6 +32,7 @@ class DataTablesTest(unittest.TestCase):
                 "target_state_model_output",
                 "event_failure_risk_model_output",
                 "alpha_confidence_model_output",
+                "dynamic_risk_policy_model_output",
                 "position_projection_model_output",
                 "underlying_action_model_output",
                 "option_expression_model_output",
