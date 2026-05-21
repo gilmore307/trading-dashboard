@@ -699,7 +699,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             </div>
             <small>Pending {progress.pending_count ?? 0} · Failed {progress.failed_count ?? 0} · Accepted skips {progress.accepted_failed_count ?? 0}</small>
           </div>
-        ) : task.task_state === 'current' ? (
+        ) : (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
             <strong>{fallbackProgress.label}</strong>
@@ -708,7 +708,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             </div>
             <small>{fallbackProgress.hint}</small>
           </div>
-        ) : null}
+        )}
         {execution ? (
           <div className="task-detail-card wide-detail">
             <span>Latest execution</span>
