@@ -332,6 +332,7 @@ function agentInterventionStatus(diagnosisStatus: unknown, repairStatus: unknown
   const reviewed = diagnosis === 'completed';
   const runnerLabel = agentRunnerLabel(runnerCommand);
   if (repair === 'repaired') return reviewed ? `${runnerLabel} repaired` : 'Repair recorded';
+  if (repair === 'superseded') return 'Superseded by current route';
   if (repair === 'not_supported') return reviewed ? `${runnerLabel} reviewed · Not supported` : 'Not supported';
   if (repair === 'queued') return `${runnerLabel} queued`;
   if (repair === 'agent_call_failed') return `${runnerLabel} call failed`;
