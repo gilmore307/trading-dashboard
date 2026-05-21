@@ -75,6 +75,10 @@ export interface CurrentSystemApiPayload {
   kind?: string;
   status: string;
   healthy?: boolean;
+  service_unit?: string;
+  timer_unit?: string;
+  latest_updated_at_utc?: string | null;
+  age_seconds?: number | null;
 }
 
 export interface CurrentSystemParallelismPayload {
@@ -145,6 +149,7 @@ export interface CurrentSystemStatusChartPayload {
     status?: string;
   };
   apis?: CurrentSystemApiPayload[];
+  source_connections?: CurrentSystemApiPayload[];
   services?: CurrentSystemServicePayload[];
   source_outputs?: CurrentSystemSourceOutputPayload[];
   refresh?: {

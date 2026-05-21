@@ -80,11 +80,14 @@ function apiStatusLabel(status?: string | null): string {
   if (status === 'not_configured') return 'Not configured';
   if (status === 'local_service_online') return 'Local service online';
   if (status === 'local_service_offline') return 'Local service offline';
+  if (status === 'scheduled') return 'Scheduled';
+  if (status === 'refreshing') return 'Refreshing';
+  if (status === 'missing_output') return 'Missing output';
   return startCase(status);
 }
 
 function apiIsHealthy(status?: string | null): boolean {
-  return status === 'connected' || status === 'configured' || status === 'available' || status === 'local_service_online';
+  return status === 'connected' || status === 'configured' || status === 'available' || status === 'scheduled' || status === 'refreshing' || status === 'local_service_online';
 }
 
 function serviceIsHealthyForDisplay(service: CurrentSystemServicePayload): boolean {
@@ -731,14 +734,14 @@ function collectDiagnosticSummary(
       occurredAt: currentStatusModel?.generated_at_utc,
     });
   });
-  (systemChart.apis ?? []).filter((api) => api.healthy === false || (!api.healthy && !apiIsHealthy(api.status))).forEach((api) => {
+  (systemChart.source_connections ?? systemChart.apis ?? []).filter((api) => api.healthy === false || (!api.healthy && !apiIsHealthy(api.status))).forEach((api) => {
     const optionalLocalOffline = api.status === 'local_service_offline';
     items.push({
       id: stableDiagnosticId('api', api.name),
       title: api.name,
-      category: 'API',
+      category: 'Source connection',
       status: apiStatusLabel(api.status),
-      detail: `${api.kind ? startCase(api.kind) : 'API'} is not currently reported as healthy.`,
+      detail: `${api.kind ? startCase(api.kind) : 'Source connection'} is not currently reported as healthy.`,
       severity: optionalLocalOffline ? 'notice' : 'warning',
       handlingStatus: optionalLocalOffline ? 'no_action_required' : 'open',
       occurredAt: currentStatusModel?.generated_at_utc,
@@ -1475,16 +1478,16 @@ function App() {
   const renderCurrentStatusView = () => {
     const services = systemChart.services ?? [];
     const sourceOutputs = systemChart.source_outputs ?? [];
-    const apis = systemChart.apis ?? [];
+    const sourceConnections = systemChart.source_connections ?? systemChart.apis ?? [];
     return (
       <>
         {renderServerResourcesPanel()}
         {renderThreadingPanel()}
         <section className="detail-grid">
           <section className="panel">
-            <div className="panel-heading">API Connections</div>
+            <div className="panel-heading">Source Connections</div>
             <div className="service-list">
-              {apis.map((api) => {
+              {sourceConnections.map((api) => {
                 const healthy = api.healthy ?? apiIsHealthy(api.status);
                 return (
                   <div className="service-row" key={`${api.kind ?? 'api'}-${api.name}`}>
