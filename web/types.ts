@@ -25,6 +25,7 @@ export interface DashboardReadModel {
 export interface StageCoveragePayload {
   stage_id?: string | null;
   status?: string | null;
+  unit_label?: string | null;
   expected_count?: number;
   ready_count?: number;
   pending_count?: number;

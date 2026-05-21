@@ -666,6 +666,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const blockers = detail.blockers ?? [];
   const receipts = detail.receipt_refs ?? [];
   const progressPercent = progress?.expected_count ? ((progress.ready_count ?? 0) / progress.expected_count) * 100 : 0;
+  const progressUnitLabel = progress?.unit_label || 'ready';
   const fallbackProgress = taskProgressFallback(task);
   const fallbackProgressPercent = Math.max(0, Math.min(100, fallbackProgress.percent));
   return (
@@ -693,7 +694,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
         {progress ? (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
-            <strong>{formatPercent(progressPercent)} · {progress.ready_count ?? 0}/{progress.expected_count ?? 0} ready</strong>
+            <strong>{formatPercent(progressPercent)} · {progress.ready_count ?? 0}/{progress.expected_count ?? 0} {progressUnitLabel}</strong>
             <div className="mini-progress" aria-label={`Task progress ${formatPercent(progressPercent)}`}>
               <div className="mini-progress-fill" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} />
             </div>
