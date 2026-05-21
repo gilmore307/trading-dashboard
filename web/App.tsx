@@ -23,7 +23,14 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 const SERVICE_LABELS: Record<string, string> = {
+  'trading-dashboard-web.service': 'Dashboard Web UI',
   'trading-manager-historical-scheduler.service': 'Historical Training Automation',
+  'trading-execution-realtime-monitor-loop.service': 'Realtime Monitor Loop',
+  'trading-data-te-calendar-refresh.service': 'Trading Economics Calendar Worker',
+  'trading-execution-realtime-runtime-check.service': 'Realtime Runtime Check Worker',
+  'trading-data-te-calendar-refresh.timer': 'Trading Economics Calendar Schedule',
+  'trading-execution-realtime-runtime-check.timer': 'Realtime Runtime Check Schedule',
+  'trading-execution-realtime-runtime-check.path': 'Realtime Runtime Check Watcher',
   'trading-storage-dashboard-read-model-refresh.timer': 'Dashboard Refresh Schedule',
   'trading-storage-dashboard-read-model-refresh.service': 'Dashboard Refresh Worker',
 };
@@ -64,7 +71,7 @@ function publicSourceLabel(sourceSystem?: string | null): string {
 
 function publicServiceLabel(unit?: string | null): string {
   if (!unit) return 'System Service';
-  return SERVICE_LABELS[unit] ?? startCase(unit.replace(/\.service$|\.timer$/u, ''));
+  return SERVICE_LABELS[unit] ?? startCase(unit.replace(/\.(service|timer|path)$/u, ''));
 }
 
 function apiStatusLabel(status?: string | null): string {
@@ -82,6 +89,7 @@ function apiIsHealthy(status?: string | null): boolean {
 
 function serviceIsHealthyForDisplay(service: CurrentSystemServicePayload): boolean {
   if (service.healthy === false) return false;
+  if (service.healthy === true) return true;
   if (service.active_state === 'active') return true;
   if (service.unit === 'trading-storage-dashboard-read-model-refresh.service') {
     return service.active_state === 'activating' || (service.active_state === 'inactive' && service.result === 'success');
@@ -90,12 +98,13 @@ function serviceIsHealthyForDisplay(service: CurrentSystemServicePayload): boole
 }
 
 function serviceStatusLabel(service: CurrentSystemServicePayload): string {
-  if (service.unit === 'trading-storage-dashboard-read-model-refresh.service') {
-    if (service.healthy === false) return 'Needs attention';
-    if (service.active_state === 'activating') return 'Refreshing';
-    if (service.active_state === 'inactive' && service.result === 'success') return 'Idle';
-  }
-  if (service.active_state === 'active') return service.healthy === false ? 'Needs attention' : 'Running';
+  if (service.healthy === false) return 'Needs attention';
+  if (service.unit === 'trading-storage-dashboard-read-model-refresh.service' && service.active_state === 'activating') return 'Refreshing';
+  if (service.unit_kind === 'timer' && service.active_state === 'active') return 'Scheduled';
+  if (service.unit_kind === 'path' && service.active_state === 'active') return 'Watching';
+  if (service.unit_type === 'oneshot' && service.active_state === 'inactive' && service.result === 'success') return 'Idle';
+  if (service.enabled_state === 'disabled' && service.active_state === 'inactive') return 'Disabled';
+  if (service.active_state === 'active') return 'Running';
   if (service.active_state === 'activating') return 'Starting';
   if (service.active_state === 'inactive') return 'Stopped';
   return startCase(service.active_state);

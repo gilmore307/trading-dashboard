@@ -49,6 +49,9 @@ export interface StageExecutionPayload {
 
 export interface CurrentSystemServicePayload {
   unit: string;
+  unit_kind?: string;
+  unit_type?: string;
+  load_state?: string;
   active_state: string;
   enabled_state?: string;
   substate?: string;
