@@ -150,6 +150,7 @@ function attachReadModelSocket(socket: WebSocket, contractType: string): void {
   } catch {
     fallbackInterval = setInterval(pushIfChanged, 1_000);
   }
+  const mtimePollInterval = setInterval(pushIfChanged, 2_000);
   const heartbeatInterval = setInterval(() => {
     socket.send(JSON.stringify({
       type: 'read_model_heartbeat',
@@ -160,6 +161,7 @@ function attachReadModelSocket(socket: WebSocket, contractType: string): void {
   socket.on('close', () => {
     watcher?.close();
     if (fallbackInterval) clearInterval(fallbackInterval);
+    clearInterval(mtimePollInterval);
     clearInterval(heartbeatInterval);
   });
 }

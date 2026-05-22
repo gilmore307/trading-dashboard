@@ -27,6 +27,8 @@ storage/06_dashboard_cache/read_models/<contract_type>/latest.json
 /ws/read-models/<contract_type>/latest
 ```
 
+The WebSocket route sends a snapshot on connect and on `latest.json` changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
+
 The dashboard renders Current Status, Tasks, Models, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
@@ -137,7 +139,7 @@ Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_
 
 Owner-facing fields:
 
-- task timeline listing past, current, and future child-task rows at `month + layer + phase` granularity, with phase-level labels such as data acquisition, feature generation, model generation, evaluation, Promotion Review, and maintenance; month-scoped rows are capped at the latest completed calendar month in `America/New_York`, so the current incomplete month is not exposed as a Ready task; the dashboard groups this timeline by month, filters it by month/layer/status/task type, orders filter choices by chronological/workflow sequence rather than label alphabetization, defaults to current `Now` work, shows the owner/execution worker directly on every collapsed task preview, supports worker filtering, and can expand each row using sanitized detail/progress fields including worker identity plus generated, started, ended, and status-updated timestamps when available;
+- task timeline listing past, current, and future child-task rows at `month + layer + phase` granularity, with canonical phase labels such as data acquisition, feature generation, model generation, model evaluation, Promotion Review, and maintenance; source/feature stages that originate from a six-month fold are projected into their month rows, while model stages remain on the training fold; model-group replay rows keep the training fold as `month` and expose the out-of-sample replay window separately in detail; month-scoped rows are capped at the latest completed calendar month in `America/New_York`, so the current incomplete month is not exposed as a Ready task; the dashboard groups this timeline by month, filters it by month/layer/status/task type, orders filter choices by chronological/workflow sequence rather than label alphabetization, defaults to current `Now` work, shows the owner/execution worker directly on every collapsed task preview, supports worker filtering, and can expand each row using sanitized detail/progress fields including worker identity plus generated, started, ended, and status-updated timestamps when available;
 - current month or active historical window;
 - active layer/stage;
 - progress percentage;

@@ -378,7 +378,7 @@ Chentong clarified that the task list should display the finest child tasks so c
 
 ### Decision
 
-Task List treats each row as `month + layer + operational stage/work type`. Rows are grouped by historical month, still filterable by layer/status/task type, and each row has a read-only details toggle. Expanded details show task identity, status/reason, current progress as a progress bar, latest execution result when attached, evidence count/refs, and blockers. The task timeline must not expose the current incomplete calendar month as a Ready task before the completed-month cutoff opens it.
+Task List treats each row as `month + layer + operational stage/work type`. Rows are grouped by historical month, still filterable by layer/status/task type, and each row has a read-only details toggle. Source/feature stages from six-month folds are displayed on their month rows; model stages stay on the fold. Model-group replay rows use canonical phase labels and keep the training fold as `month`, with the replay/test window exposed in task detail. Expanded details show task identity, status/reason, current phase progress as a progress bar, latest execution result when attached, evidence count/refs, and blockers. The task timeline must not expose the current incomplete calendar month as a Ready task before the completed-month cutoff opens it.
 
 ### Consequences
 
