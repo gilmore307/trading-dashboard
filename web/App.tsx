@@ -515,6 +515,12 @@ const WORK_TYPE_FILTER_ORDER: Record<string, number> = {
 
 function monthOptionRank(value: string): number {
   if (value === 'unscheduled') return Number.MAX_SAFE_INTEGER;
+  const foldMatch = /^(\d{4})-fold([1-9]\d*)$/u.exec(value);
+  if (foldMatch) {
+    const year = Number(foldMatch[1]);
+    const foldNumber = Number(foldMatch[2]);
+    if (Number.isFinite(year) && Number.isFinite(foldNumber)) return (year * 100 + ((foldNumber - 1) * 6 + 1)) * 10 + 1;
+  }
   const match = /^(\d{4}-\d{2})(?:\.\.(\d{4}-\d{2}))?$/u.exec(value);
   if (!match) return Number.MAX_SAFE_INTEGER - 1;
   const normalizedStart = Number(match[1].replace(/-/gu, ''));

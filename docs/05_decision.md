@@ -493,12 +493,12 @@ After historical workflow slices complete, the task timeline can contain no `cur
 
 ### Decision
 
-The default filters now use `Now/latest period`: they show current work when current rows exist, otherwise they fall back to all statuses for the latest completed period instead of rendering either an empty list or the entire multi-year timeline. Month filters parse both single months and `YYYY-MM..YYYY-MM` fold ranges so fold ranges remain chronologically ordered by their start month. Target filter options put concrete symbols before non-targeted panel work.
+The default filters now use `Now/latest period`: they show current work when current rows exist, otherwise they fall back to all statuses for the latest completed period instead of rendering either an empty list or the entire multi-year timeline. Month filters parse single months and `YYYY-foldN` fold labels so folds remain chronologically ordered by their start month. Target filter options put concrete symbols before non-targeted panel work.
 
 ### Consequences
 
 - An idle/completed workflow still shows useful historical task rows without rendering the entire multi-year timeline by default.
-- Six-month model fold ranges no longer drift to the bottom of the Month filter.
+- Six-month model folds no longer drift to the bottom of the Month filter.
 - Target filtering is easier to scan because concrete symbols appear before broad market/sector rows.
 
 ## D023 - High-cardinality task filters are typed selectors and task rows are windowed
