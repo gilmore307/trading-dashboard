@@ -881,15 +881,17 @@ function collectDiagnosticSummary(
   });
   (chart.task_timeline ?? []).filter((task) => {
     const progress = task.detail?.progress;
-    return progress && (progress.failed_count ?? 0) > 0 && progress.can_unlock_downstream !== true;
+    if (!progress || task.task_state === 'future' || progress.can_unlock_downstream === true) return false;
+    return Math.max(0, (progress.failed_count ?? 0) - (progress.accepted_failed_count ?? 0)) > 0;
   }).slice(0, 20).forEach((task) => {
     const progress = task.detail?.progress;
+    const unresolvedFailedCount = Math.max(0, (progress?.failed_count ?? 0) - (progress?.accepted_failed_count ?? 0));
     items.push({
       id: stableDiagnosticId('task-coverage', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`),
       title: task.task_label,
       category: 'Task coverage',
       status: 'Action Required',
-      detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${progress?.failed_count ?? 0}/${progress?.expected_count ?? 0} requests failed; downstream remains blocked.`,
+      detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${unresolvedFailedCount}/${progress?.expected_count ?? 0} unresolved requests failed; downstream remains blocked.`,
       severity: 'error',
       handlingStatus: 'open',
       occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
