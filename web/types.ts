@@ -227,6 +227,9 @@ export interface HistoricalTaskTimelineItemPayload {
 export interface HistoricalTaskProgressChartPayload {
   current_month?: string | null;
   active_stage?: string | null;
+  active_task?: HistoricalTaskTimelineItemPayload | null;
+  internal_current_month?: string | null;
+  internal_active_stage?: string | null;
   progress_percent?: number;
   stage_counts?: Record<string, number>;
   terminal_complete?: boolean;

@@ -472,6 +472,12 @@ function taskTargetFilterValue(task: HistoricalTaskTimelineItemPayload): string 
   return 'not_targeted';
 }
 
+function activeTaskLabel(chart: HistoricalTaskProgressChartPayload): string {
+  const activeTask = chart.active_task;
+  if (activeTask?.task_label) return activeTask.task_label;
+  return startCase(chart.active_stage);
+}
+
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
   const target = taskTargetSymbol(task);
   if (target) return target;
@@ -1792,8 +1798,8 @@ function App() {
       return (
         <>
           <section className="metric-grid">
-            <MetricCard label="Current month" value={chart.current_month ?? 'Unknown'} />
-            <MetricCard label="Active stage" value={startCase(chart.active_stage)} />
+            <MetricCard label="Current period" value={chart.current_month ?? 'Unknown'} />
+            <MetricCard label="Active task" value={activeTaskLabel(chart)} />
             <MetricCard label="Workflow" value={startCase(historicalModel.status)} hint={chart.terminal_complete ? 'Terminal complete' : `Lock ${startCase(chart.lock_status)}`} />
             <MetricCard label="Progress" value={formatPercent(chart.progress_percent)} hint={`${terminalStages}/${stageTotal || 0} terminal stages`} />
           </section>
@@ -1830,8 +1836,8 @@ function App() {
     return (
       <>
         <section className="metric-grid">
-          <MetricCard label="Month" value={chart.current_month ?? 'Unknown'} />
-          <MetricCard label="Active stage" value={startCase(chart.active_stage)} />
+          <MetricCard label="Period" value={chart.current_month ?? 'Unknown'} />
+          <MetricCard label="Active task" value={activeTaskLabel(chart)} />
           <MetricCard label="Provider posture" value={startCase(chart.provider_status)} />
           <MetricCard label="Lock" value={startCase(chart.lock_status)} />
         </section>
