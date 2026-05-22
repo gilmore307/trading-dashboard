@@ -43,21 +43,13 @@ Implementation changes are acceptable only when they:
 
 ## Verification Commands
 
-Current documentation-stage checks:
-
-```bash
-git status --short
-find docs -maxdepth 1 -type f | sort
-find . -maxdepth 2 -type f | sort
-```
-
 Current implementation verification:
 
 ```bash
-npm run build
-npm test
+python3 -m compileall -q src scripts tests
 PYTHONPATH=src python3 -m unittest discover -s tests
-python3 -m compileall -q src scripts
+npm run build
+git diff --check
 ```
 
 Future runtime/UI slices must add appropriate fixture tests, lint/type checks, schema validation, and artifact/manifest/ready-signal validation as applicable.

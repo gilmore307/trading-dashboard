@@ -2,37 +2,22 @@
 
 ## Active Tasks
 
+- Current accepted read-model route is `storage/06_dashboard_cache/read_models/<contract_type>/latest.json`, served through `/api/read-models/<contract_type>/latest` and `/ws/read-models/<contract_type>/latest`.
+- Current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `realtime_signal_summary`, and `execution_realtime_trading_runtime_status`.
 - Historical Task Progress current content is implemented: Tasks now focuses on a filtered, month-grouped historical child-task list. The default view shows current `Now` work when available and otherwise falls back to the latest completed period, with filters for month, layer, status, task/work type, worker, and target; Month and Target are typed selectors, low-cardinality filters remain dropdowns, and filter choices are ordered by month/layer/time/process sequence rather than alphabetically. Rows are window-rendered for broad historical views and can expand to show task detail/progress, including generated/started/ended/status-updated timestamps when available. Model-specific month/stage/progress/coverage cards live under Models.
 - Realtime Signals now consumes `realtime_signal_summary` from storage. The page shows monitor mode/state, cycle and provider-observation counts, shadow decision-input readiness, handoff readiness, safety-boundary flags, and visible gaps. If no execution realtime monitor receipt exists yet, it displays a safe `not_started` state instead of a placeholder or fabricated metrics.
-- First website slice is implemented: Vite + React + TypeScript renders public read-only Current Status, Tasks, Data, Models, and Diagnostics pages from storage read models plus an allowlisted read-only data/model-output table API. The left navigation remains the only page-switching entry point, with read-only manual refresh and WebSocket streaming with HTTP fallback polling for read models. Diagnostics is last in navigation and summarizes errors/status in a severity-filtered table rather than acting as a troubleshooting workbench.
+- Vite + React + TypeScript renders public read-only Current Status, Tasks, Data, Models, Realtime Signals, and Diagnostics pages from storage read models plus an allowlisted read-only data/model-output table API. The left navigation remains the only page-switching entry point, with read-only manual refresh and WebSocket streaming with HTTP fallback polling for read models. Diagnostics is last in navigation and summarizes errors/status in a severity-filtered table rather than acting as a troubleshooting workbench.
 - Dashboard primarily consumes storage-hosted summaries; the Data page is the narrow exception and only exposes explicitly allowlisted read-only source, feature, and main model-output tables, never arbitrary SQL, manager control-plane tables, dataset/promotion tables, or diagnostics internals. Current Status now includes a Runtime Throughput card: 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completions, observation window, and idle/blocked decision count. The resource card labels free disk as Available Storage. Provider-thread settings remain subordinate implementation detail rather than the primary card content.
 - Dashboard web service template is implemented in `deploy/systemd/trading-dashboard-web.service`; host installation/start remains an operational deployment step, not a dashboard-originated workflow action.
 - As future website slices consume more original source outputs, update the Dashboard Data/source-output inventory in the same slice so the freshness/audit view stays complete. Dashboard Data must distinguish source artifact write time from dashboard read-model refresh time, and must label heartbeat vs event-driven freshness behavior.
 
-## Historical-Training Todo Status
+## Outside Boundary
 
-- No dashboard tasks are required for no-broker historical training.
-- Current training evidence can be inspected through manager/storage/model CLI outputs and docs until a first dashboard implementation slice is explicitly accepted.
+These items are intentionally outside the current dashboard boundary and must not be treated as active dashboard work items:
 
-## Not Current Scope
-
-These items are intentionally outside the current no-broker historical-training run and must not be treated as active dashboard work items:
-
-- broad multi-page dashboard runtime beyond the first Historical Modeling slice;
 - arbitrary SQL consoles, write-capable table views, raw receipt browsers, daemon implementation controls, or unallowlisted maintenance internals;
-- new read-model surfaces beyond the accepted initial/parked set before their presentation contract, storage layout, and registry route are accepted;
+- new read-model surfaces before their presentation contract, storage layout, and registry route are accepted;
 - dashboard-originated requests, provider calls, model activation, broker execution, or account mutation.
-
-## Recently Accepted
-
-- Added the first visible website slice: Vite + React + TypeScript renders `historical_task_progress_summary` as a chart-first Historical Task Progress page with cards, progress bar, stage distribution, coverage placeholder, next action, blocker, and diagnostics.
-- Added the first dashboard read adapter: `src/trading_dashboard/read_models.py` and `scripts/read_models/read_latest_dashboard_read_model.py` read storage-hosted `latest.json` summaries, starting with `historical_task_progress_summary`, without raw internal table access or side effects.
-- Added the first refreshable dashboard read model: `trading-manager` builds `historical_task_progress_summary` from read-only scheduler/status evidence, and `trading-storage` can refresh/materialize it through a storage-owned wrapper plus reviewed systemd service/timer templates. Dashboard UI remains future work.
-- Registered the storage-side dashboard read-model materializer through `trading-manager`: producer-supplied summaries can now be validated and materialized by `trading-storage` into snapshot/latest/schema/index files.
-- Registered the dashboard summary/read-model contract names through `trading-manager` and accepted the initial storage physical layout/validation boundary in `trading-storage/docs/41_dashboard_summary_layout.md`.
-- Closed the current presentation-boundary phase in `docs/10_dashboard_acceptance.md`: downstream-only display role, provenance-preserving expectation, no dashboard-originated trading actions, and deferred implementation-layout policy are accepted. No dashboard runtime, provider call, manager dispatch, model activation, broker execution, or account mutation is enabled by this acceptance.
-- Created initial `trading-dashboard` docs spine and repository boundary.
-- Added initial `.gitignore` for local environments, generated outputs, logs, and secrets.
 
 ## Proposed Primary Tabs
 
@@ -45,18 +30,6 @@ These items are intentionally outside the current no-broker historical-training 
 - Registry Dictionary — read-only searchable explanation surface for accepted fields, terms, statuses, contracts, configs, and scripts.
 
 Registry-backed field profiles remain contextual hover/detail explanations for visible fields and can link into the Registry Dictionary.
-
-## First Implementation Candidate
-
-The first runtime slice should target only:
-
-1. Current Status;
-2. Alerts and Exceptions;
-3. Tasks;
-4. Models summary;
-5. Registry Dictionary / hover profiles.
-
-Trading Performance Summary remains parked until mature live-trading evidence exists.
 
 ## Current Status infrastructure slice
 

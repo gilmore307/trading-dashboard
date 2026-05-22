@@ -17,7 +17,20 @@ tests/       First-party dashboard adapter tests.
 web/         Vite/React browser UI for accepted read-model summaries.
 ```
 
-The current implementation slice is a read-only storage-hosted read-model adapter plus a Vite/React Historical Modeling page. It does not create workflow controls, provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes. `src/` owns reusable Python adapters, `web/` owns the browser UI, `scripts/` owns executable entrypoints, and `tests/` owns verification; `scripts/` may import `src/`, but `src/` must not import `scripts/`.
+The current implementation is a read-only storage-hosted dashboard over accepted read-model summaries. The Vite/React UI renders Current Status, Tasks, Data, Models, Realtime Signals, and Diagnostics through direct HTTP/WebSocket latest-summary routes:
+
+```text
+/api/read-models/<contract_type>/latest
+/ws/read-models/<contract_type>/latest
+```
+
+Read-model files are read from the accepted storage route:
+
+```text
+storage/06_dashboard_cache/read_models/<contract_type>/latest.json
+```
+
+The Data page is the narrow read-only exception for allowlisted source, feature, and main model-output tables through `/api/data/tables` and `/api/data/query`. The dashboard does not create workflow controls, provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes. `src/` owns reusable Python adapters, `web/` owns the browser UI, `scripts/` owns executable entrypoints, and `tests/` owns verification; `scripts/` may import `src/`, but `src/` must not import `scripts/`.
 
 ## Docs Spine
 
@@ -46,8 +59,8 @@ Any new global helper, reusable template, shared field, status, type, config key
 ## Verification
 
 ```bash
-npm run build
-npm test
+python3 -m compileall -q src scripts tests
 PYTHONPATH=src python3 -m unittest discover -s tests
-python3 -m compileall -q src scripts
+npm run build
+git diff --check
 ```

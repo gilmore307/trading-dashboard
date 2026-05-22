@@ -27,12 +27,12 @@ REGISTERED_DASHBOARD_READ_MODELS = frozenset(
         "model_promotion_posture_summary",
         "registry_dictionary_profile",
         "realtime_signal_summary",
+        "execution_realtime_trading_runtime_status",
         "runtime_decision_quality_summary",
         "trading_performance_summary",
         "storage_lifecycle_status_summary",
     }
 )
-LEGACY_DASHBOARD_READ_MODEL_ALIASES = {f"{contract_type}_v1": contract_type for contract_type in REGISTERED_DASHBOARD_READ_MODELS}
 REQUIRED_FIELDS = (
     "contract_type",
     "schema_version",
@@ -98,22 +98,16 @@ class DashboardReadModelView:
 def _safe_contract_type(contract_type: str) -> str:
     if not isinstance(contract_type, str) or not SAFE_CONTRACT_RE.fullmatch(contract_type):
         raise DashboardReadModelAdapterError(f"unsafe dashboard read-model contract_type: {contract_type!r}")
-    canonical = LEGACY_DASHBOARD_READ_MODEL_ALIASES.get(contract_type, contract_type)
-    if canonical not in REGISTERED_DASHBOARD_READ_MODELS:
+    if contract_type not in REGISTERED_DASHBOARD_READ_MODELS:
         raise DashboardReadModelAdapterError(f"unregistered dashboard read-model contract_type: {contract_type!r}")
-    return canonical
+    return contract_type
 
 
 def latest_read_model_path(storage_root: Path, contract_type: str) -> Path:
     """Return the accepted storage-hosted latest path for a read-model contract."""
 
-    requested_contract_type = contract_type
     contract_type = _safe_contract_type(contract_type)
-    canonical_path = Path(storage_root) / "06_dashboard_cache" / "read_models" / contract_type / "latest.json"
-    if requested_contract_type != contract_type:
-        legacy_path = Path(storage_root) / "06_dashboard_cache" / "read_models" / requested_contract_type / "latest.json"
-        return canonical_path if canonical_path.exists() else legacy_path
-    return canonical_path
+    return Path(storage_root) / "06_dashboard_cache" / "read_models" / contract_type / "latest.json"
 
 
 def _expect_list(payload: Mapping[str, Any], field: str) -> list[Any]:
@@ -182,7 +176,7 @@ def read_dashboard_read_model_latest(
 
 
 def read_historical_task_progress_latest(*, storage_root: Path = DEFAULT_STORAGE_ROOT) -> DashboardReadModelView:
-    """Read the first accepted historical task-progress dashboard summary."""
+    """Read the accepted historical task-progress dashboard summary."""
 
     return read_dashboard_read_model_latest(HISTORICAL_TASK_PROGRESS_CONTRACT, storage_root=storage_root)
 
@@ -191,7 +185,6 @@ __all__ = [
     "DEFAULT_STORAGE_ROOT",
     "HISTORICAL_TASK_PROGRESS_CONTRACT",
     "REGISTERED_DASHBOARD_READ_MODELS",
-    "LEGACY_DASHBOARD_READ_MODEL_ALIASES",
     "DashboardReadModelAdapterError",
     "DashboardReadModelView",
     "latest_read_model_path",

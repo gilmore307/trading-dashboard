@@ -14,7 +14,20 @@ Instead, each page should consume a small storage-hosted summary contract design
 raw internal evidence -> upstream/component aggregation -> trading-storage materialized dashboard summary -> chart-first UI
 ```
 
-`trading-storage` now has materialization and refresh helpers for the storage step: `scripts/dashboard/materialize_read_model.py` validates a producer-supplied common envelope, `scripts/dashboard/refresh_historical_task_progress_read_model.py` runs the manager-owned historical progress producer, and `scripts/dashboard/refresh_realtime_signal_summary_read_model.py` builds the execution-owned realtime signal summary before writing snapshot/latest/schema/index files under the accepted `storage/06_dashboard_cache/` layout. `trading-dashboard` reads accepted `latest.json` summaries through the Vite API/WebSocket layer and renders Current Status, Tasks, Models, Diagnostics, Data, and Realtime Signals without querying raw internals.
+`trading-storage` materializes dashboard read models under the accepted storage route:
+
+```text
+storage/06_dashboard_cache/read_models/<contract_type>/latest.json
+```
+
+`trading-dashboard` reads those summaries directly through the Vite HTTP and WebSocket routes:
+
+```text
+/api/read-models/<contract_type>/latest
+/ws/read-models/<contract_type>/latest
+```
+
+The dashboard renders Current Status, Tasks, Models, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -39,9 +52,9 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 | `issue_refs` | Alert/exception ids related to the summary. |
 | `diagnostic_refs` | Optional evidence references for issue-focused drilldowns only. |
 
-## Initial Implementation Read Models
+## Dashboard Read-Model Contracts
 
-The first dashboard implementation should target these owner-facing surfaces, read from `trading-storage`, before any deep diagnostics or parked realtime/performance pages.
+The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `realtime_signal_summary`, and `execution_realtime_trading_runtime_status`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
 
 ### `current_system_status_summary`
 
@@ -70,7 +83,7 @@ Suggested storage fields:
 - last compression/archive/delete receipt summary;
 - restore verification status.
 
-Dashboard Data copy must say these timestamps are source artifact write times, not dashboard read-model refresh times. Heartbeat artifacts are expected to move continuously; event-driven artifacts move only when decisions or stage progress are recorded. Current Status consumes `chart_payload.runtime_throughput` to render the Runtime Throughput card with the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. `chart_payload.parallelism` may still exist as subordinate provider-dispatch/resource-gate detail, but it is no longer the primary Multitask Threads presentation.
+Dashboard Data copy must say these timestamps are source artifact write times, not dashboard read-model refresh times. Heartbeat artifacts are expected to move continuously; event-driven artifacts move only when decisions or stage progress are recorded. Current Status consumes `chart_payload.runtime_throughput` to render the Runtime Throughput card with the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. `chart_payload.parallelism` is subordinate provider-dispatch/resource-gate detail.
 
 Hidden by default:
 
@@ -120,7 +133,7 @@ The alert page is an owner-actionable issue queue, not a log viewer.
 
 Purpose: support the Historical Modeling subtab under Tasks.
 
-Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Storage materialization and refresh orchestration are handled by `trading-storage/scripts/dashboard/refresh_historical_task_progress_read_model.py`; storage also carries reviewed systemd service/timer templates for periodic refresh. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, and the first Vite/React Historical Modeling page.
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks/Models views.
 
 Owner-facing fields:
 
@@ -175,6 +188,19 @@ Hidden by default:
 - order, broker, account, or adapter internals;
 - model activation internals.
 
+### `execution_realtime_trading_runtime_status`
+
+Purpose: support WebSocket/runtime-readiness clients that need execution runtime posture without reading execution internals.
+
+Current implementation: `trading-storage` builds this summary from the execution-owned runtime readiness artifact. Dashboard clients consume it through `/ws/read-models/execution_realtime_trading_runtime_status/latest` or the matching HTTP latest route. The payload exposes active model pointer state, next gate, connected interfaces, allowed action flags, required runtime inputs, and safety counters. It performs no provider calls, model activation, order construction, broker execution, or account mutation.
+
+Hidden by default:
+
+- raw execution adapter payloads;
+- broker/account/order/fill state;
+- secret paths or provider credentials;
+- model activation internals.
+
 ### `model_layer_readiness_summary`
 
 Purpose: support the Models page and ten layer subtabs.
@@ -207,7 +233,7 @@ Canonical layer map:
 | 9 | Trading Guidance / Option Expression | `trading_guidance_record` plus optional `option_expression_plan` / `expression_vector` |
 | 10 | Event Risk Governor / Event Intelligence Overlay | `event_risk_intervention` / event-adjusted risk guidance |
 
-Dashboard model pages must follow the accepted current layer map and must not revive old EventOverlay-as-Layer-4 or OptionExpression-as-Layer-8 wording.
+Dashboard model pages must follow the accepted current layer map.
 
 ### `model_promotion_posture_summary`
 
@@ -248,24 +274,6 @@ The registry dictionary is read-only. It must not expose editor controls or repl
 ## Parked/Future Read Models
 
 These contracts should exist only when the underlying systems provide mature evidence.
-
-### `realtime_signal_summary`
-
-Future purpose: support Realtime Trading Signals.
-
-Possible owner-facing fields:
-
-- monitored universe size;
-- active candidate count;
-- actionable signal count;
-- shadow signal count;
-- blocked signal count;
-- signal freshness;
-- signal confidence distribution;
-- no-trade reason distribution;
-- top active signals.
-
-Do not expose full realtime quote/bar/option-chain internals by default.
 
 ### `runtime_decision_quality_summary`
 
@@ -342,18 +350,6 @@ Disallowed primary surfaces:
 - raw registry row browser as default view;
 - daemon internals explorer.
 
-## First Implementation Target
-
-The first dashboard runtime slice should prioritize:
-
-1. Current Status;
-2. Alerts and Exceptions;
-3. Tasks;
-4. Models summary;
-5. Registry Dictionary / hover profiles.
-
-Realtime Trading Signals and Trading Performance Summary should remain parked until mature evidence exists.
-
 ## Storage Home
 
 Dashboard summary/read-model outputs belong in `trading-storage` as the durable/materialized home. This keeps the dashboard read-only and prevents it from directly coupling to raw manager/model/data/execution internals.
@@ -365,4 +361,4 @@ Responsibilities split as follows:
 - `trading-dashboard` owns presentation only.
 - `trading-manager` remains the registry/governance route for shared contract names before implementation.
 
-The companion storage-side design contracts are `trading-storage/docs/40_dashboard_read_models.md` and `trading-storage/docs/41_dashboard_summary_layout.md`. Shared contract names are registered through `trading-manager` migration `344_register_dashboard_read_model_contracts.sql`.
+The companion storage-side design contracts are `trading-storage/docs/40_dashboard_read_models.md` and `trading-storage/docs/41_dashboard_summary_layout.md`. Shared contract names are governed through `trading-manager`.

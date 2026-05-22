@@ -20,6 +20,7 @@ const REGISTERED_READ_MODELS = new Set([
   'model_promotion_posture_summary',
   'registry_dictionary_profile',
   'realtime_signal_summary',
+  'execution_realtime_trading_runtime_status',
   'runtime_decision_quality_summary',
   'trading_performance_summary',
   'storage_lifecycle_status_summary',
@@ -48,21 +49,14 @@ function canonicalContractType(contractType: string): string {
   if (!SAFE_CONTRACT_RE.test(contractType)) {
     throw new Error(`unsafe dashboard read-model contract_type: ${contractType}`);
   }
-  const canonicalType = contractType.replace(/_v[0-9]+$/, '');
-  if (!REGISTERED_READ_MODELS.has(canonicalType)) {
+  if (!REGISTERED_READ_MODELS.has(contractType)) {
     throw new Error(`unregistered dashboard read-model contract_type: ${contractType}`);
   }
-  return canonicalType;
+  return contractType;
 }
 
 function latestReadModelPath(contractType: string): string {
-  const canonicalType = canonicalContractType(contractType);
-  const canonicalPath = path.join(storageRoot(), '06_dashboard_cache', 'read_models', canonicalType, 'latest.json');
-  if (canonicalType !== contractType) {
-    const legacyPath = path.join(storageRoot(), '06_dashboard_cache', 'read_models', contractType, 'latest.json');
-    return fs.existsSync(canonicalPath) ? canonicalPath : legacyPath;
-  }
-  return canonicalPath;
+  return path.join(storageRoot(), '06_dashboard_cache', 'read_models', canonicalContractType(contractType), 'latest.json');
 }
 
 function validateReadModelPayload(payload: unknown, expectedContractType: string): Record<string, unknown> {
@@ -118,7 +112,7 @@ function sendReadModelSnapshot(socket: WebSocket, contractType: string): void {
   } catch (error) {
     socket.send(JSON.stringify({
       type: 'read_model_error',
-      contract_type: SAFE_CONTRACT_RE.test(contractType) ? contractType.replace(/_v[0-9]+$/, '') : contractType,
+      contract_type: contractType,
       error: error instanceof Error ? error.message : 'unknown read-model websocket error',
       sent_at_utc: new Date().toISOString(),
     }));

@@ -10,6 +10,7 @@ from pathlib import Path
 from trading_dashboard.read_models import (
     DashboardReadModelAdapterError,
     HISTORICAL_TASK_PROGRESS_CONTRACT,
+    latest_read_model_path,
     read_dashboard_read_model_latest,
     read_historical_task_progress_latest,
 )
@@ -66,6 +67,21 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(DashboardReadModelAdapterError):
                 read_dashboard_read_model_latest("../historical_task_progress_summary", storage_root=Path(tmp))
+
+    def test_rejects_versioned_contract_aliases(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(DashboardReadModelAdapterError):
+                read_dashboard_read_model_latest(f"{HISTORICAL_TASK_PROGRESS_CONTRACT}_v1", storage_root=Path(tmp))
+
+    def test_accepts_execution_runtime_status_contract_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            storage_root = Path(tmp)
+            path = latest_read_model_path(storage_root, "execution_realtime_trading_runtime_status")
+
+        self.assertEqual(
+            path,
+            storage_root / "06_dashboard_cache/read_models/execution_realtime_trading_runtime_status/latest.json",
+        )
 
     def test_rejects_missing_latest_file(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -157,16 +157,15 @@ Hidden by default:
 
 Purpose: answer “What is being monitored now, and what signals are present?”
 
-This tab is parked until realtime components are stable enough to supply meaningful signal summaries.
+Visible content should include:
 
-Future visible content should include:
-
-- monitored symbols;
-- current signal state;
-- model route / layer contribution summary;
-- signal freshness;
-- confidence and risk context;
-- no-action/no-trade explanations.
+- monitor mode/state;
+- completed and failed cycle counts;
+- provider observation counts;
+- realtime feature snapshot readiness;
+- model decision-input readiness;
+- safety-boundary flags;
+- visible gaps, including `not_started` when no monitor receipt exists.
 
 Hidden by default:
 

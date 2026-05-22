@@ -15,8 +15,10 @@ This file defines the intended component workflow for `trading-dashboard`.
 ## Primary Flow
 
 ```text
-read accepted summary/read-model outputs -> adapt for owner-facing presentation -> render chart-first dashboard view -> provide contextual field profiles and issue-focused drilldowns
+storage/06_dashboard_cache/read_models/<contract_type>/latest.json -> /api/read-models/<contract_type>/latest and /ws/read-models/<contract_type>/latest -> read-only dashboard views
 ```
+
+The read-only Data page uses `/api/data/tables` and `/api/data/query` for explicitly allowlisted source, feature, and main model-output tables.
 
 ## Operating Principles
 
@@ -27,14 +29,10 @@ read accepted summary/read-model outputs -> adapt for owner-facing presentation 
 - Registry profiles explain visible fields contextually; the dashboard is not a primary registry browser.
 - Shared fields, statuses, type values, helpers, and reusable templates must come from `trading-manager`.
 - Runtime outputs must be written outside Git-tracked source paths.
-- Cross-repository handoffs should use accepted request, artifact, manifest, and ready-signal contracts.
+- Cross-repository handoffs use accepted storage-hosted read-model contracts for primary dashboard pages.
 
 ## Collaboration Boundary
 
 `trading-dashboard` collaborates with other trading repositories through explicit contracts, not direct mutation of their local state.
 
-Upstream inputs and downstream outputs should be described by artifact references, manifests, ready signals, requests, or accepted storage contracts.
-
-## Not Current Historical-Training Scope
-
-Dashboard runtime/UI implementation remains outside the no-broker historical-training run. The first accepted implementation slice is limited to read-only adapters over storage-hosted dashboard read-model `latest.json` files; it does not create UI pages, provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.
+Primary upstream inputs are accepted storage-hosted dashboard read models. The dashboard may surface sanitized provenance or issue references only to explain visible owner-facing statuses.

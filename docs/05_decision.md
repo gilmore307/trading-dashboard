@@ -80,9 +80,9 @@ Status: Accepted
 
 ### Decision
 
-Close the current presentation-boundary phase. `docs/10_dashboard_acceptance.md` is the authoritative acceptance receipt.
+Close the current presentation-boundary phase. `docs/10_dashboard_acceptance.md` is the authoritative boundary document.
 
-No active dashboard-preparation tasks remain. Future dashboard work is deferred until a concrete reviewed output surface exists: first UI implementation slice, package/source/test layout, fixture policy, read models over manager/storage outputs, and storage/reference requirements.
+Dashboard implementation work must stay read-only and consume reviewed storage-hosted read models.
 
 ### Consequences
 
@@ -120,7 +120,7 @@ Registry-backed field profiles remain useful as contextual hover/detail explanat
 
 - `docs/20_information_architecture.md` owns the initial page structure and visibility rules.
 - Implementation must not turn `trading-dashboard` into a general artifact browser, registry editor, maintenance console, or workflow controller. The Registry Dictionary is read-only explanation, and Alerts/Exceptions are owner-facing issue summaries.
-- First implementation slice should consume owner-facing summary/read-model outputs, not raw internal control-plane tables as primary UI content.
+- Implementation slices should consume owner-facing summary/read-model outputs, not raw internal control-plane tables as primary UI content.
 - Advanced diagnostics must stay issue-focused and secondary.
 
 
@@ -135,23 +135,22 @@ The dashboard could accidentally become a complex internal-table UI if it reads 
 
 ### Decision
 
-Dashboard pages must consume owner-facing summary/read-model contracts materialized in `trading-storage`. `docs/30_dashboard_read_models.md` owns the dashboard-side initial contract set, and `trading-storage/docs/40_dashboard_read_models.md` owns the storage-home boundary:
+Dashboard pages must consume owner-facing summary/read-model contracts materialized in `trading-storage`. `docs/30_dashboard_read_models.md` owns the dashboard-side contract set, and `trading-storage/docs/40_dashboard_read_models.md` owns the storage-home boundary.
+
+The current public refresh set is:
 
 - `current_system_status_summary`;
-- `alert_exception_summary`;
 - `historical_task_progress_summary`;
-- `realtime_task_progress_summary`;
-- `model_layer_readiness_summary`;
-- `model_promotion_posture_summary`;
-- `registry_dictionary_profile`.
+- `realtime_signal_summary`;
+- `execution_realtime_trading_runtime_status`.
 
-Future realtime/performance/storage lifecycle summaries are parked until mature evidence exists.
+Other dashboard read-model contracts remain parked until their producer, storage layout, and presentation route are accepted.
 
 Advanced diagnostics may only be entered from a visible owner-facing issue such as an alert, blocked task, model blocker, degraded signal, performance anomaly, or stale dashboard data warning. There must not be a global artifact browser, receipt browser, log viewer, control-plane table browser, raw registry-row browser, or daemon internals explorer as a primary surface.
 
 ### Consequences
 
-- First implementation should build against storage-hosted summary/read-model outputs, not raw control-plane tables.
+- Implementation should build against storage-hosted summary/read-model outputs, not raw control-plane tables.
 - Raw evidence remains available only as issue-focused diagnostic support.
 - Storage lifecycle appears through Current Status and Alerts unless it becomes a daily owner-facing concern.
 - Realtime Signals and Trading Performance must distinguish unavailable/shadow/paper/live states clearly and must not fabricate mature metrics before evidence exists.
@@ -176,26 +175,26 @@ Semantic ownership does not move to storage: task/scheduler/promotion summary se
 
 - `trading-dashboard` remains presentation-only and read-only.
 - `trading-storage` defines the initial physical layout and validation boundary in `trading-storage/docs/41_dashboard_summary_layout.md`.
-- Shared summary contract names are routed through `trading-manager` registry migration `344_register_dashboard_read_model_contracts.sql` before cross-repository implementation depends on them.
-- The first implementation slice should request/consume storage-hosted summaries rather than raw component internals.
+- Shared summary contract names are governed through `trading-manager` before cross-repository implementation depends on them.
+- Dashboard implementation should request/consume storage-hosted summaries rather than raw component internals.
 
 
-## D008 - First dashboard implementation is a storage read adapter
+## D008 - Dashboard read adapter consumes storage latest files
 
 Date: 2026-05-12
 Status: Accepted
 
 ### Context
 
-`historical_task_progress_summary` now has a manager-owned semantic producer and a storage-owned refresh/materialization wrapper. The dashboard needs a first implementation slice that can consume this accepted summary without becoming a runtime UI, workflow controller, raw artifact browser, or storage writer.
+`historical_task_progress_summary` has a manager-owned semantic producer and a storage-owned refresh/materialization wrapper. The dashboard consumes this accepted summary without becoming a workflow controller, raw artifact browser, or storage writer.
 
 ### Decision
 
-The first dashboard implementation slice is a read-only adapter over storage-hosted dashboard read-model `latest.json` files:
+The dashboard read adapter reads storage-hosted dashboard read-model `latest.json` files:
 
 - importable module: `src/trading_dashboard/read_models.py`;
 - executable helper: `scripts/read_models/read_latest_dashboard_read_model.py`;
-- first consumed contract: `historical_task_progress_summary`.
+- accepted storage route: `storage/06_dashboard_cache/read_models/<contract_type>/latest.json`.
 
 The adapter reads only accepted `storage/06_dashboard_cache/read_models/<contract_type>/latest.json` summaries, validates the common dashboard envelope shape, and projects the payload into a UI-ready dictionary. It does not query raw manager/model/data/execution/storage internals and does not perform provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.
 
@@ -205,26 +204,25 @@ The adapter reads only accepted `storage/06_dashboard_cache/read_models/<contrac
 - Missing `latest.json` is surfaced as a read-adapter error rather than silently fabricating dashboard values.
 - Additional dashboard contracts can reuse the adapter after their semantic producer and storage materialization path are accepted.
 
-## D009 - First website slice is a read-only Historical Modeling page
+## D009 - Website runtime is read-only over storage read models
 
 Date: 2026-05-12
 Status: Accepted
 
 ### Context
 
-The read-model pipeline is now concrete enough to stop discussing the dashboard abstractly. Chentong asked for a first visible product that follows the accepted outline and can be reviewed for practical UI feedback.
+The read-model pipeline is concrete enough for a visible product that follows the accepted outline and can be reviewed for practical UI feedback.
 
 ### Decision
 
-The first website/runtime slice uses Vite + React + TypeScript and implements one read-only page: Tasks / Historical Modeling / Historical Task Progress.
+The website/runtime uses Vite + React + TypeScript and keeps page content read-only.
 
-The page consumes `historical_task_progress_summary` through the dashboard read-model boundary and the local Vite development API, which reads `trading-storage/storage/06_dashboard_cache/read_models/<contract_type>/latest.json`. The page displays status, freshness, current month, active stage, provider/lock posture, progress, stage counts, optional stage coverage, next expected system action, blocker category, and diagnostic refs. The left navigation is the only page-switching entry point; main content stays informational, while manual refresh, read-only WebSocket streaming, HTTP fallback polling, and in-view diagnostic expansion remain read-only controls.
+Dashboard pages consume read models through `/api/read-models/<contract_type>/latest` and `/ws/read-models/<contract_type>/latest`, backed by `trading-storage/storage/06_dashboard_cache/read_models/<contract_type>/latest.json`. The left navigation is the only page-switching entry point; main content stays informational, while manual refresh, read-only WebSocket streaming, HTTP fallback polling, and in-view diagnostic expansion remain read-only controls.
 
 ### Consequences
 
 - This is a visible website slice, not a workflow-control surface.
 - No dashboard-originated provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes are allowed.
-- Other primary tabs may appear in navigation as accepted/parked states, but they should not fabricate missing summaries.
 - Future pages should reuse storage-hosted dashboard read models and avoid raw internal tables as primary UI input.
 
 ## D010 - Current Status is infrastructure status, not model progress
@@ -319,7 +317,7 @@ Chentong asked for provider API status and Background Services to share one row,
 
 ### Decision
 
-Current Status renders Server Resources first, then a Runtime Throughput card replacing the old Multitask Threads/provider-thread presentation. The card shows the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. API Connections and Background Services remain side by side. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
+Current Status renders Server Resources first, then a Runtime Throughput card. The card shows the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. API Connections and Background Services remain side by side. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
 
 As future website pages, adapters, or read-model slices consume additional original source outputs, the Dashboard Data source-output inventory must be updated in the same development slice. Omitting a newly consumed raw source output from this list is a freshness/auditability contract gap, even if the derived dashboard JSON is already refreshed.
 
@@ -414,16 +412,16 @@ Status: Accepted
 
 ### Context
 
-Chentong noticed Dashboard Data source timestamps looked stale even when the dashboard summary itself was refreshing. Investigation showed two separate cases can look identical if the UI only says "updated": heartbeat files should refresh continuously, while decision/workflow/coverage/run artifacts update only when scheduler decisions or stage progress occur. A separate bug also made Active Workflow State point at a stale legacy unqualified workflow-state file instead of the active month-specific workflow state.
+Chentong noticed Dashboard Data source timestamps looked stale even when the dashboard summary itself was refreshing. Investigation showed two separate cases can look identical if the UI only says "updated": heartbeat files should refresh continuously, while decision/workflow/coverage/run artifacts update only when scheduler decisions or stage progress occur. A separate bug also made Active Workflow State point at a stale unqualified workflow-state file instead of the active month-specific workflow state.
 
 ### Decision
 
-Dashboard Data must describe source artifact write times as distinct from dashboard read-model refresh time. Source-output rows expose a freshness class: `heartbeat` for continuously refreshed scheduler state, and `event_driven` for scheduler decision/workflow/stage artifacts that update only when progress occurs. The Active Workflow State row resolves the active month-specific workflow state from scheduler state rather than the legacy unqualified workflow-state file.
+Dashboard Data must describe source artifact write times as distinct from dashboard read-model refresh time. Source-output rows expose a freshness class: `heartbeat` for continuously refreshed scheduler state, and `event_driven` for scheduler decision/workflow/stage artifacts that update only when progress occurs. The Active Workflow State row resolves the active month-specific workflow state from scheduler state rather than the unqualified workflow-state file.
 
 ### Consequences
 
-- Old event-driven timestamps are not automatically presented as dashboard refresh failures.
-- Old heartbeat timestamps remain suspicious and should direct attention to service/runtime health.
+- Event-driven timestamps are not automatically presented as dashboard refresh failures.
+- Stale heartbeat timestamps should direct attention to service/runtime health.
 - Dashboard Data stays an audit/freshness surface for source artifacts, not a raw artifact browser.
 - Active workflow freshness follows the actual current month.
 

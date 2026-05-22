@@ -2,62 +2,36 @@
 
 ## Status
 
-The current `trading-dashboard` presentation-boundary phase is closed.
-
-This acceptance covers the dashboard-owned surfaces needed before the next component production phase:
-
-- repository boundary and docs spine;
-- downstream-only presentation role;
-- provenance-preserving display expectation;
-- explicit prohibition on dashboard-originated trading actions without a future accepted contract;
-- deferred implementation layout policy.
+`trading-dashboard` has an active read-only implementation boundary: a Vite/React dashboard, Python read adapters, CLI helpers, tests, and deployment templates over accepted storage-hosted dashboard read models.
 
 ## Accepted Dashboard-Owned Shape
 
 `trading-dashboard` displays already-produced and reviewed outputs. It does not create data truth, model truth, promotion decisions, execution intent, broker orders, or account mutations.
 
-The accepted future input route is:
+The accepted read-model input route is:
 
 ```text
-manager/storage reviewed output refs
-  -> artifact/manifest/ready-signal provenance
-  -> dashboard view/adapters
-  -> read-only presentation
+storage/06_dashboard_cache/read_models/<contract_type>/latest.json
+  -> /api/read-models/<contract_type>/latest
+  -> /ws/read-models/<contract_type>/latest
+  -> read-only dashboard presentation
 ```
 
-Source, scripts, tests, and package layout remain intentionally absent until the first concrete dashboard slice is accepted.
+The Data page is limited to explicit allowlisted source, feature, and main model-output tables through `/api/data/tables` and `/api/data/query`.
 
 ## Boundaries Preserved
 
-This acceptance does not enable or claim:
-
-- dashboard implementation;
-- dashboard API/server/runtime;
-- dashboard-triggered execution actions;
-- provider calls;
-- model activation;
-- manager dispatch;
-- broker order/fill/account lifecycle.
-
-## Not Current Historical-Training Scope
-
-There are no active dashboard work items for the current no-broker historical-training preparation boundary. Future dashboard work should begin only when a concrete reviewed output surface exists:
-
-- first implementation slice and UI boundary;
-- package/source/test layout;
-- fixture policy and default test commands;
-- dashboard read models over `task_summary`, promotion decisions, ready signals, or run artifacts;
-- storage path/reference requirements for rendered artifacts;
-- any future mutation/interaction contract, if explicitly accepted.
-
-These are not blockers for current historical training.
+This acceptance does not enable dashboard-triggered execution actions, provider calls, model activation, manager dispatch, broker order/fill/account lifecycle, storage read-model writes, arbitrary SQL, or raw internal artifact/receipt browsing as a primary surface.
 
 ## Acceptance Evidence
 
-The acceptance is acceptable only while these gates pass:
+The implementation boundary is acceptable only while these gates pass:
 
 ```bash
+python3 -m compileall -q src scripts tests
+PYTHONPATH=src python3 -m unittest discover -s tests
+npm run build
 git diff --check
 ```
 
-No command in this acceptance performs provider calls, manager dispatch, model activation, dashboard runtime startup, broker execution, or account mutation.
+No verification command performs provider calls, manager dispatch, model activation, broker execution, account mutation, or storage read-model writes.
