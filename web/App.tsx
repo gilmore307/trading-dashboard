@@ -255,14 +255,17 @@ type DiagnosticSummaryItem = {
   id: string;
   title: string;
   category: string;
+  typeKey: string;
+  typeLabel: string;
   status: string;
   detail: string;
   severity: DiagnosticSeverity;
   handlingStatus: DiagnosticHandlingStatus;
   errorRef?: string | null;
-  displayRef?: string | null;
   occurredAt?: string | null;
 };
+
+type DiagnosticStatusFilter = 'unresolved' | DiagnosticHandlingStatus | 'all';
 
 function refDetail(ref: unknown): string {
   if (typeof ref !== 'object' || ref === null) return String(ref);
@@ -405,7 +408,19 @@ function diagnosticGeneratedPrefix(category: string): string {
 }
 
 function diagnosticReference(item: DiagnosticSummaryItem): string {
-  return item.displayRef || item.errorRef || `${diagnosticGeneratedPrefix(item.category)}-${stableHashHex(item.id)}`;
+  return item.errorRef || `${diagnosticGeneratedPrefix(item.category)}-${stableHashHex(item.id)}`;
+}
+
+function isUnresolvedDiagnostic(item: DiagnosticSummaryItem): boolean {
+  return !['closed', 'no_action_required'].includes(item.handlingStatus);
+}
+
+function diagnosticTypeOptions(items: DiagnosticSummaryItem[]): Array<[string, string]> {
+  const options = new Map<string, string>();
+  items.forEach((item) => {
+    options.set(item.typeKey, item.typeLabel);
+  });
+  return [['all', 'All types'], ...Array.from(options.entries()).sort((left, right) => left[1].localeCompare(right[1]))];
 }
 
 function maybeRecord(ref: unknown): Record<string, unknown> {
@@ -807,6 +822,8 @@ function collectDiagnosticSummary(
       id: stableDiagnosticId('read-model', CURRENT_SYSTEM_STATUS),
       title: 'Current Status read model',
       category: 'Read model',
+      typeKey: 'read_model',
+      typeLabel: 'Read Model',
       status: startCase(currentStatusModel.status),
       detail: currentStatusModel.summary,
       severity,
@@ -820,6 +837,8 @@ function collectDiagnosticSummary(
       id: stableDiagnosticId('read-model', HISTORICAL_TASK_PROGRESS),
       title: 'Historical task progress read model',
       category: 'Read model',
+      typeKey: 'read_model',
+      typeLabel: 'Read Model',
       status: startCase(historicalModel.status),
       detail: historicalModel.summary,
       severity,
@@ -832,6 +851,8 @@ function collectDiagnosticSummary(
       id: stableDiagnosticId('service', service.unit),
       title: publicServiceLabel(service.unit),
       category: 'Service',
+      typeKey: 'service',
+      typeLabel: 'Service',
       status: startCase(service.active_state),
       detail: `Systemd unit ${service.unit} is ${service.active_state}${service.substate ? `/${service.substate}` : ''}.`,
       severity: service.active_state === 'failed' ? 'critical' : 'error',
@@ -845,6 +866,8 @@ function collectDiagnosticSummary(
       id: stableDiagnosticId('api', api.name),
       title: api.name,
       category: 'Source connection',
+      typeKey: 'source_connection',
+      typeLabel: 'Source Connection',
       status: apiStatusLabel(api.status),
       detail: `${api.kind ? startCase(api.kind) : 'Source connection'} is not currently reported as healthy.`,
       severity: optionalLocalOffline ? 'notice' : 'warning',
@@ -860,6 +883,8 @@ function collectDiagnosticSummary(
       id: stableDiagnosticId('source-output', output.label),
       title: output.label,
       category: 'Dashboard data',
+      typeKey: 'dashboard_data',
+      typeLabel: 'Dashboard Data',
       status: startCase(output.status),
       detail: output.freshness_note ?? sourceOutputStatus(output),
       severity: output.exists ? 'warning' : 'error',
@@ -872,6 +897,8 @@ function collectDiagnosticSummary(
       id: stableDiagnosticId('task', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`),
       title: task.task_label,
       category: 'Task',
+      typeKey: 'task',
+      typeLabel: 'Task',
       status: 'Failed',
       detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${startCase(task.stage_type)}${task.reason ? ` · ${task.reason}` : ''}`,
       severity: 'error',
@@ -890,6 +917,8 @@ function collectDiagnosticSummary(
       id: stableDiagnosticId('task-coverage', task.task_uid || `${task.month ?? 'unknown'}-${task.task_id}`),
       title: task.task_label,
       category: 'Task coverage',
+      typeKey: 'task_coverage',
+      typeLabel: 'Task Coverage',
       status: 'Action Required',
       detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${unresolvedFailedCount}/${progress?.expected_count ?? 0} unresolved requests failed; downstream remains blocked.`,
       severity: 'error',
@@ -908,6 +937,8 @@ function collectDiagnosticSummary(
       errorRef: errorRef || null,
       title: errorRef ? `${errorRef} ${startCase(String(error.error_kind ?? 'agent error'))}` : startCase(String(error.error_kind ?? 'Agent error')),
       category: 'Agent error',
+      typeKey: String(error.error_kind ?? 'agent_error').trim().toLowerCase().replace(/[^a-z0-9]+/gu, '_').replace(/^_|_$/gu, '') || 'agent_error',
+      typeLabel: startCase(String(error.error_kind ?? 'Agent error')),
       status: startCase(repairStatus),
       detail: `${rootCause}${retry}`,
       severity: diagnosticSeverityFromValue(error.dashboard_severity ?? error.severity),
@@ -925,6 +956,8 @@ function collectDiagnosticSummary(
       id: stableDiagnosticId('issue', identity),
       title: refTitle(ref, `Issue ${index + 1}`),
       category: 'Issue ref',
+      typeKey: String(record.issue_type ?? record.ref_type ?? record.contract_type ?? 'issue_ref').trim().toLowerCase().replace(/[^a-z0-9]+/gu, '_').replace(/^_|_$/gu, '') || 'issue_ref',
+      typeLabel: refTitle(ref, 'Issue Ref'),
       status: startCase(status),
       detail: refDetail(ref),
       severity: closed ? 'notice' : 'warning',
@@ -936,10 +969,7 @@ function collectDiagnosticSummary(
     diagnosticSeverityRank(left.severity) - diagnosticSeverityRank(right.severity)
     || String(right.occurredAt ?? '').localeCompare(String(left.occurredAt ?? ''))
     || left.id.localeCompare(right.id),
-  ).map((item, index) => ({
-    ...item,
-    displayRef: `ERR-${String(index + 1).padStart(6, '0')}`,
-  }));
+  );
 }
 
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
@@ -1364,15 +1394,24 @@ function DiagnosticsSummaryView({
   historicalModel: DashboardReadModel | null;
 }) {
   const [severityFilter, setSeverityFilter] = useState<DiagnosticSeverity | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<DiagnosticStatusFilter>('unresolved');
+  const typeOptions = useMemo(() => diagnosticTypeOptions(items), [items]);
+  const scopedItems = useMemo(() => items.filter((item) => {
+    if (typeFilter !== 'all' && item.typeKey !== typeFilter) return false;
+    if (statusFilter === 'unresolved') return isUnresolvedDiagnostic(item);
+    if (statusFilter !== 'all' && item.handlingStatus !== statusFilter) return false;
+    return true;
+  }), [items, statusFilter, typeFilter]);
   const severityCounts = {
-    critical: items.filter((item) => item.severity === 'critical').length,
-    error: items.filter((item) => item.severity === 'error').length,
-    warning: items.filter((item) => item.severity === 'warning').length,
-    notice: items.filter((item) => item.severity === 'notice').length,
+    critical: scopedItems.filter((item) => item.severity === 'critical').length,
+    error: scopedItems.filter((item) => item.severity === 'error').length,
+    warning: scopedItems.filter((item) => item.severity === 'warning').length,
+    notice: scopedItems.filter((item) => item.severity === 'notice').length,
   };
-  const filteredItems = severityFilter === 'all' ? items : items.filter((item) => item.severity === severityFilter);
+  const filteredItems = severityFilter === 'all' ? scopedItems : scopedItems.filter((item) => item.severity === severityFilter);
   const severityCards: Array<{ key: DiagnosticSeverity | 'all'; label: string; value: number; hint: string }> = [
-    { key: 'all', label: 'All', value: items.length, hint: 'All visible diagnostic rows' },
+    { key: 'all', label: 'All', value: scopedItems.length, hint: 'Rows after type and status filters' },
     { key: 'critical', label: 'Critical', value: severityCounts.critical, hint: 'Service/data failures needing immediate action' },
     { key: 'error', label: 'Errors', value: severityCounts.error, hint: 'Failed workflow or unhealthy runtime items' },
     { key: 'warning', label: 'Warnings', value: severityCounts.warning, hint: 'Needs review but not immediately fatal' },
@@ -1397,6 +1436,27 @@ function DiagnosticsSummaryView({
       <section className="panel diagnostics-summary-panel">
         <div className="panel-heading">Error Summary</div>
         <p className="panel-subtitle">This page summarizes visible errors and status only. Use the agent conversation for diagnosis, repair, reruns, or external actions.</p>
+        <div className="diagnostic-controls" aria-label="Diagnostics row filters">
+          <label>
+            Type
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+              {typeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label>
+            Current Status
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as DiagnosticStatusFilter)}>
+              <option value="unresolved">Unresolved</option>
+              <option value="open">Open</option>
+              <option value="awaiting_retry">Awaiting retry</option>
+              <option value="manual_review">Manual review</option>
+              <option value="closed">Closed</option>
+              <option value="no_action_required">No action needed</option>
+              <option value="all">All statuses</option>
+            </select>
+          </label>
+          <div className="diagnostic-filter-summary">Showing {filteredItems.length} of {items.length} rows</div>
+        </div>
         {filteredItems.length ? (
           <div className="diagnostic-table" role="table" aria-label="Diagnostics error summary">
             <div className="diagnostic-table-row diagnostic-table-head" role="row">
@@ -1423,7 +1483,7 @@ function DiagnosticsSummaryView({
             })}
           </div>
         ) : (
-          <div className="empty-chart compact">No diagnostics match the selected severity filter.</div>
+          <div className="empty-chart compact">No diagnostics match the selected filters.</div>
         )}
       </section>
     </>
