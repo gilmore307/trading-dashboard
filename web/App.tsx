@@ -324,9 +324,10 @@ function diagnosticHandlingFromValue(value: unknown): DiagnosticHandlingStatus {
 
 function agentRunnerLabel(runnerCommand: unknown): string {
   const runner = String(runnerCommand ?? '').toLowerCase();
-  if (runner.includes('openclaw_agent') || runner.includes('run_agent_error_agent.py')) return 'Agent';
+  if (runner.includes('codex_cli') || runner.includes('run_agent_error_agent.py')) return 'Codex';
+  if (runner.includes('openclaw_agent')) return 'Agent';
   if (runner.includes('safe_error_repair') || runner.includes('run_safe_error_repair.py')) return 'Safe repair';
-  if (!runner.trim()) return 'Agent';
+  if (!runner.trim()) return 'Codex';
   return 'Repair runner';
 }
 
