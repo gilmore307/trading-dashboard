@@ -1593,6 +1593,32 @@ function frameMilliseconds(frame?: string | null): number {
   return 24 * 60 * 60 * 1000;
 }
 
+function alignTemporalMilliseconds(value: number, frame?: string | null): number {
+  if (!Number.isFinite(value)) return Date.now();
+  const date = new Date(value);
+  if (frame === '30m') {
+    date.setUTCSeconds(0, 0);
+    date.setUTCMinutes(Math.floor(date.getUTCMinutes() / 30) * 30);
+    return date.getTime();
+  }
+  if (frame === '1h') {
+    date.setUTCMinutes(0, 0, 0);
+    return date.getTime();
+  }
+  if (frame === '1W') {
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCDate(date.getUTCDate() - date.getUTCDay());
+    return date.getTime();
+  }
+  date.setUTCHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+function alignTemporalCenter(centerIso?: string | null, frame?: string | null): string {
+  const parsed = Date.parse(centerIso ?? '');
+  return new Date(alignTemporalMilliseconds(parsed, frame)).toISOString();
+}
+
 function chartTimeframeForFrame(frame?: string | null): string {
   if (frame === '30m') return '10min';
   if (frame === '1h') return '30min';
@@ -1601,8 +1627,7 @@ function chartTimeframeForFrame(frame?: string | null): string {
 }
 
 function shiftTemporalCenter(centerIso?: string | null, frame?: string | null, offset = 0): string {
-  const current = Date.parse(centerIso ?? '');
-  const base = Number.isFinite(current) ? current : Date.now();
+  const base = Date.parse(alignTemporalCenter(centerIso, frame));
   return new Date(base + frameMilliseconds(frame) * offset).toISOString();
 }
 
@@ -1619,11 +1644,63 @@ function calendarInputDate(value?: string | null): string {
   return new Date(parsed).toISOString().slice(0, 10);
 }
 
-function centerFromCalendarDate(value: string, previousCenter?: string | null): string {
-  const parsedPrevious = Date.parse(previousCenter ?? '');
-  const previous = Number.isFinite(parsedPrevious) ? new Date(parsedPrevious) : new Date();
-  const time = previous.toISOString().slice(11, 19);
-  return new Date(`${value}T${time}Z`).toISOString();
+function centerFromCalendarDate(value: string, frame?: string | null): string {
+  return alignTemporalCenter(`${value}T00:00:00Z`, frame);
+}
+
+function temporalMonthLabel(value: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    timeZone: 'UTC',
+    year: 'numeric',
+  }).format(value);
+}
+
+function shiftCalendarMonth(centerIso?: string | null, monthOffset = 0): string {
+  const parsed = Date.parse(centerIso ?? '');
+  const center = Number.isFinite(parsed) ? new Date(parsed) : new Date();
+  return new Date(Date.UTC(center.getUTCFullYear(), center.getUTCMonth() + monthOffset, 1)).toISOString();
+}
+
+function buildTimelineCalendarDays(
+  centerIso: string | undefined,
+  sourceTicks: TemporalExplorerTickPayload[],
+  events: TemporalExplorerEventPayload[],
+): Array<{
+  date: string;
+  day: number;
+  isCurrentMonth: boolean;
+  isSelected: boolean;
+  market_session_status: string;
+  event_count: number;
+}> {
+  const parsedCenter = Date.parse(centerIso ?? '');
+  const center = Number.isFinite(parsedCenter) ? new Date(parsedCenter) : new Date();
+  const monthStart = new Date(Date.UTC(center.getUTCFullYear(), center.getUTCMonth(), 1));
+  const gridStart = new Date(monthStart);
+  gridStart.setUTCDate(monthStart.getUTCDate() - monthStart.getUTCDay());
+  const selectedDate = calendarInputDate(centerIso);
+  const statusByDate = new Map(
+    sourceTicks.map((tick) => [calendarInputDate(tick.tick_start_utc), tick.market_session_status ?? 'unknown']),
+  );
+  const eventCountByDate = new Map<string, number>();
+  events.forEach((event) => {
+    const date = calendarInputDate(event.event_time);
+    eventCountByDate.set(date, (eventCountByDate.get(date) ?? 0) + 1);
+  });
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(gridStart);
+    day.setUTCDate(gridStart.getUTCDate() + index);
+    const date = day.toISOString().slice(0, 10);
+    return {
+      date,
+      day: day.getUTCDate(),
+      isCurrentMonth: day.getUTCMonth() === monthStart.getUTCMonth(),
+      isSelected: date === selectedDate,
+      market_session_status: statusByDate.get(date) ?? 'unknown',
+      event_count: eventCountByDate.get(date) ?? 0,
+    };
+  });
 }
 
 function buildTemporalTicks(
@@ -1635,7 +1712,8 @@ function buildTemporalTicks(
   const parsedCenter = Date.parse(centerIso ?? '');
   if (!Number.isFinite(parsedCenter)) return sourceTicks;
   const delta = frameMilliseconds(frame);
-  const base = parsedCenter - delta * 10;
+  const alignedCenter = alignTemporalMilliseconds(parsedCenter, frame);
+  const base = alignedCenter - delta * 10;
   const statusByDate = new Map(
     sourceTicks.map((tick) => [calendarInputDate(tick.tick_start_utc), tick.market_session_status ?? 'unknown']),
   );
@@ -1982,7 +2060,7 @@ function App() {
     }
     const viewport = temporalExplorerChart.viewport ?? {};
     const activeFrame = selectedTemporalFrame ?? viewport.frame ?? '1D';
-    const activeCenter = selectedTemporalCenter ?? viewport.center_time_utc ?? temporalExplorerModel.generated_at_utc;
+    const activeCenter = alignTemporalCenter(selectedTemporalCenter ?? viewport.center_time_utc ?? temporalExplorerModel.generated_at_utc, activeFrame);
     const viewportStart = shiftTemporalCenter(activeCenter, activeFrame, -10);
     const viewportEnd = shiftTemporalCenter(activeCenter, activeFrame, 11);
     const events = temporalExplorerChart.events ?? [];
@@ -1994,6 +2072,8 @@ function App() {
       bar.symbol === activeSymbol && bar.timeframe === activeChartTimeframe
     ));
     const ticks = buildTemporalTicks(activeCenter, activeFrame, temporalExplorerChart.timewheel_ticks ?? [], events);
+    const calendarDays = buildTimelineCalendarDays(activeCenter, temporalExplorerChart.timewheel_ticks ?? [], events);
+    const calendarMonth = temporalMonthLabel(new Date(activeCenter));
     const selectedTick = ticks.find((tick) => tick.is_center) ?? ticks[10] ?? ticks[0];
     const selectedTickEvents = selectedTick ? eventForTick(events, selectedTick) : [];
     const rightLanes = temporalExplorerChart.right_lanes ?? [];
@@ -2027,28 +2107,40 @@ function App() {
           <div className="timeline-calendar-head">
             <div>
               <div className="panel-heading">Timeline Status</div>
-              <p className="panel-subtitle">Select a date or tick; the chart center and event window follow the same time unit.</p>
+              <p className="panel-subtitle">Select a calendar date. Weeks use the normal Sunday-to-Saturday month grid.</p>
+            </div>
+            <div className="calendar-month-controls">
+              <button type="button" aria-label="Previous month" onClick={() => setSelectedTemporalCenter(shiftCalendarMonth(activeCenter, -1))}>Prev</button>
+              <strong>{calendarMonth}</strong>
+              <button type="button" aria-label="Next month" onClick={() => setSelectedTemporalCenter(shiftCalendarMonth(activeCenter, 1))}>Next</button>
             </div>
             <label className="temporal-control">
               Date
               <input
                 type="date"
                 value={calendarInputDate(activeCenter)}
-                onChange={(event) => setSelectedTemporalCenter(centerFromCalendarDate(event.currentTarget.value, activeCenter))}
+                onChange={(event) => setSelectedTemporalCenter(centerFromCalendarDate(event.currentTarget.value, activeFrame))}
               />
             </label>
           </div>
+          <div className="timeline-calendar-weekdays" aria-hidden="true">
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((weekday) => <span key={weekday}>{weekday}</span>)}
+          </div>
           <div className="timeline-calendar-grid">
-            {ticks.map((tick) => (
+            {calendarDays.map((day) => (
               <button
-                className={tick.is_center ? 'timeline-calendar-day selected' : 'timeline-calendar-day'}
-                key={tick.tick_start_utc}
-                onClick={() => setSelectedTemporalCenter(tick.tick_start_utc)}
+                className={[
+                  'timeline-calendar-day',
+                  day.isSelected ? 'selected' : '',
+                  day.isCurrentMonth ? '' : 'muted',
+                ].filter(Boolean).join(' ')}
+                key={day.date}
+                onClick={() => setSelectedTemporalCenter(centerFromCalendarDate(day.date, activeFrame))}
                 type="button"
               >
-                <strong>{tick.label}</strong>
-                <small>{startCase(tick.market_session_status)}</small>
-                <span>{tick.event_count ?? 0} accepted events</span>
+                <strong>{day.day}</strong>
+                {day.market_session_status !== 'unknown' ? <small>{startCase(day.market_session_status)}</small> : <small>&nbsp;</small>}
+                {day.event_count ? <span>{day.event_count} accepted</span> : <span>&nbsp;</span>}
               </button>
             ))}
           </div>
@@ -2072,7 +2164,7 @@ function App() {
                 <input
                   type="datetime-local"
                   value={activeCenter.slice(0, 16)}
-                  onChange={(event) => setSelectedTemporalCenter(new Date(`${event.currentTarget.value}:00Z`).toISOString())}
+                  onChange={(event) => setSelectedTemporalCenter(alignTemporalCenter(`${event.currentTarget.value}:00Z`, activeFrame))}
                 />
               </label>
               <div className="frame-switcher">
