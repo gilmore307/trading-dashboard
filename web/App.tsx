@@ -9,6 +9,8 @@ import type {
   CurrentSystemServicePayload,
   CurrentSystemStatusChartPayload,
   DashboardReadModel,
+  EventCalendarChartPayload,
+  EventCalendarEventPayload,
   HistoricalTaskProgressChartPayload,
   HistoricalTaskTimelineItemPayload,
   RealtimeSignalChartPayload,
@@ -16,6 +18,7 @@ import type {
 import './styles.css';
 
 const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
+const EVENT_CALENDAR_SUMMARY = 'event_calendar_summary';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
 const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
 
@@ -51,9 +54,10 @@ const BACKGROUND_SERVICE_DISPLAY_ORDER: Record<string, number> = {
 const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   storage_dashboard_current_status_latest: 10,
   storage_dashboard_historical_task_progress_latest: 20,
-  storage_dashboard_realtime_signal_latest: 30,
-  storage_dashboard_execution_runtime_latest: 40,
-  storage_dashboard_read_model_index: 50,
+  storage_dashboard_event_calendar_latest: 30,
+  storage_dashboard_realtime_signal_latest: 40,
+  storage_dashboard_execution_runtime_latest: 50,
+  storage_dashboard_read_model_index: 60,
   manager_scheduler_state: 100,
   manager_scheduler_decision_log: 110,
   manager_workflow_state: 120,
@@ -67,11 +71,12 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   trading_economics_historical_seed_receipt: 320,
 };
 
-type ViewId = 'status' | 'tasks' | 'data' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
+type ViewId = 'status' | 'tasks' | 'calendar' | 'data' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
 
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'status', label: 'Current Status', state: 'Live' },
   { id: 'tasks', label: 'Tasks', state: 'Task list' },
+  { id: 'calendar', label: 'Calendar', state: 'Events' },
   { id: 'data', label: 'Data', state: 'Data + model outputs' },
   { id: 'models', label: 'Models', state: 'Historical modeling' },
   { id: 'registry', label: 'Definitions', state: 'Coming soon' },
@@ -85,6 +90,10 @@ function isHistoricalChart(payload: DashboardReadModel['chart_payload']): payloa
 }
 
 function isRealtimeSignalChart(payload: DashboardReadModel['chart_payload']): payload is RealtimeSignalChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+function isEventCalendarChart(payload: DashboardReadModel['chart_payload']): payload is EventCalendarChartPayload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
 
@@ -1503,6 +1512,54 @@ function DiagnosticsSummaryView({
   );
 }
 
+function calendarFamilySeverity(status?: string | null): string {
+  if (status === 'active') return 'low';
+  if (status === 'ready_no_rows_in_window') return 'info';
+  if (status === 'not_connected') return 'medium';
+  return 'info';
+}
+
+function eventPhaseSeverity(phase?: string | null): string {
+  if (phase === 'released') return 'low';
+  if (phase === 'scheduled' || phase === 'upcoming') return 'info';
+  return 'medium';
+}
+
+function CalendarEventList({ title, events }: { title: string; events: EventCalendarEventPayload[] }) {
+  return (
+    <section className="panel calendar-events-panel">
+      <div className="panel-heading">{title}</div>
+      {events.length ? (
+        <div className="calendar-event-list">
+          {events.map((event) => (
+            <article className="calendar-event-row" key={event.event_id}>
+              <div className="calendar-event-time">
+                <strong>{formatTimestamp(event.event_time)}</strong>
+                <StatusPill status={event.event_phase ?? 'event'} severity={eventPhaseSeverity(event.event_phase)} />
+              </div>
+              <div className="calendar-event-main">
+                <strong>{event.title}</strong>
+                <small>
+                  {startCase(event.event_category_type)} · {startCase(event.scope_type)}
+                  {event.symbol ? ` · ${event.symbol}` : ''}
+                  {' · '}
+                  {startCase(event.source_name)}
+                </small>
+                {event.summary ? <p>{event.summary}</p> : null}
+              </div>
+              <div className="calendar-event-proof">
+                <span>{event.has_source_artifact_path ? 'Storage evidence' : startCase(event.reference_type)}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-chart compact">No events in this section.</div>
+      )}
+    </section>
+  );
+}
+
 function PlaceholderView({ title }: { title: string }) {
   return (
     <section className="panel placeholder-view">
@@ -1514,12 +1571,14 @@ function PlaceholderView({ title }: { title: string }) {
 
 function contractForView(view: ViewId): string {
   if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
+  if (view === 'calendar') return EVENT_CALENDAR_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   return HISTORICAL_TASK_PROGRESS;
 }
 
 function App() {
   const [currentStatusModel, setCurrentStatusModel] = useState<DashboardReadModel | null>(null);
+  const [eventCalendarModel, setEventCalendarModel] = useState<DashboardReadModel | null>(null);
   const [historicalModel, setHistoricalModel] = useState<DashboardReadModel | null>(null);
   const [realtimeModel, setRealtimeModel] = useState<DashboardReadModel | null>(null);
   const [readModelErrors, setReadModelErrors] = useState<Record<string, string>>({});
@@ -1530,6 +1589,7 @@ function App() {
 
   const applyReadModel = useCallback((payload: DashboardReadModel) => {
     if (payload.contract_type === CURRENT_SYSTEM_STATUS) setCurrentStatusModel(payload);
+    if (payload.contract_type === EVENT_CALENDAR_SUMMARY) setEventCalendarModel(payload);
     if (payload.contract_type === HISTORICAL_TASK_PROGRESS) setHistoricalModel(payload);
     if (payload.contract_type === REALTIME_SIGNAL_SUMMARY) setRealtimeModel(payload);
     setReadModelErrors((previous) => {
@@ -1562,10 +1622,11 @@ function App() {
   useEffect(() => {
     const controller = new AbortController();
     void loadReadModel(CURRENT_SYSTEM_STATUS, controller.signal);
+    void loadReadModel(EVENT_CALENDAR_SUMMARY, controller.signal);
     void loadReadModel(HISTORICAL_TASK_PROGRESS, controller.signal);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY, controller.signal);
     const liveContracts = new Set<string>();
-    const contracts = [CURRENT_SYSTEM_STATUS, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY];
+    const contracts = [CURRENT_SYSTEM_STATUS, EVENT_CALENDAR_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         liveContracts.add(contractType);
@@ -1598,6 +1659,8 @@ function App() {
   const activeContractType = contractForView(activeView);
   const activeReadModel = activeView === 'status' || activeView === 'data'
     ? currentStatusModel
+    : activeView === 'calendar'
+      ? eventCalendarModel
     : activeView === 'realtime'
       ? realtimeModel
       : historicalModel;
@@ -1616,6 +1679,10 @@ function App() {
     if (!realtimeModel || !isRealtimeSignalChart(realtimeModel.chart_payload)) return {} as RealtimeSignalChartPayload;
     return realtimeModel.chart_payload;
   }, [realtimeModel]);
+  const calendarChart = useMemo(() => {
+    if (!eventCalendarModel || !isEventCalendarChart(eventCalendarModel.chart_payload)) return {} as EventCalendarChartPayload;
+    return eventCalendarModel.chart_payload;
+  }, [eventCalendarModel]);
   const diagnosticItems = useMemo(
     () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
     [chart, currentStatusModel, historicalModel, systemChart],
@@ -1789,8 +1856,67 @@ function App() {
     );
   };
 
+  const renderCalendarView = () => {
+    if (!eventCalendarModel) {
+      return <section className="panel loading-panel">Loading calendar summary…</section>;
+    }
+    const counts = calendarChart.counts ?? {};
+    const refresh = calendarChart.refresh ?? {};
+    const timer = refresh.timer ?? {};
+    const service = refresh.service ?? {};
+    const families = calendarChart.families ?? [];
+    const upcoming = calendarChart.upcoming_events ?? [];
+    const recent = calendarChart.recent_events ?? [];
+    return (
+      <>
+        <section className="metric-grid">
+          <MetricCard label="Upcoming events" value={counts.upcoming_events ?? 0} hint={`${calendarChart.window?.lookahead_days ?? 45} day lookahead`} />
+          <MetricCard label="Recent events" value={counts.recent_events ?? 0} hint={`${calendarChart.window?.lookback_days ?? 14} day lookback`} />
+          <MetricCard label="Storage evidence" value={counts.events_with_source_artifact_path ?? 0} hint={`${counts.total_events ?? 0} visible event rows`} />
+          <MetricCard label="TE refresh" value={startCase(String(timer.active_state ?? 'unknown'))} hint={refresh.latest_te_receipt_updated_at_utc ? `latest ${formatTimestamp(refresh.latest_te_receipt_updated_at_utc)}` : 'No receipt timestamp'} />
+        </section>
+        <section className="panel calendar-family-panel">
+          <div className="panel-heading">Calendar Families</div>
+          <p className="panel-subtitle">Connected families show real event rows. Unconnected families are visible here so gaps are explicit instead of hidden.</p>
+          <div className="calendar-family-grid">
+            {families.map((family) => (
+              <section className="calendar-family-card" key={family.family_id}>
+                <div className="calendar-family-head">
+                  <strong>{family.label}</strong>
+                  <StatusPill status={family.status} severity={calendarFamilySeverity(family.status)} />
+                </div>
+                <div className="metric-value compact-value">{family.event_count}</div>
+                <small>{family.primary_source ?? 'Source not assigned'}</small>
+              </section>
+            ))}
+          </div>
+        </section>
+        <section className="detail-grid">
+          <section className="panel">
+            <div className="panel-heading">Refresh Runtime</div>
+            <div className="service-list">
+              <div className="service-row"><span>Schedule</span><strong>{startCase(String(timer.active_state ?? 'unknown'))}</strong></div>
+              <div className="service-row"><span>Worker</span><strong>{startCase(String(service.active_state ?? 'unknown'))}</strong></div>
+              <div className="service-row"><span>Latest TE receipt</span><strong>{refresh.latest_te_receipt_updated_at_utc ? formatTimestamp(refresh.latest_te_receipt_updated_at_utc) : 'Not recorded'}</strong></div>
+              <div className="service-row"><span>Latest TE source file</span><strong>{refresh.latest_te_event_file_updated_at_utc ? formatTimestamp(refresh.latest_te_event_file_updated_at_utc) : 'Not recorded'}</strong></div>
+            </div>
+          </section>
+          <section className="panel">
+            <div className="panel-heading">Source Mix</div>
+            <div className="chips">
+              {Object.entries(counts.by_source ?? {}).map(([source, value]) => <span className="chip" key={source}>{startCase(source)} · {value}</span>)}
+            </div>
+          </section>
+        </section>
+        <CalendarEventList title="Upcoming Calendar Events" events={upcoming} />
+        <CalendarEventList title="Recent Calendar Events" events={recent} />
+      </>
+    );
+  };
+
   const renderMainView = () => {
     if (activeView === 'status') return renderCurrentStatusView();
+    if (activeView === 'calendar') return renderCalendarView();
     if (activeView === 'data') return <DataExplorerView />;
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
@@ -1863,11 +1989,12 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Current Status' : activeView === 'data' ? 'Data' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Current Status' : activeView === 'data' ? 'Data' : activeView === 'calendar' ? 'Calendar' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'calendar' ? 'Events / Calendar' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);
+    void loadReadModel(EVENT_CALENDAR_SUMMARY);
     void loadReadModel(HISTORICAL_TASK_PROGRESS);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY);
   };

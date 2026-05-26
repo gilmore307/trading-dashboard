@@ -90,6 +90,25 @@ Dashboard implementation work must stay read-only and consume reviewed storage-h
 - This acceptance does not enable dashboard runtime, provider calls, manager dispatch, model activation, broker execution, or account mutation.
 - New dashboard implementation must start from reviewed manager/storage output refs and preserve provenance.
 
+## D007 - Calendar page consumes storage event summary
+
+Date: 2026-05-26
+Status: Accepted
+
+### Context
+
+The dashboard needs an owner-facing calendar view without turning the website into a raw event browser or a provider caller. Trading Economics source originals are append-only storage evidence, while normalized event rows live with the rest of event-risk inputs.
+
+### Decision
+
+Add a read-only Calendar page backed by `event_calendar_summary` from `trading-storage`. The page shows connected calendar families, recent/upcoming event rows, source-artifact evidence, and TE refresh posture. Families without accepted sources are shown as explicit `not_connected` gaps instead of being hidden or fabricated.
+
+### Consequences
+
+- Dashboard Calendar reads `/api/read-models/event_calendar_summary/latest` and `/ws/read-models/event_calendar_summary/latest`.
+- The page performs no provider calls, SQL writes, model activation, broker execution, or account mutation.
+- Exchange holidays/early closes, option expiry windows, and index rebalance windows remain visible gaps until accepted source producers exist.
+
 
 ## D005 - Dashboard is an owner-facing summary, not an internal maintenance console
 

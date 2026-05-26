@@ -83,6 +83,16 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
             storage_root / "06_dashboard_cache/read_models/execution_realtime_trading_runtime_status/latest.json",
         )
 
+    def test_accepts_event_calendar_summary_contract_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            storage_root = Path(tmp)
+            path = latest_read_model_path(storage_root, "event_calendar_summary")
+
+        self.assertEqual(
+            path,
+            storage_root / "06_dashboard_cache/read_models/event_calendar_summary/latest.json",
+        )
+
     def test_rejects_missing_latest_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(DashboardReadModelAdapterError):
