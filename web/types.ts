@@ -99,6 +99,10 @@ export interface TemporalExplorerEventPayload {
   symbol?: string | null;
   status?: string | null;
   source_priority?: string | null;
+  summary?: string | null;
+  source_name?: string | null;
+  reference_type?: string | null;
+  reference?: string | null;
 }
 
 export interface TemporalExplorerChartBarPayload {
@@ -133,6 +137,8 @@ export interface TemporalExplorerChartPayload {
   chart?: {
     symbol?: string;
     timeframe?: string;
+    available_symbols?: string[];
+    available_timeframes?: string[];
     status?: string;
     bars?: TemporalExplorerChartBarPayload[];
     role?: string;

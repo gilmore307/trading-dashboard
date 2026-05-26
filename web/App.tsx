@@ -1586,6 +1586,75 @@ function eventForTick(events: TemporalExplorerEventPayload[], tick: TemporalExpl
   });
 }
 
+function frameMilliseconds(frame?: string | null): number {
+  if (frame === '30m') return 30 * 60 * 1000;
+  if (frame === '1h') return 60 * 60 * 1000;
+  if (frame === '1W') return 7 * 24 * 60 * 60 * 1000;
+  return 24 * 60 * 60 * 1000;
+}
+
+function chartTimeframeForFrame(frame?: string | null): string {
+  if (frame === '30m') return '10min';
+  if (frame === '1h') return '30min';
+  if (frame === '1W') return '1W';
+  return '1D';
+}
+
+function shiftTemporalCenter(centerIso?: string | null, frame?: string | null, offset = 0): string {
+  const current = Date.parse(centerIso ?? '');
+  const base = Number.isFinite(current) ? current : Date.now();
+  return new Date(base + frameMilliseconds(frame) * offset).toISOString();
+}
+
+function temporalTickLabel(value: Date, frame?: string | null): string {
+  if (frame === '30m' || frame === '1h') {
+    return value.toISOString().slice(5, 16).replace('T', ' ');
+  }
+  return value.toISOString().slice(0, 10);
+}
+
+function calendarInputDate(value?: string | null): string {
+  const parsed = Date.parse(value ?? '');
+  if (!Number.isFinite(parsed)) return new Date().toISOString().slice(0, 10);
+  return new Date(parsed).toISOString().slice(0, 10);
+}
+
+function centerFromCalendarDate(value: string, previousCenter?: string | null): string {
+  const parsedPrevious = Date.parse(previousCenter ?? '');
+  const previous = Number.isFinite(parsedPrevious) ? new Date(parsedPrevious) : new Date();
+  const time = previous.toISOString().slice(11, 19);
+  return new Date(`${value}T${time}Z`).toISOString();
+}
+
+function buildTemporalTicks(
+  centerIso: string | undefined,
+  frame: string | undefined,
+  sourceTicks: TemporalExplorerTickPayload[],
+  events: TemporalExplorerEventPayload[],
+): TemporalExplorerTickPayload[] {
+  const parsedCenter = Date.parse(centerIso ?? '');
+  if (!Number.isFinite(parsedCenter)) return sourceTicks;
+  const delta = frameMilliseconds(frame);
+  const base = parsedCenter - delta * 10;
+  const statusByDate = new Map(
+    sourceTicks.map((tick) => [calendarInputDate(tick.tick_start_utc), tick.market_session_status ?? 'unknown']),
+  );
+  return Array.from({ length: 21 }, (_, index) => {
+    const tickStart = new Date(base + delta * index);
+    const tickEnd = new Date(tickStart.getTime() + delta);
+    const shell = {
+      tick_start_utc: tickStart.toISOString(),
+      tick_end_utc: tickEnd.toISOString(),
+      label: temporalTickLabel(tickStart, frame),
+      is_center: index === 10,
+      market_session_status: statusByDate.get(calendarInputDate(tickStart.toISOString())) ?? 'unknown',
+      event_count: 0,
+      chart_bar_count: 0,
+    };
+    return { ...shell, event_count: eventForTick(events, shell).length };
+  });
+}
+
 function temporalPositionPercent(value?: string | null, start?: string | null, end?: string | null): number {
   const at = Date.parse(value ?? '');
   const startAt = Date.parse(start ?? '');
@@ -1621,6 +1690,9 @@ function App() {
   const [activeView, setActiveView] = useState<ViewId>('status');
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
   const [streamStatus, setStreamStatus] = useState<ReadModelStreamStatus>('connecting');
+  const [selectedTemporalFrame, setSelectedTemporalFrame] = useState<string | null>(null);
+  const [selectedTemporalSymbol, setSelectedTemporalSymbol] = useState<string | null>(null);
+  const [selectedTemporalCenter, setSelectedTemporalCenter] = useState<string | null>(null);
 
   const applyReadModel = useCallback((payload: DashboardReadModel) => {
     if (payload.contract_type === CURRENT_SYSTEM_STATUS) setCurrentStatusModel(payload);
@@ -1723,6 +1795,14 @@ function App() {
     if (!temporalExplorerModel || !isTemporalExplorerChart(temporalExplorerModel.chart_payload)) return {} as TemporalExplorerChartPayload;
     return temporalExplorerModel.chart_payload;
   }, [temporalExplorerModel]);
+
+  useEffect(() => {
+    const viewport = temporalExplorerChart.viewport ?? {};
+    const chartModel = temporalExplorerChart.chart ?? {};
+    setSelectedTemporalFrame((previous) => previous ?? viewport.frame ?? '1D');
+    setSelectedTemporalSymbol((previous) => previous ?? chartModel.symbol ?? chartModel.available_symbols?.[0] ?? 'SPY');
+    setSelectedTemporalCenter((previous) => previous ?? viewport.center_time_utc ?? temporalExplorerModel?.generated_at_utc ?? new Date().toISOString());
+  }, [temporalExplorerChart, temporalExplorerModel?.generated_at_utc]);
   const diagnosticItems = useMemo(
     () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
     [chart, currentStatusModel, historicalModel, systemChart],
@@ -1901,10 +1981,21 @@ function App() {
       return <section className="panel loading-panel">Loading temporal explorer…</section>;
     }
     const viewport = temporalExplorerChart.viewport ?? {};
-    const ticks = temporalExplorerChart.timewheel_ticks ?? [];
+    const activeFrame = selectedTemporalFrame ?? viewport.frame ?? '1D';
+    const activeCenter = selectedTemporalCenter ?? viewport.center_time_utc ?? temporalExplorerModel.generated_at_utc;
+    const viewportStart = shiftTemporalCenter(activeCenter, activeFrame, -10);
+    const viewportEnd = shiftTemporalCenter(activeCenter, activeFrame, 11);
     const events = temporalExplorerChart.events ?? [];
     const chartModel = temporalExplorerChart.chart ?? {};
-    const chartBars = chartModel.bars ?? [];
+    const availableSymbols = chartModel.available_symbols?.length ? chartModel.available_symbols : [chartModel.symbol ?? 'SPY', 'QQQ', 'IWM', 'DIA'];
+    const activeSymbol = selectedTemporalSymbol ?? availableSymbols[0] ?? 'SPY';
+    const activeChartTimeframe = chartTimeframeForFrame(activeFrame);
+    const chartBars = (chartModel.bars ?? []).filter((bar) => (
+      bar.symbol === activeSymbol && bar.timeframe === activeChartTimeframe
+    ));
+    const ticks = buildTemporalTicks(activeCenter, activeFrame, temporalExplorerChart.timewheel_ticks ?? [], events);
+    const selectedTick = ticks.find((tick) => tick.is_center) ?? ticks[10] ?? ticks[0];
+    const selectedTickEvents = selectedTick ? eventForTick(events, selectedTick) : [];
     const rightLanes = temporalExplorerChart.right_lanes ?? [];
     const substrate = temporalExplorerChart.substrate_status ?? {};
     const closeValues = chartBars.map((bar) => bar.close).filter((value) => Number.isFinite(value));
@@ -1914,27 +2005,102 @@ function App() {
     const maxVolume = Math.max(...volumeValues, 1);
     const closeRange = Math.max(maxClose - minClose, 1);
     const maxTickEvents = Math.max(...ticks.map((tick) => tick.event_count ?? 0), 1);
+    const shiftCenter = (offset: number) => setSelectedTemporalCenter((current) => shiftTemporalCenter(current ?? activeCenter, activeFrame, offset));
     return (
       <>
-        <section className="metric-grid">
-          <MetricCard label="Center Time" value={viewport.center_time_utc ? formatTimestamp(viewport.center_time_utc) : 'Unknown'} hint={`Frame ${viewport.frame ?? '1D'}`} />
-          <MetricCard label="Event Markers" value={temporalExplorerChart.counts?.total_events ?? events.length} hint="Markers on chart axis" />
-          <MetricCard label="Chart Cache" value={startCase(chartModel.status)} hint={`${chartModel.symbol ?? 'SPY'} · ${chartModel.timeframe ?? '1D'}`} />
-          <MetricCard label="Substrate Tables" value={Object.values(substrate).filter((row) => row.status === 'populated').length} hint={`${Object.keys(substrate).length} tracked tables`} />
+        <section className="panel temporal-substrate-panel">
+          <div className="panel-heading">Temporal Substrate</div>
+          <div className="temporal-substrate-grid">
+            {rightLanes.map((lane) => (
+              <section className="temporal-substrate-card" key={lane.lane_id}>
+                <div>
+                  <span>{lane.label}</span>
+                  <strong>{lane.item_count}</strong>
+                </div>
+                <StatusPill status={lane.status} severity={temporalLaneSeverity(lane.status)} />
+              </section>
+            ))}
+          </div>
         </section>
+
+        <section className="panel temporal-calendar-panel">
+          <div className="timeline-calendar-head">
+            <div>
+              <div className="panel-heading">Timeline Status</div>
+              <p className="panel-subtitle">Select a date or tick; the chart center and event window follow the same time unit.</p>
+            </div>
+            <label className="temporal-control">
+              Date
+              <input
+                type="date"
+                value={calendarInputDate(activeCenter)}
+                onChange={(event) => setSelectedTemporalCenter(centerFromCalendarDate(event.currentTarget.value, activeCenter))}
+              />
+            </label>
+          </div>
+          <div className="timeline-calendar-grid">
+            {ticks.map((tick) => (
+              <button
+                className={tick.is_center ? 'timeline-calendar-day selected' : 'timeline-calendar-day'}
+                key={tick.tick_start_utc}
+                onClick={() => setSelectedTemporalCenter(tick.tick_start_utc)}
+                type="button"
+              >
+                <strong>{tick.label}</strong>
+                <small>{startCase(tick.market_session_status)}</small>
+                <span>{tick.event_count ?? 0} accepted events</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="panel timewheel-chart-panel integrated-timewheel">
           <div className="timewheel-chart-head">
             <div>
               <div className="panel-heading">Temporal Chart</div>
               <p className="panel-subtitle">{chartModel.role ? startCase(chartModel.role) : 'Chart cache is a visualization substrate, not training truth.'}</p>
             </div>
-            <div className="frame-switcher">
-              {(viewport.available_frames ?? ['30m', '1h', '1D', '1W']).map((frame) => (
-                <button className={frame === viewport.frame ? 'selected' : ''} disabled key={frame}>{frame}</button>
-              ))}
+            <div className="temporal-chart-controls">
+              <label className="temporal-control">
+                Symbol
+                <select value={activeSymbol} onChange={(event) => setSelectedTemporalSymbol(event.currentTarget.value)}>
+                  {availableSymbols.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}
+                </select>
+              </label>
+              <label className="temporal-control">
+                Center
+                <input
+                  type="datetime-local"
+                  value={activeCenter.slice(0, 16)}
+                  onChange={(event) => setSelectedTemporalCenter(new Date(`${event.currentTarget.value}:00Z`).toISOString())}
+                />
+              </label>
+              <div className="frame-switcher">
+                {(viewport.available_frames ?? ['30m', '1h', '1D', '1W']).map((frame) => (
+                  <button
+                    className={frame === activeFrame ? 'selected' : ''}
+                    key={frame}
+                    onClick={() => setSelectedTemporalFrame(frame)}
+                    type="button"
+                  >
+                    {frame}
+                  </button>
+                ))}
+              </div>
+              <div className="axis-nudge-controls">
+                <button type="button" onClick={() => shiftCenter(-1)}>Prev</button>
+                <button type="button" onClick={() => shiftCenter(1)}>Next</button>
+              </div>
             </div>
           </div>
-          <div className="temporal-chart-frame">
+          <div
+            className="temporal-chart-frame"
+            onWheel={(event) => {
+              if (Math.abs(event.deltaY) < 8) return;
+              event.preventDefault();
+              shiftCenter(event.deltaY > 0 ? 1 : -1);
+            }}
+          >
             {chartBars.length ? (
               <div className="mini-candle-chart">
                 {chartBars.slice(-90).map((bar) => {
@@ -1954,25 +2120,30 @@ function App() {
                 })}
               </div>
             ) : (
-              <div className="empty-chart compact">Chart cache not populated yet. Event markers still use the same time axis.</div>
+              <div className="empty-chart compact">{activeSymbol} {activeChartTimeframe} chart cache is empty for this viewport.</div>
             )}
             <div className="event-marker-layer" aria-hidden="true">
               {events.slice(0, 160).map((event) => (
                 <span
                   className="event-axis-marker"
                   key={`${event.lane}-${event.event_id}`}
-                  style={{ left: `${temporalPositionPercent(event.event_time, viewport.start_utc, viewport.end_utc)}%` }}
+                  style={{ left: `${temporalPositionPercent(event.event_time, viewportStart, viewportEnd)}%` }}
                   title={`${formatTimestamp(event.event_time)} · ${event.title}`}
                 />
               ))}
             </div>
             <div className="timeline-x-axis">
               {ticks.map((tick) => (
-                <div className={tick.is_center ? 'timeline-axis-tick selected' : 'timeline-axis-tick'} key={tick.tick_start_utc}>
+                <button
+                  className={tick.is_center ? 'timeline-axis-tick selected' : 'timeline-axis-tick'}
+                  key={tick.tick_start_utc}
+                  onClick={() => setSelectedTemporalCenter(tick.tick_start_utc)}
+                  type="button"
+                >
                   <span />
                   <strong>{tick.label}</strong>
                   <small>{startCase(tick.market_session_status)}</small>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -1989,12 +2160,12 @@ function App() {
                     />
                   ))}
                 </div>
-              ) : (
-                <div className="empty-subchart">Waiting for chart cache bars.</div>
+            ) : (
+                <div className="empty-subchart">Waiting for {activeSymbol} {activeChartTimeframe} bars.</div>
               )}
             </section>
             <section className="subchart-panel">
-              <div className="subchart-heading">Event Density</div>
+              <div className="subchart-heading">Accepted Event Density</div>
               <div className="event-density-subchart">
                 {ticks.map((tick) => (
                   <span
@@ -2006,50 +2177,29 @@ function App() {
               </div>
             </section>
           </div>
-          <div className="temporal-status-strip">
-            {rightLanes.map((lane) => (
-              <div className="temporal-strip-item" key={lane.lane_id}>
-                <span>{lane.label}</span>
-                <StatusPill status={lane.status} severity={temporalLaneSeverity(lane.status)} />
-              </div>
-            ))}
-          </div>
         </section>
         <section className="panel temporal-events-panel">
           <div className="panel-heading">Event Markers</div>
-          <div className="temporal-event-stack horizontal-axis-events">
-            {ticks.map((tick) => {
-              const tickEvents = eventForTick(events, tick);
-              if (!tickEvents.length) return null;
-              return (
-                <div className="temporal-event-group" key={`events-${tick.tick_start_utc}`}>
-                  <span>{tick.label}</span>
-                  {tickEvents.slice(0, 8).map((event) => (
-                    <article className="temporal-event-card" key={`${event.lane}-${event.event_id}`}>
-                      <strong>{event.title}</strong>
-                      <small>{startCase(event.lane)} · {startCase(event.event_type)}{event.symbol ? ` · ${event.symbol}` : ''}</small>
-                    </article>
-                  ))}
-                  {tickEvents.length > 8 ? <small className="event-overflow-note">+{tickEvents.length - 8} more markers</small> : null}
-                </div>
-              );
-            })}
-            {!events.length ? <div className="empty-chart compact">No visible event markers in this viewport.</div> : null}
-          </div>
-        </section>
-        <section className="panel temporal-tick-table-panel">
-          <div className="panel-heading">Timeline Status</div>
-          <div className="timewheel-axis compact-axis">
-              {ticks.map((tick) => (
-                <div className={tick.is_center ? 'timewheel-tick selected' : 'timewheel-tick'} key={tick.tick_start_utc}>
-                  <span className="tick-dot" />
-                  <div>
-                    <strong>{tick.label}</strong>
-                    <small>{startCase(tick.market_session_status)} · {tick.event_count ?? 0} events</small>
-                  </div>
-                </div>
+          <p className="panel-subtitle">Showing only the selected {activeFrame} unit. Markers require Layer 10 accepted event-family status.</p>
+          {selectedTickEvents.length ? (
+            <div className="temporal-event-stack">
+              {selectedTickEvents.map((event) => (
+                <article className="temporal-event-card detailed" key={`${event.lane}-${event.event_id}`}>
+                  <strong>{event.title}</strong>
+                  <small>
+                    {startCase(event.event_type)}
+                    {event.scope ? ` · ${startCase(event.scope)}` : ''}
+                    {event.symbol ? ` · ${event.symbol}` : ''}
+                    {event.source_name ? ` · ${startCase(event.source_name)}` : ''}
+                  </small>
+                  {event.summary ? <p>{event.summary}</p> : null}
+                  {event.reference ? <small>{startCase(event.reference_type)} · {event.reference}</small> : null}
+                </article>
               ))}
             </div>
+          ) : (
+            <div className="empty-chart compact">No Layer 10 accepted event markers for {selectedTick?.label ?? 'the selected time unit'}.</div>
+          )}
         </section>
       </>
     );

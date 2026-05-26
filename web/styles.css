@@ -194,8 +194,26 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .timewheel-chart-panel { min-height: 240px; }
 .timewheel-chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 14px; }
 .frame-switcher { display: flex; flex-wrap: wrap; gap: 8px; }
-.frame-switcher button { min-width: 52px; border: 1px solid rgba(148, 163, 184, .20); color: #cbd5e1; background: rgba(15, 23, 42, .64); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 12px; font-weight: 900; }
+.frame-switcher button { min-width: 52px; border: 1px solid rgba(148, 163, 184, .20); color: #cbd5e1; background: rgba(15, 23, 42, .64); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
 .frame-switcher button.selected { border-color: rgba(125, 211, 252, .62); color: #e0f2fe; background: rgba(14, 165, 233, .20); }
+.temporal-substrate-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.temporal-substrate-card { min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid rgba(148, 163, 184, .14); background: rgba(15, 23, 42, .45); }
+.temporal-substrate-card div { display: grid; gap: 7px; min-width: 0; }
+.temporal-substrate-card span { color: #8fa2ba; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; font-weight: 850; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.temporal-substrate-card strong { color: #f8fbff; font-size: 24px; letter-spacing: -0.03em; }
+.timeline-calendar-head, .temporal-chart-controls { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.temporal-chart-controls { justify-content: flex-end; align-items: end; }
+.temporal-control { display: grid; gap: 7px; color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 850; }
+.temporal-control input, .temporal-control select { min-width: 142px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 12px; padding: 8px 10px; color: #e7edf7; background: rgba(2, 6, 23, .68); font: inherit; font-size: 12px; font-weight: 800; outline: none; }
+.temporal-control input:focus, .temporal-control select:focus { border-color: rgba(125, 211, 252, .62); box-shadow: 0 0 0 3px rgba(14, 165, 233, .12); }
+.axis-nudge-controls { display: flex; gap: 8px; }
+.axis-nudge-controls button { border: 1px solid rgba(148, 163, 184, .20); color: #cbd5e1; background: rgba(15, 23, 42, .64); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
+.timeline-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.timeline-calendar-day { min-width: 0; min-height: 86px; display: grid; align-content: start; gap: 6px; padding: 11px; border-radius: 14px; border: 1px solid rgba(148, 163, 184, .14); background: rgba(15, 23, 42, .45); color: #dbeafe; text-align: left; cursor: pointer; }
+.timeline-calendar-day:hover, .timeline-calendar-day.selected { border-color: rgba(125, 211, 252, .55); background: rgba(14, 165, 233, .14); }
+.timeline-calendar-day strong { color: #f8fbff; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-calendar-day small { color: #8fa2ba; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-calendar-day span { color: #7dd3fc; font-size: 11px; font-weight: 850; }
 .integrated-timewheel { display: grid; gap: 14px; }
 .temporal-chart-frame { position: relative; min-height: 236px; display: grid; gap: 8px; padding-bottom: 50px; border-radius: 18px; border: 1px solid rgba(148, 163, 184, .14); background: linear-gradient(180deg, rgba(2, 6, 23, .38), rgba(15, 23, 42, .54)); overflow: hidden; }
 .mini-candle-chart { height: 170px; display: flex; align-items: stretch; gap: 4px; padding: 12px 12px 0; overflow: hidden; }
@@ -205,7 +223,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .event-marker-layer { position: absolute; left: 12px; right: 12px; top: 12px; height: 170px; pointer-events: none; }
 .event-axis-marker { position: absolute; bottom: 4px; width: 7px; height: 28px; border-radius: 999px; background: #7dd3fc; border: 1px solid rgba(224, 242, 254, .76); box-shadow: 0 0 18px rgba(125, 211, 252, .34); transform: translateX(-50%); }
 .timeline-x-axis { position: absolute; left: 12px; right: 12px; bottom: 10px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(70px, 1fr); gap: 8px; align-items: end; overflow: hidden; }
-.timeline-axis-tick { min-width: 0; display: grid; justify-items: center; gap: 4px; color: #8fa2ba; text-align: center; }
+.timeline-axis-tick { min-width: 0; display: grid; justify-items: center; gap: 4px; color: #8fa2ba; text-align: center; border: 0; background: transparent; padding: 0; cursor: pointer; }
 .timeline-axis-tick > span { width: 1px; height: 16px; background: rgba(148, 163, 184, .28); }
 .timeline-axis-tick strong { max-width: 100%; color: #cbd5e1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timeline-axis-tick small { max-width: 100%; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -233,15 +251,17 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .temporal-event-group { display: grid; gap: 8px; }
 .temporal-event-group > span { color: #7dd3fc; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
 .temporal-event-card { display: grid; gap: 6px; padding: 12px; border-radius: 14px; border: 1px solid rgba(125, 211, 252, .18); background: rgba(14, 165, 233, .10); }
+.temporal-event-card.detailed { padding: 14px; }
 .temporal-event-card strong { color: #f8fbff; overflow-wrap: anywhere; }
 .temporal-event-card small { color: #9fb0c7; line-height: 1.35; overflow-wrap: anywhere; }
+.temporal-event-card p { max-width: none; font-size: 13px; overflow-wrap: anywhere; }
 .event-overflow-note { color: #8fa2ba; font-size: 12px; }
 .compact-axis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); padding-left: 0; }
 .compact-axis::before { display: none; }
 
 @media (max-width: 1220px) {
   .timewheel-chart-head { flex-direction: column; }
-  .temporal-status-strip, .subchart-grid { grid-template-columns: 1fr; }
+  .temporal-status-strip, .subchart-grid, .temporal-substrate-grid, .timeline-calendar-grid { grid-template-columns: 1fr; }
   .timeline-x-axis { grid-auto-columns: minmax(54px, 1fr); gap: 5px; }
 }
 

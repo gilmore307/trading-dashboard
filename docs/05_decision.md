@@ -101,13 +101,13 @@ The dashboard calendar route is a Temporal Explorer, not a month-grid calendar o
 
 ### Decision
 
-Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The chart x-axis is the Timewheel: selected frame, event markers, visible tick labels, and center time all live on the primary chart axis. The page also shows lower subcharts such as volume and event density, right-side event/status lanes, visible event markers, and chart-cache status. `event_calendar_summary` remains only a narrow support read model.
+Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The chart x-axis is the Timewheel: selected frame, Layer 10 accepted event markers, visible tick labels, and center time all live on the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, substrate status cards, selectable Timeline Status dates/ticks, symbol/frame/center-time selectors, selected-unit event details, and chart-cache status. `event_calendar_summary` remains only a narrow support read model.
 
 ### Consequences
 
 - Dashboard Timewheel reads `/api/read-models/temporal_explorer_summary/latest` and `/ws/read-models/temporal_explorer_summary/latest`.
 - The page performs no provider calls, SQL writes, model activation, broker execution, or account mutation.
-- Early closes, chart bars, event results, news index rows, replay state, and model event markers remain visible gaps until accepted source producers populate them.
+- Early closes, chart bars, replay state, model event markers, and Layer 10 accepted event markers remain visible gaps until accepted source producers populate them. Scheduled events, event results, and news index rows may be populated substrate tables without becoming chart markers.
 
 
 ## D005 - Dashboard is an owner-facing summary, not an internal maintenance console
