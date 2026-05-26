@@ -2138,8 +2138,13 @@ function App() {
                 type="button"
               >
                 <strong>{day.day}</strong>
-                {day.market_session_status !== 'unknown' ? <small>{startCase(day.market_session_status)}</small> : <small>&nbsp;</small>}
-                {day.event_count ? <span>{day.event_count} accepted</span> : <span>&nbsp;</span>}
+                {(day.market_session_status !== 'unknown' || day.event_count > 0) ? (
+                  <span className="timeline-calendar-day-meta">
+                    {day.market_session_status !== 'unknown' ? startCase(day.market_session_status) : null}
+                    {day.market_session_status !== 'unknown' && day.event_count > 0 ? ' · ' : null}
+                    {day.event_count > 0 ? `${day.event_count} accepted` : null}
+                  </span>
+                ) : null}
               </button>
             ))}
           </div>
