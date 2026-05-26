@@ -2333,6 +2333,7 @@ function App() {
     void loadReadModel(CURRENT_SYSTEM_STATUS);
     void loadReadModel(EVENT_CALENDAR_SUMMARY);
     void loadReadModel(HISTORICAL_TASK_PROGRESS);
+    void loadReadModel(TEMPORAL_EXPLORER_SUMMARY);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY);
   };
 
