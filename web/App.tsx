@@ -2092,7 +2092,7 @@ function App() {
           <div className="panel-heading">Temporal Substrate</div>
           <div className="temporal-substrate-grid">
             {rightLanes.map((lane) => (
-              <section className="temporal-substrate-card" key={lane.lane_id}>
+              <section className="temporal-substrate-card" key={lane.lane_id} title={`${lane.label}: ${startCase(lane.status)}`}>
                 <div>
                   <span>{lane.label}</span>
                   <strong>{lane.item_count}</strong>
@@ -2107,7 +2107,6 @@ function App() {
           <div className="timeline-calendar-head">
             <div>
               <div className="panel-heading">Timeline Status</div>
-              <p className="panel-subtitle">Select a calendar date. Weeks use the normal Sunday-to-Saturday month grid.</p>
             </div>
             <div className="calendar-month-controls">
               <button type="button" aria-label="Previous month" onClick={() => setSelectedTemporalCenter(shiftCalendarMonth(activeCenter, -1))}>Prev</button>
