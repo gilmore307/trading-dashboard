@@ -56,7 +56,7 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 
 ## Dashboard Read-Model Contracts
 
-The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `event_calendar_summary`, `realtime_signal_summary`, and `execution_realtime_trading_runtime_status`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
+The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, and `execution_realtime_trading_runtime_status`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
 
 ### `current_system_status_summary`
 
@@ -199,27 +199,6 @@ Hidden by default:
 - chart-cache rows outside the viewport;
 - provider credentials or source secret paths;
 - dashboard-originated refresh controls.
-
-### `event_calendar_summary`
-
-Purpose: support narrow event-list diagnostics and compatibility while Timewheel is the primary calendar page.
-
-Current implementation: `trading-storage` builds this summary from accepted `source_10_event_risk_governor` SQL rows plus Trading Economics source-artifact evidence under the canonical append-only TE root. The dashboard displays recent/upcoming events, source mix, TE refresh state, and family readiness.
-
-Owner-facing fields:
-
-- calendar window and event counts;
-- upcoming and recent event rows;
-- source-artifact evidence count;
-- family rows for macro scheduled releases, earnings scheduled shells, exchange holidays and early closes, option expiry windows, and index rebalance windows;
-- refresh status for the TE schedule/worker and latest TE source receipt/file timestamps.
-
-Hidden by default:
-
-- raw SQL row dumps;
-- raw Trading Economics CSV files and receipts;
-- provider credentials or source secret paths;
-- dashboard-originated event refresh controls.
 
 ### `realtime_signal_summary`
 

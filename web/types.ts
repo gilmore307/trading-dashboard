@@ -8,7 +8,7 @@ export interface DashboardReadModel {
   status: string;
   severity?: Severity;
   summary: string;
-  chart_payload: HistoricalTaskProgressChartPayload | CurrentSystemStatusChartPayload | RealtimeSignalChartPayload | EventCalendarChartPayload | TemporalExplorerChartPayload | Record<string, unknown> | unknown[];
+  chart_payload: HistoricalTaskProgressChartPayload | CurrentSystemStatusChartPayload | RealtimeSignalChartPayload | TemporalExplorerChartPayload | Record<string, unknown> | unknown[];
   profile_refs: unknown[];
   issue_refs: unknown[];
   diagnostic_refs: unknown[];
@@ -20,56 +20,6 @@ export interface DashboardReadModel {
     [key: string]: unknown;
   };
   schema_ref: string;
-}
-
-export interface EventCalendarEventPayload {
-  event_id: string;
-  event_time: string;
-  available_time?: string | null;
-  title: string;
-  event_category_type: string;
-  scope_type: string;
-  symbol?: string | null;
-  source_name: string;
-  source_priority?: string | null;
-  event_phase?: string | null;
-  reference_type?: string | null;
-  has_source_artifact_path?: boolean;
-  summary?: string | null;
-}
-
-export interface EventCalendarFamilyPayload {
-  family_id: string;
-  label: string;
-  status: string;
-  event_count: number;
-  primary_source?: string | null;
-}
-
-export interface EventCalendarChartPayload {
-  window?: {
-    lookback_days?: number;
-    lookahead_days?: number;
-    start_utc?: string;
-    end_utc?: string;
-  };
-  counts?: {
-    total_events?: number;
-    upcoming_events?: number;
-    recent_events?: number;
-    events_with_source_artifact_path?: number;
-    by_category?: Record<string, number>;
-    by_source?: Record<string, number>;
-  };
-  refresh?: {
-    timer?: Record<string, unknown>;
-    service?: Record<string, unknown>;
-    latest_te_receipt_updated_at_utc?: string | null;
-    latest_te_event_file_updated_at_utc?: string | null;
-  };
-  families?: EventCalendarFamilyPayload[];
-  upcoming_events?: EventCalendarEventPayload[];
-  recent_events?: EventCalendarEventPayload[];
 }
 
 export interface TemporalExplorerTickPayload {

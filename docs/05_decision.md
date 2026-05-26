@@ -101,7 +101,7 @@ The dashboard calendar route is a Temporal Explorer, not a raw event browser. Th
 
 ### Decision
 
-Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The chart x-axis is the Timewheel: selected frame, Layer 10 accepted event markers, visible tick labels, and center time all live on the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, substrate status cards, symbol/frame/center-time selectors, selected-unit event details, and chart-cache status. `event_calendar_summary` remains only a narrow support read model.
+Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The chart x-axis is the Timewheel: selected frame, Layer 10 accepted event markers, visible tick labels, and center time all live on the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, substrate status cards, symbol/frame/center-time selectors, selected-unit event details, and chart-cache status. The former narrow event-calendar summary is no longer part of the public dashboard surface.
 
 ### Consequences
 

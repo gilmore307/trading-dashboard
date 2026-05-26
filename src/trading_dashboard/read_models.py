@@ -21,7 +21,6 @@ REGISTERED_DASHBOARD_READ_MODELS = frozenset(
     {
         "current_system_status_summary",
         "alert_exception_summary",
-        "event_calendar_summary",
         HISTORICAL_TASK_PROGRESS_CONTRACT,
         "temporal_explorer_summary",
         "realtime_task_progress_summary",

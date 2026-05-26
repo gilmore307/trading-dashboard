@@ -14,7 +14,6 @@ const DASHBOARD_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const REGISTERED_READ_MODELS = new Set([
   'current_system_status_summary',
   'alert_exception_summary',
-  'event_calendar_summary',
   'historical_task_progress_summary',
   'temporal_explorer_summary',
   'realtime_task_progress_summary',
