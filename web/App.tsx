@@ -79,7 +79,7 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
 type ViewId = 'status' | 'tasks' | 'timewheel' | 'data' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
 
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
-  { id: 'status', label: 'Current Status', state: 'Live' },
+  { id: 'status', label: 'Status', state: 'Live' },
   { id: 'tasks', label: 'Tasks', state: 'Task list' },
   { id: 'timewheel', label: 'Timewheel', state: 'Temporal explorer' },
   { id: 'data', label: 'Data', state: 'Data + model outputs' },
@@ -851,7 +851,7 @@ function collectDiagnosticSummary(
     const severity = currentStatusModel.severity === 'critical' ? 'critical' : currentStatusModel.severity === 'high' ? 'error' : 'warning';
     items.push({
       id: stableDiagnosticId('read-model', CURRENT_SYSTEM_STATUS),
-      title: 'Current Status read model',
+      title: 'Status read model',
       category: 'Read model',
       typeKey: 'read_model',
       typeLabel: 'Read Model',
@@ -1475,7 +1475,7 @@ function DiagnosticsSummaryView({
             </select>
           </label>
           <label>
-            Current Status
+            Status
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as DiagnosticStatusFilter)}>
               <option value="unresolved">Unresolved</option>
               <option value="open">Open</option>
@@ -1584,6 +1584,14 @@ function eventForTick(events: TemporalExplorerEventPayload[], tick: TemporalExpl
     const at = Date.parse(event.event_time);
     return Number.isFinite(at) && at >= start && at < end;
   });
+}
+
+function temporalPositionPercent(value?: string | null, start?: string | null, end?: string | null): number {
+  const at = Date.parse(value ?? '');
+  const startAt = Date.parse(start ?? '');
+  const endAt = Date.parse(end ?? '');
+  if (!Number.isFinite(at) || !Number.isFinite(startAt) || !Number.isFinite(endAt) || endAt <= startAt) return 0;
+  return Math.max(0, Math.min(100, ((at - startAt) / (endAt - startAt)) * 100));
 }
 
 function PlaceholderView({ title }: { title: string }) {
@@ -1897,25 +1905,27 @@ function App() {
     const events = temporalExplorerChart.events ?? [];
     const chartModel = temporalExplorerChart.chart ?? {};
     const chartBars = chartModel.bars ?? [];
-    const leftLanes = temporalExplorerChart.left_lanes ?? [];
     const rightLanes = temporalExplorerChart.right_lanes ?? [];
     const substrate = temporalExplorerChart.substrate_status ?? {};
     const closeValues = chartBars.map((bar) => bar.close).filter((value) => Number.isFinite(value));
+    const volumeValues = chartBars.map((bar) => bar.volume ?? 0).filter((value) => Number.isFinite(value));
     const minClose = closeValues.length ? Math.min(...closeValues) : 0;
     const maxClose = closeValues.length ? Math.max(...closeValues) : 0;
+    const maxVolume = Math.max(...volumeValues, 1);
     const closeRange = Math.max(maxClose - minClose, 1);
+    const maxTickEvents = Math.max(...ticks.map((tick) => tick.event_count ?? 0), 1);
     return (
       <>
         <section className="metric-grid">
           <MetricCard label="Center Time" value={viewport.center_time_utc ? formatTimestamp(viewport.center_time_utc) : 'Unknown'} hint={`Frame ${viewport.frame ?? '1D'}`} />
-          <MetricCard label="Event Markers" value={temporalExplorerChart.counts?.total_events ?? events.length} hint="Right-lane markers in viewport" />
+          <MetricCard label="Event Markers" value={temporalExplorerChart.counts?.total_events ?? events.length} hint="Markers on chart axis" />
           <MetricCard label="Chart Cache" value={startCase(chartModel.status)} hint={`${chartModel.symbol ?? 'SPY'} · ${chartModel.timeframe ?? '1D'}`} />
           <MetricCard label="Substrate Tables" value={Object.values(substrate).filter((row) => row.status === 'populated').length} hint={`${Object.keys(substrate).length} tracked tables`} />
         </section>
-        <section className="panel timewheel-chart-panel">
+        <section className="panel timewheel-chart-panel integrated-timewheel">
           <div className="timewheel-chart-head">
             <div>
-              <div className="panel-heading">Chart Viewport</div>
+              <div className="panel-heading">Temporal Chart</div>
               <p className="panel-subtitle">{chartModel.role ? startCase(chartModel.role) : 'Chart cache is a visualization substrate, not training truth.'}</p>
             </div>
             <div className="frame-switcher">
@@ -1924,46 +1934,112 @@ function App() {
               ))}
             </div>
           </div>
-          {chartBars.length ? (
-            <div className="mini-candle-chart">
-              {chartBars.slice(-90).map((bar) => {
-                const closePosition = ((bar.close - minClose) / closeRange) * 78;
-                const openPosition = ((bar.open - minClose) / closeRange) * 78;
-                const top = 86 - Math.max(closePosition, openPosition);
-                const height = Math.max(Math.abs(closePosition - openPosition), 3);
-                const rising = bar.close >= bar.open;
-                return (
-                  <span
-                    className={rising ? 'mini-candle rising' : 'mini-candle falling'}
-                    key={`${bar.symbol}-${bar.timeframe}-${bar.bucket_start}`}
-                    style={{ height: `${height}%`, marginTop: `${top}%` }}
-                    title={`${formatTimestamp(bar.bucket_start)} ${bar.open} -> ${bar.close}`}
-                  />
-                );
-              })}
+          <div className="temporal-chart-frame">
+            {chartBars.length ? (
+              <div className="mini-candle-chart">
+                {chartBars.slice(-90).map((bar) => {
+                  const closePosition = ((bar.close - minClose) / closeRange) * 78;
+                  const openPosition = ((bar.open - minClose) / closeRange) * 78;
+                  const top = 86 - Math.max(closePosition, openPosition);
+                  const height = Math.max(Math.abs(closePosition - openPosition), 3);
+                  const rising = bar.close >= bar.open;
+                  return (
+                    <span
+                      className={rising ? 'mini-candle rising' : 'mini-candle falling'}
+                      key={`${bar.symbol}-${bar.timeframe}-${bar.bucket_start}`}
+                      style={{ height: `${height}%`, marginTop: `${top}%` }}
+                      title={`${formatTimestamp(bar.bucket_start)} ${bar.open} -> ${bar.close}`}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-chart compact">Chart cache not populated yet. Event markers still use the same time axis.</div>
+            )}
+            <div className="event-marker-layer" aria-hidden="true">
+              {events.slice(0, 160).map((event) => (
+                <span
+                  className="event-axis-marker"
+                  key={`${event.lane}-${event.event_id}`}
+                  style={{ left: `${temporalPositionPercent(event.event_time, viewport.start_utc, viewport.end_utc)}%` }}
+                  title={`${formatTimestamp(event.event_time)} · ${event.title}`}
+                />
+              ))}
             </div>
-          ) : (
-            <div className="empty-chart compact">Chart cache not populated yet. The table exists as the long-lived visualization cache route.</div>
-          )}
-        </section>
-        <section className="timewheel-layout">
-          <section className="panel temporal-lane-panel">
-            <div className="panel-heading">Market State Lane</div>
-            <div className="temporal-lane-list">
-              {leftLanes.map((lane) => (
-                <div className="temporal-lane-card" key={lane.lane_id}>
-                  <div>
-                    <strong>{lane.label}</strong>
-                    <small>{lane.item_count} visible rows</small>
-                  </div>
-                  <StatusPill status={lane.status} severity={temporalLaneSeverity(lane.status)} />
+            <div className="timeline-x-axis">
+              {ticks.map((tick) => (
+                <div className={tick.is_center ? 'timeline-axis-tick selected' : 'timeline-axis-tick'} key={tick.tick_start_utc}>
+                  <span />
+                  <strong>{tick.label}</strong>
+                  <small>{startCase(tick.market_session_status)}</small>
                 </div>
               ))}
             </div>
-          </section>
-          <section className="panel timewheel-axis-panel">
-            <div className="panel-heading">Timewheel</div>
-            <div className="timewheel-axis">
+          </div>
+          <div className="subchart-grid">
+            <section className="subchart-panel">
+              <div className="subchart-heading">Volume</div>
+              {chartBars.length ? (
+                <div className="volume-subchart">
+                  {chartBars.slice(-90).map((bar) => (
+                    <span
+                      key={`${bar.symbol}-${bar.timeframe}-${bar.bucket_start}-volume`}
+                      style={{ height: `${Math.max(((bar.volume ?? 0) / maxVolume) * 100, 2)}%` }}
+                      title={`${formatTimestamp(bar.bucket_start)} · volume ${bar.volume ?? 0}`}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-subchart">Waiting for chart cache bars.</div>
+              )}
+            </section>
+            <section className="subchart-panel">
+              <div className="subchart-heading">Event Density</div>
+              <div className="event-density-subchart">
+                {ticks.map((tick) => (
+                  <span
+                    key={`${tick.tick_start_utc}-density`}
+                    style={{ height: `${Math.max(((tick.event_count ?? 0) / maxTickEvents) * 100, tick.event_count ? 8 : 2)}%` }}
+                    title={`${tick.label} · ${tick.event_count ?? 0} events`}
+                  />
+                ))}
+              </div>
+            </section>
+          </div>
+          <div className="temporal-status-strip">
+            {rightLanes.map((lane) => (
+              <div className="temporal-strip-item" key={lane.lane_id}>
+                <span>{lane.label}</span>
+                <StatusPill status={lane.status} severity={temporalLaneSeverity(lane.status)} />
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="panel temporal-events-panel">
+          <div className="panel-heading">Event Markers</div>
+          <div className="temporal-event-stack horizontal-axis-events">
+            {ticks.map((tick) => {
+              const tickEvents = eventForTick(events, tick);
+              if (!tickEvents.length) return null;
+              return (
+                <div className="temporal-event-group" key={`events-${tick.tick_start_utc}`}>
+                  <span>{tick.label}</span>
+                  {tickEvents.slice(0, 8).map((event) => (
+                    <article className="temporal-event-card" key={`${event.lane}-${event.event_id}`}>
+                      <strong>{event.title}</strong>
+                      <small>{startCase(event.lane)} · {startCase(event.event_type)}{event.symbol ? ` · ${event.symbol}` : ''}</small>
+                    </article>
+                  ))}
+                  {tickEvents.length > 8 ? <small className="event-overflow-note">+{tickEvents.length - 8} more markers</small> : null}
+                </div>
+              );
+            })}
+            {!events.length ? <div className="empty-chart compact">No visible event markers in this viewport.</div> : null}
+          </div>
+        </section>
+        <section className="panel temporal-tick-table-panel">
+          <div className="panel-heading">Timeline Status</div>
+          <div className="timewheel-axis compact-axis">
               {ticks.map((tick) => (
                 <div className={tick.is_center ? 'timewheel-tick selected' : 'timewheel-tick'} key={tick.tick_start_utc}>
                   <span className="tick-dot" />
@@ -1974,39 +2050,6 @@ function App() {
                 </div>
               ))}
             </div>
-          </section>
-          <section className="panel temporal-lane-panel">
-            <div className="panel-heading">Event Lane</div>
-            <div className="temporal-event-stack">
-              {ticks.map((tick) => {
-                const tickEvents = eventForTick(events, tick);
-                if (!tickEvents.length) return null;
-                return (
-                  <div className="temporal-event-group" key={`events-${tick.tick_start_utc}`}>
-                    <span>{tick.label}</span>
-                    {tickEvents.map((event) => (
-                      <article className="temporal-event-card" key={`${event.lane}-${event.event_id}`}>
-                        <strong>{event.title}</strong>
-                        <small>{startCase(event.lane)} · {startCase(event.event_type)}{event.symbol ? ` · ${event.symbol}` : ''}</small>
-                      </article>
-                    ))}
-                  </div>
-                );
-              })}
-              {!events.length ? <div className="empty-chart compact">No visible event markers in this viewport.</div> : null}
-            </div>
-            <div className="temporal-lane-list compact-lanes">
-              {rightLanes.map((lane) => (
-                <div className="temporal-lane-card" key={lane.lane_id}>
-                  <div>
-                    <strong>{lane.label}</strong>
-                    <small>{lane.item_count} visible rows</small>
-                  </div>
-                  <StatusPill status={lane.status} severity={temporalLaneSeverity(lane.status)} />
-                </div>
-              ))}
-            </div>
-          </section>
         </section>
       </>
     );
@@ -2145,7 +2188,7 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Current Status' : activeView === 'data' ? 'Data' : activeView === 'timewheel' ? 'Temporal Explorer' : startCase(activeView);
+  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'timewheel' ? 'Temporal Explorer' : startCase(activeView);
   const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'timewheel' ? 'Timewheel / Dashboard' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {

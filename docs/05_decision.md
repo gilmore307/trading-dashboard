@@ -97,11 +97,11 @@ Status: Accepted
 
 ### Context
 
-The dashboard calendar route is a Temporal Explorer, not a month-grid calendar or raw event browser. It must align chart viewport, market/session state, scheduled/released/news events, replay/model lanes, and explicit source gaps on one scrollable time axis.
+The dashboard calendar route is a Temporal Explorer, not a month-grid calendar or raw event browser. It must align chart viewport, scheduled/released/news events, replay/model lanes, and explicit source gaps on one shared time axis. Market state is summarized on Status so the Timewheel can stay focused on time-aligned chart and event inspection.
 
 ### Decision
 
-Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The page shows a chart viewport, frame selector display, synchronized vertical time ticks, left-side market/session lanes, right-side event lanes, visible event markers, and chart-cache status. `event_calendar_summary` remains only a narrow support read model.
+Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The chart x-axis is the Timewheel: selected frame, event markers, visible tick labels, and center time all live on the primary chart axis. The page also shows lower subcharts such as volume and event density, right-side event/status lanes, visible event markers, and chart-cache status. `event_calendar_summary` remains only a narrow support read model.
 
 ### Consequences
 
@@ -123,7 +123,7 @@ Chentong clarified that the website exists to summarize system, model, signal, a
 
 The dashboard primary navigation will focus on owner-facing summary and explanation pages:
 
-1. Current Status
+1. Status
 2. Alerts and Exceptions
 3. Tasks, with Historical Modeling and Realtime Trading subtabs
 4. Models, with one subtab for each of the ten model layers
@@ -171,7 +171,7 @@ Advanced diagnostics may only be entered from a visible owner-facing issue such 
 
 - Implementation should build against storage-hosted summary/read-model outputs, not raw control-plane tables.
 - Raw evidence remains available only as issue-focused diagnostic support.
-- Storage lifecycle appears through Current Status and Alerts unless it becomes a daily owner-facing concern.
+- Storage lifecycle appears through Status and Alerts unless it becomes a daily owner-facing concern.
 - Realtime Signals and Trading Performance must distinguish unavailable/shadow/paper/live states clearly and must not fabricate mature metrics before evidence exists.
 
 
@@ -244,39 +244,39 @@ Dashboard pages consume read models through `/api/read-models/<contract_type>/la
 - No dashboard-originated provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes are allowed.
 - Future pages should reuse storage-hosted dashboard read models and avoid raw internal tables as primary UI input.
 
-## D010 - Current Status is infrastructure status, not model progress
+## D010 - Status is infrastructure status, not model progress
 
 Date: 2026-05-12
 Status: Accepted
 
 ### Context
 
-Chentong clarified that the Current Status page should show server/API/system-service infrastructure posture, including dashboard refresh/read timestamps and status. It should not be another model-progress page.
+Chentong clarified that the Status page should show server/API/system-service infrastructure posture, including dashboard refresh/read timestamps and status. It should not be another model-progress page.
 
 ### Decision
 
-Current Status consumes `current_system_status_summary`. The summary is storage-owned and covers server resources, dashboard API routes, systemd service/timer state, dashboard read-model freshness, and refresh cadence. Model workflow progress stays on Tasks through `historical_task_progress_summary`.
+Status consumes `current_system_status_summary`. The summary is storage-owned and covers server resources, dashboard API routes, systemd service/timer state, dashboard read-model freshness, and refresh cadence. Model workflow progress stays on Tasks through `historical_task_progress_summary`.
 
-The left navigation remains the only page-switching entry point. Main Current Status content is informational and read-only.
+The left navigation remains the only page-switching entry point. Main Status content is informational and read-only.
 
 ### Consequences
 
-- Dashboard Current Status does not query raw manager/model/data/execution internals.
+- Dashboard Status does not query raw manager/model/data/execution internals.
 - Infrastructure status is published through storage-hosted read models before the dashboard renders it.
 - WebSocket streaming remains read-only and streams storage-hosted snapshots only.
 
-## D011 - Current Status uses public-facing names
+## D011 - Status uses public-facing names
 
 Date: 2026-05-12
 Status: Accepted
 
 ### Context
 
-Chentong clarified that Current Status should be understandable to someone who does not know the internal OpenClaw/trading repository layout. Internal route paths, systemd unit names, storage contract names, and component identifiers should not be visible in the primary Status page.
+Chentong clarified that Status should be understandable to someone who does not know the internal OpenClaw/trading repository layout. Internal route paths, systemd unit names, storage contract names, and component identifiers should not be visible in the primary Status page.
 
 ### Decision
 
-The Current Status UI presents plain-language labels over the accepted dashboard summary payload. Examples include `System Health Summary`, `Task Progress Summary`, `Historical Training Automation`, `Dashboard Refresh Schedule`, and `Dashboard Refresh Worker` instead of internal contract paths, systemd unit names, or storage file identifiers.
+The Status UI presents plain-language labels over the accepted dashboard summary payload. Examples include `System Health Summary`, `Task Progress Summary`, `Historical Training Automation`, `Dashboard Refresh Schedule`, and `Dashboard Refresh Worker` instead of internal contract paths, systemd unit names, or storage file identifiers.
 
 The underlying read-model contracts and runtime routes may remain implementation details, but the public page should show generic user-facing names and action-oriented health language.
 
@@ -286,22 +286,22 @@ The underlying read-model contracts and runtime routes may remain implementation
 - Error/loading copy should describe dashboard status availability, not read-model file paths or refresh wrapper commands.
 - Future Status-page additions should add a public presentation label instead of rendering raw internal identifiers.
 
-## D012 - Server resources lead Current Status
+## D012 - Server resources lead Status
 
 Date: 2026-05-13
 Status: Accepted
 
 ### Context
 
-Chentong clarified that Current Status should begin with immediately useful server resource posture rather than Linux load-average internals or explanatory copy.
+Chentong clarified that Status should begin with immediately useful server resource posture rather than Linux load-average internals or explanatory copy.
 
 ### Decision
 
-Current Status leads with a `Server Resources` card showing public-facing resource metrics: CPU usage, memory usage, network download rate, and network upload rate. The older load-average detail is not shown in the primary card; server state uses plain outcome language such as `Online` and `Running normally`.
+Status leads with a `Server Resources` card showing public-facing resource metrics: CPU usage, memory usage, network download rate, and network upload rate. The older load-average detail is not shown in the primary card; server state uses plain outcome language such as `Online` and `Running normally`.
 
 ### Consequences
 
-- Current Status starts with live resource posture before service/data freshness sections.
+- Status starts with live resource posture before service/data freshness sections.
 - Resource metrics remain read-only observations from the storage-owned status summary.
 - Future resource additions should use plain operational labels rather than kernel/internal field names.
 
@@ -317,7 +317,7 @@ Chentong asked for an API card showing provider APIs such as Alpaca, OKX, and Th
 
 ### Decision
 
-Current Status shows an `API Connections` card with public provider API names and plain status labels, such as `Alpaca Market Data API`, `OKX Market Data API`, and `ThetaData Options API`. The default dashboard read model reports local configuration/runtime availability only and does not call providers.
+Status shows an `API Connections` card with public provider API names and plain status labels, such as `Alpaca Market Data API`, `OKX Market Data API`, and `ThetaData Options API`. The default dashboard read model reports local configuration/runtime availability only and does not call providers.
 
 ### Consequences
 
@@ -336,7 +336,7 @@ Chentong asked for provider API status and Background Services to share one row,
 
 ### Decision
 
-Current Status renders Server Resources first, then a Runtime Throughput card. The card shows the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. API Connections and Background Services remain side by side. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
+Status renders Server Resources first, then a Runtime Throughput card. The card shows the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. API Connections and Background Services remain side by side. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
 
 As future website pages, adapters, or read-model slices consume additional original source outputs, the Dashboard Data source-output inventory must be updated in the same development slice. Omitting a newly consumed raw source output from this list is a freshness/auditability contract gap, even if the derived dashboard JSON is already refreshed.
 
@@ -489,11 +489,11 @@ Status: Accepted
 
 ### Context
 
-Layer 3 and later historical model stages are target-specific, but the Task List only emphasized month, layer, worker, and workflow phase. Current Status also labeled the free-disk metric as `Storage`, which could be mistaken for total disk, storage service health, or storage lifecycle status. Runtime throughput labels such as `Window`, `Peak burst`, and `Idle / blocked` were also too terse for owner-facing interpretation.
+Layer 3 and later historical model stages are target-specific, but the Task List only emphasized month, layer, worker, and workflow phase. Status also labeled the free-disk metric as `Storage`, which could be mistaken for total disk, storage service health, or storage lifecycle status. Runtime throughput labels such as `Window`, `Peak burst`, and `Idle / blocked` were also too terse for owner-facing interpretation.
 
 ### Decision
 
-Task List rows for target-specific Layer 3+ work show the selected target symbol and include a Target filter. Current Status labels the disk-space card as `Available Storage`. Runtime throughput cards use fuller labels: `Peak completions`, `Observation window`, and `Idle/blocked decisions`.
+Task List rows for target-specific Layer 3+ work show the selected target symbol and include a Target filter. Status labels the disk-space card as `Available Storage`. Runtime throughput cards use fuller labels: `Peak completions`, `Observation window`, and `Idle/blocked decisions`.
 
 ### Consequences
 

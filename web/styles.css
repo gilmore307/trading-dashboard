@@ -196,17 +196,31 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .frame-switcher { display: flex; flex-wrap: wrap; gap: 8px; }
 .frame-switcher button { min-width: 52px; border: 1px solid rgba(148, 163, 184, .20); color: #cbd5e1; background: rgba(15, 23, 42, .64); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 12px; font-weight: 900; }
 .frame-switcher button.selected { border-color: rgba(125, 211, 252, .62); color: #e0f2fe; background: rgba(14, 165, 233, .20); }
-.mini-candle-chart { height: 170px; display: flex; align-items: stretch; gap: 4px; padding: 12px; border-radius: 18px; border: 1px solid rgba(148, 163, 184, .14); background: linear-gradient(180deg, rgba(2, 6, 23, .38), rgba(15, 23, 42, .54)); overflow: hidden; }
+.integrated-timewheel { display: grid; gap: 14px; }
+.temporal-chart-frame { position: relative; min-height: 236px; display: grid; gap: 8px; padding-bottom: 50px; border-radius: 18px; border: 1px solid rgba(148, 163, 184, .14); background: linear-gradient(180deg, rgba(2, 6, 23, .38), rgba(15, 23, 42, .54)); overflow: hidden; }
+.mini-candle-chart { height: 170px; display: flex; align-items: stretch; gap: 4px; padding: 12px 12px 0; overflow: hidden; }
 .mini-candle { width: 7px; min-width: 3px; border-radius: 999px; align-self: flex-start; opacity: .9; }
 .mini-candle.rising { background: linear-gradient(180deg, #86efac, #16a34a); box-shadow: 0 0 16px rgba(34, 197, 94, .18); }
 .mini-candle.falling { background: linear-gradient(180deg, #fda4af, #e11d48); box-shadow: 0 0 16px rgba(225, 29, 72, .18); }
-.timewheel-layout { display: grid; grid-template-columns: minmax(240px, .85fr) minmax(280px, .75fr) minmax(320px, 1.15fr); gap: 18px; align-items: start; }
-.temporal-lane-panel, .timewheel-axis-panel { min-width: 0; }
-.temporal-lane-list { display: grid; gap: 10px; }
-.temporal-lane-list.compact-lanes { margin-top: 16px; }
-.temporal-lane-card { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px; border-radius: 14px; border: 1px solid rgba(148, 163, 184, .14); background: rgba(15, 23, 42, .45); }
-.temporal-lane-card strong { display: block; color: #f8fbff; overflow-wrap: anywhere; }
-.temporal-lane-card small { color: #8fa2ba; font-size: 12px; }
+.event-marker-layer { position: absolute; left: 12px; right: 12px; top: 12px; height: 170px; pointer-events: none; }
+.event-axis-marker { position: absolute; bottom: 4px; width: 7px; height: 28px; border-radius: 999px; background: #7dd3fc; border: 1px solid rgba(224, 242, 254, .76); box-shadow: 0 0 18px rgba(125, 211, 252, .34); transform: translateX(-50%); }
+.timeline-x-axis { position: absolute; left: 12px; right: 12px; bottom: 10px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(70px, 1fr); gap: 8px; align-items: end; overflow: hidden; }
+.timeline-axis-tick { min-width: 0; display: grid; justify-items: center; gap: 4px; color: #8fa2ba; text-align: center; }
+.timeline-axis-tick > span { width: 1px; height: 16px; background: rgba(148, 163, 184, .28); }
+.timeline-axis-tick strong { max-width: 100%; color: #cbd5e1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-axis-tick small { max-width: 100%; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timeline-axis-tick.selected > span { width: 3px; height: 28px; border-radius: 999px; background: #7dd3fc; box-shadow: 0 0 18px rgba(125, 211, 252, .44); }
+.timeline-axis-tick.selected strong { color: #e0f2fe; }
+.subchart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.subchart-panel { min-width: 0; display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid rgba(148, 163, 184, .14); background: rgba(15, 23, 42, .36); }
+.subchart-heading { color: #dbeafe; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.volume-subchart, .event-density-subchart { height: 72px; display: flex; align-items: end; gap: 4px; overflow: hidden; }
+.volume-subchart span, .event-density-subchart span { flex: 1 1 4px; min-width: 3px; border-radius: 999px 999px 2px 2px; background: rgba(125, 211, 252, .52); }
+.volume-subchart span { background: rgba(134, 239, 172, .55); }
+.empty-subchart { min-height: 72px; display: grid; place-items: center; color: #7c8ea5; font-size: 12px; border-radius: 12px; border: 1px dashed rgba(148, 163, 184, .16); }
+.temporal-status-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.temporal-strip-item { min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(148, 163, 184, .14); background: rgba(15, 23, 42, .45); }
+.temporal-strip-item span { color: #dbeafe; font-size: 12px; font-weight: 850; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .timewheel-axis { position: relative; display: grid; gap: 8px; padding-left: 12px; }
 .timewheel-axis::before { content: ""; position: absolute; left: 20px; top: 6px; bottom: 6px; width: 2px; background: linear-gradient(180deg, rgba(125, 211, 252, 0), rgba(125, 211, 252, .42), rgba(125, 211, 252, 0)); }
 .timewheel-tick { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: center; padding: 9px 10px; border: 1px solid transparent; border-radius: 14px; }
@@ -215,15 +229,20 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .timewheel-tick strong { color: #e0f2fe; font-size: 13px; }
 .timewheel-tick small { color: #8fa2ba; font-size: 12px; }
 .temporal-event-stack { display: grid; gap: 12px; }
+.horizontal-axis-events { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .temporal-event-group { display: grid; gap: 8px; }
 .temporal-event-group > span { color: #7dd3fc; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
 .temporal-event-card { display: grid; gap: 6px; padding: 12px; border-radius: 14px; border: 1px solid rgba(125, 211, 252, .18); background: rgba(14, 165, 233, .10); }
 .temporal-event-card strong { color: #f8fbff; overflow-wrap: anywhere; }
 .temporal-event-card small { color: #9fb0c7; line-height: 1.35; overflow-wrap: anywhere; }
+.event-overflow-note { color: #8fa2ba; font-size: 12px; }
+.compact-axis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); padding-left: 0; }
+.compact-axis::before { display: none; }
 
 @media (max-width: 1220px) {
   .timewheel-chart-head { flex-direction: column; }
-  .timewheel-layout { grid-template-columns: 1fr; }
+  .temporal-status-strip, .subchart-grid { grid-template-columns: 1fr; }
+  .timeline-x-axis { grid-auto-columns: minmax(54px, 1fr); gap: 5px; }
 }
 
 /* Fixed primary navigation */

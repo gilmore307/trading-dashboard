@@ -29,7 +29,7 @@ storage/06_dashboard_cache/read_models/<contract_type>/latest.json
 
 The WebSocket route sends a snapshot on connect and on `latest.json` changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
 
-The dashboard renders Current Status, Tasks, Timewheel, Models, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
+The dashboard renders Status, Tasks, Timewheel, Models, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -60,7 +60,7 @@ The current public storage refresh set is `current_system_status_summary`, `hist
 
 ### `current_system_status_summary`
 
-Purpose: support the Current Status page.
+Purpose: support the Status page.
 
 Owner-facing fields:
 
@@ -85,7 +85,7 @@ Suggested storage fields:
 - last compression/archive/delete receipt summary;
 - restore verification status.
 
-Dashboard Data copy must say these timestamps are source artifact write times, not dashboard read-model refresh times. Heartbeat artifacts are expected to move continuously; event-driven artifacts move only when decisions or stage progress are recorded. Current Status consumes `chart_payload.runtime_throughput` to render the Runtime Throughput card with the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. `chart_payload.parallelism` is subordinate provider-dispatch/resource-gate detail.
+Dashboard Data copy must say these timestamps are source artifact write times, not dashboard read-model refresh times. Heartbeat artifacts are expected to move continuously; event-driven artifacts move only when decisions or stage progress are recorded. Status consumes `chart_payload.runtime_throughput` to render the Runtime Throughput card with the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. `chart_payload.parallelism` is subordinate provider-dispatch/resource-gate detail.
 
 Hidden by default:
 
@@ -181,13 +181,13 @@ If realtime monitoring has not started, `realtime_signal_summary` should say `no
 
 Purpose: support the Timewheel / Temporal Explorer page.
 
-Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables and chart cache. The dashboard displays a top chart viewport, a centered vertical timewheel, left-side market/session lanes, right-side event lanes, visible event markers, and explicit unpopulated-table states. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
+Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables and chart cache. The dashboard treats the chart x-axis as the Timewheel, displays event markers on that same axis, shows lower subcharts such as volume and event density, exposes right-side event/status lanes, and keeps explicit unpopulated-table states. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
 
 Owner-facing fields:
 
 - viewport center, selected frame, available frames, and visible start/end;
 - timewheel ticks with market-session status and marker counts;
-- left lanes for market session, chart cache, market state, and replay state;
+- chart-axis event marker positions and subchart-ready volume/event-density values;
 - right lanes for scheduled events, event results, news index, and model event markers;
 - event markers grouped by tick;
 - compact chart bars when `chart_ohlcv_cache` is populated;
@@ -360,7 +360,7 @@ Possible owner-facing fields:
 
 ### `storage_lifecycle_status_summary`
 
-Future purpose: summarize storage lifecycle posture for Current Status and Alerts.
+Future purpose: summarize storage lifecycle posture for Status and Alerts.
 
 This should not become a standalone main tab unless storage pressure becomes a daily owner-facing concern.
 

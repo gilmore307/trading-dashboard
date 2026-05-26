@@ -17,7 +17,7 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 
 ## Primary Navigation
 
-### 1. Current Status
+### 1. Status
 
 Purpose: answer “Is the system healthy enough for its current role?”
 
