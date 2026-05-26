@@ -16,6 +16,7 @@ const REGISTERED_READ_MODELS = new Set([
   'alert_exception_summary',
   'event_calendar_summary',
   'historical_task_progress_summary',
+  'temporal_explorer_summary',
   'realtime_task_progress_summary',
   'model_layer_readiness_summary',
   'model_promotion_posture_summary',

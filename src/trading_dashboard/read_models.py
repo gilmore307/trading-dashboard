@@ -23,6 +23,7 @@ REGISTERED_DASHBOARD_READ_MODELS = frozenset(
         "alert_exception_summary",
         "event_calendar_summary",
         HISTORICAL_TASK_PROGRESS_CONTRACT,
+        "temporal_explorer_summary",
         "realtime_task_progress_summary",
         "model_layer_readiness_summary",
         "model_promotion_posture_summary",

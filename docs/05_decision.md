@@ -90,24 +90,24 @@ Dashboard implementation work must stay read-only and consume reviewed storage-h
 - This acceptance does not enable dashboard runtime, provider calls, manager dispatch, model activation, broker execution, or account mutation.
 - New dashboard implementation must start from reviewed manager/storage output refs and preserve provenance.
 
-## D007 - Calendar page consumes storage event summary
+## D007 - Timewheel page consumes Temporal Explorer summary
 
 Date: 2026-05-26
 Status: Accepted
 
 ### Context
 
-The dashboard needs an owner-facing calendar view without turning the website into a raw event browser or a provider caller. Trading Economics source originals are append-only storage evidence, while normalized event rows live with the rest of event-risk inputs.
+The dashboard calendar route is a Temporal Explorer, not a month-grid calendar or raw event browser. It must align chart viewport, market/session state, scheduled/released/news events, replay/model lanes, and explicit source gaps on one scrollable time axis.
 
 ### Decision
 
-Add a read-only Calendar page backed by `event_calendar_summary` from `trading-storage`. The page shows connected calendar families, recent/upcoming event rows, source-artifact evidence, and TE refresh posture. Families without accepted sources are shown as explicit `not_connected` gaps instead of being hidden or fabricated.
+Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The page shows a chart viewport, frame selector display, synchronized vertical time ticks, left-side market/session lanes, right-side event lanes, visible event markers, and chart-cache status. `event_calendar_summary` remains only a narrow support read model.
 
 ### Consequences
 
-- Dashboard Calendar reads `/api/read-models/event_calendar_summary/latest` and `/ws/read-models/event_calendar_summary/latest`.
+- Dashboard Timewheel reads `/api/read-models/temporal_explorer_summary/latest` and `/ws/read-models/temporal_explorer_summary/latest`.
 - The page performs no provider calls, SQL writes, model activation, broker execution, or account mutation.
-- Exchange holidays/early closes, option expiry windows, and index rebalance windows remain visible gaps until accepted source producers exist.
+- Early closes, chart bars, event results, news index rows, replay state, and model event markers remain visible gaps until accepted source producers populate them.
 
 
 ## D005 - Dashboard is an owner-facing summary, not an internal maintenance console

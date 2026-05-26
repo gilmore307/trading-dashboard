@@ -14,6 +14,9 @@ import type {
   HistoricalTaskProgressChartPayload,
   HistoricalTaskTimelineItemPayload,
   RealtimeSignalChartPayload,
+  TemporalExplorerChartPayload,
+  TemporalExplorerEventPayload,
+  TemporalExplorerTickPayload,
 } from './types';
 import './styles.css';
 
@@ -21,6 +24,7 @@ const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
 const EVENT_CALENDAR_SUMMARY = 'event_calendar_summary';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
 const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
+const TEMPORAL_EXPLORER_SUMMARY = 'temporal_explorer_summary';
 
 const SOURCE_LABELS: Record<string, string> = {
   'trading-storage': 'System Monitor',
@@ -54,7 +58,8 @@ const BACKGROUND_SERVICE_DISPLAY_ORDER: Record<string, number> = {
 const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   storage_dashboard_current_status_latest: 10,
   storage_dashboard_historical_task_progress_latest: 20,
-  storage_dashboard_event_calendar_latest: 30,
+  storage_dashboard_temporal_explorer_latest: 30,
+  storage_dashboard_event_calendar_latest: 35,
   storage_dashboard_realtime_signal_latest: 40,
   storage_dashboard_execution_runtime_latest: 50,
   storage_dashboard_read_model_index: 60,
@@ -71,12 +76,12 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   trading_economics_historical_seed_receipt: 320,
 };
 
-type ViewId = 'status' | 'tasks' | 'calendar' | 'data' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
+type ViewId = 'status' | 'tasks' | 'timewheel' | 'data' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
 
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'status', label: 'Current Status', state: 'Live' },
   { id: 'tasks', label: 'Tasks', state: 'Task list' },
-  { id: 'calendar', label: 'Calendar', state: 'Events' },
+  { id: 'timewheel', label: 'Timewheel', state: 'Temporal explorer' },
   { id: 'data', label: 'Data', state: 'Data + model outputs' },
   { id: 'models', label: 'Models', state: 'Historical modeling' },
   { id: 'registry', label: 'Definitions', state: 'Coming soon' },
@@ -94,6 +99,10 @@ function isRealtimeSignalChart(payload: DashboardReadModel['chart_payload']): pa
 }
 
 function isEventCalendarChart(payload: DashboardReadModel['chart_payload']): payload is EventCalendarChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+function isTemporalExplorerChart(payload: DashboardReadModel['chart_payload']): payload is TemporalExplorerChartPayload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
 
@@ -1560,6 +1569,23 @@ function CalendarEventList({ title, events }: { title: string; events: EventCale
   );
 }
 
+function temporalLaneSeverity(status?: string | null): string {
+  if (status === 'populated' || status === 'regular' || status === 'crypto_continuous' || status === 'ready') return 'low';
+  if (status === 'empty' || status === 'not_populated' || status === 'not_connected') return 'medium';
+  if (status === 'missing' || status === 'unavailable' || status === 'driver_missing') return 'high';
+  return 'info';
+}
+
+function eventForTick(events: TemporalExplorerEventPayload[], tick: TemporalExplorerTickPayload): TemporalExplorerEventPayload[] {
+  const start = Date.parse(tick.tick_start_utc);
+  const end = Date.parse(tick.tick_end_utc);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
+  return events.filter((event) => {
+    const at = Date.parse(event.event_time);
+    return Number.isFinite(at) && at >= start && at < end;
+  });
+}
+
 function PlaceholderView({ title }: { title: string }) {
   return (
     <section className="panel placeholder-view">
@@ -1571,7 +1597,7 @@ function PlaceholderView({ title }: { title: string }) {
 
 function contractForView(view: ViewId): string {
   if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
-  if (view === 'calendar') return EVENT_CALENDAR_SUMMARY;
+  if (view === 'timewheel') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   return HISTORICAL_TASK_PROGRESS;
 }
@@ -1581,6 +1607,7 @@ function App() {
   const [eventCalendarModel, setEventCalendarModel] = useState<DashboardReadModel | null>(null);
   const [historicalModel, setHistoricalModel] = useState<DashboardReadModel | null>(null);
   const [realtimeModel, setRealtimeModel] = useState<DashboardReadModel | null>(null);
+  const [temporalExplorerModel, setTemporalExplorerModel] = useState<DashboardReadModel | null>(null);
   const [readModelErrors, setReadModelErrors] = useState<Record<string, string>>({});
   const [loadingContracts, setLoadingContracts] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<ViewId>('status');
@@ -1592,6 +1619,7 @@ function App() {
     if (payload.contract_type === EVENT_CALENDAR_SUMMARY) setEventCalendarModel(payload);
     if (payload.contract_type === HISTORICAL_TASK_PROGRESS) setHistoricalModel(payload);
     if (payload.contract_type === REALTIME_SIGNAL_SUMMARY) setRealtimeModel(payload);
+    if (payload.contract_type === TEMPORAL_EXPLORER_SUMMARY) setTemporalExplorerModel(payload);
     setReadModelErrors((previous) => {
       const next = { ...previous };
       delete next[payload.contract_type];
@@ -1622,11 +1650,11 @@ function App() {
   useEffect(() => {
     const controller = new AbortController();
     void loadReadModel(CURRENT_SYSTEM_STATUS, controller.signal);
-    void loadReadModel(EVENT_CALENDAR_SUMMARY, controller.signal);
+    void loadReadModel(TEMPORAL_EXPLORER_SUMMARY, controller.signal);
     void loadReadModel(HISTORICAL_TASK_PROGRESS, controller.signal);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY, controller.signal);
     const liveContracts = new Set<string>();
-    const contracts = [CURRENT_SYSTEM_STATUS, EVENT_CALENDAR_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY];
+    const contracts = [CURRENT_SYSTEM_STATUS, TEMPORAL_EXPLORER_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         liveContracts.add(contractType);
@@ -1659,8 +1687,8 @@ function App() {
   const activeContractType = contractForView(activeView);
   const activeReadModel = activeView === 'status' || activeView === 'data'
     ? currentStatusModel
-    : activeView === 'calendar'
-      ? eventCalendarModel
+    : activeView === 'timewheel'
+      ? temporalExplorerModel
     : activeView === 'realtime'
       ? realtimeModel
       : historicalModel;
@@ -1683,6 +1711,10 @@ function App() {
     if (!eventCalendarModel || !isEventCalendarChart(eventCalendarModel.chart_payload)) return {} as EventCalendarChartPayload;
     return eventCalendarModel.chart_payload;
   }, [eventCalendarModel]);
+  const temporalExplorerChart = useMemo(() => {
+    if (!temporalExplorerModel || !isTemporalExplorerChart(temporalExplorerModel.chart_payload)) return {} as TemporalExplorerChartPayload;
+    return temporalExplorerModel.chart_payload;
+  }, [temporalExplorerModel]);
   const diagnosticItems = useMemo(
     () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
     [chart, currentStatusModel, historicalModel, systemChart],
@@ -1856,6 +1888,130 @@ function App() {
     );
   };
 
+  const renderTemporalExplorerView = () => {
+    if (!temporalExplorerModel) {
+      return <section className="panel loading-panel">Loading temporal explorer…</section>;
+    }
+    const viewport = temporalExplorerChart.viewport ?? {};
+    const ticks = temporalExplorerChart.timewheel_ticks ?? [];
+    const events = temporalExplorerChart.events ?? [];
+    const chartModel = temporalExplorerChart.chart ?? {};
+    const chartBars = chartModel.bars ?? [];
+    const leftLanes = temporalExplorerChart.left_lanes ?? [];
+    const rightLanes = temporalExplorerChart.right_lanes ?? [];
+    const substrate = temporalExplorerChart.substrate_status ?? {};
+    const closeValues = chartBars.map((bar) => bar.close).filter((value) => Number.isFinite(value));
+    const minClose = closeValues.length ? Math.min(...closeValues) : 0;
+    const maxClose = closeValues.length ? Math.max(...closeValues) : 0;
+    const closeRange = Math.max(maxClose - minClose, 1);
+    return (
+      <>
+        <section className="metric-grid">
+          <MetricCard label="Center Time" value={viewport.center_time_utc ? formatTimestamp(viewport.center_time_utc) : 'Unknown'} hint={`Frame ${viewport.frame ?? '1D'}`} />
+          <MetricCard label="Event Markers" value={temporalExplorerChart.counts?.total_events ?? events.length} hint="Right-lane markers in viewport" />
+          <MetricCard label="Chart Cache" value={startCase(chartModel.status)} hint={`${chartModel.symbol ?? 'SPY'} · ${chartModel.timeframe ?? '1D'}`} />
+          <MetricCard label="Substrate Tables" value={Object.values(substrate).filter((row) => row.status === 'populated').length} hint={`${Object.keys(substrate).length} tracked tables`} />
+        </section>
+        <section className="panel timewheel-chart-panel">
+          <div className="timewheel-chart-head">
+            <div>
+              <div className="panel-heading">Chart Viewport</div>
+              <p className="panel-subtitle">{chartModel.role ? startCase(chartModel.role) : 'Chart cache is a visualization substrate, not training truth.'}</p>
+            </div>
+            <div className="frame-switcher">
+              {(viewport.available_frames ?? ['30m', '1h', '1D', '1W']).map((frame) => (
+                <button className={frame === viewport.frame ? 'selected' : ''} disabled key={frame}>{frame}</button>
+              ))}
+            </div>
+          </div>
+          {chartBars.length ? (
+            <div className="mini-candle-chart">
+              {chartBars.slice(-90).map((bar) => {
+                const closePosition = ((bar.close - minClose) / closeRange) * 78;
+                const openPosition = ((bar.open - minClose) / closeRange) * 78;
+                const top = 86 - Math.max(closePosition, openPosition);
+                const height = Math.max(Math.abs(closePosition - openPosition), 3);
+                const rising = bar.close >= bar.open;
+                return (
+                  <span
+                    className={rising ? 'mini-candle rising' : 'mini-candle falling'}
+                    key={`${bar.symbol}-${bar.timeframe}-${bar.bucket_start}`}
+                    style={{ height: `${height}%`, marginTop: `${top}%` }}
+                    title={`${formatTimestamp(bar.bucket_start)} ${bar.open} -> ${bar.close}`}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="empty-chart compact">Chart cache not populated yet. The table exists as the long-lived visualization cache route.</div>
+          )}
+        </section>
+        <section className="timewheel-layout">
+          <section className="panel temporal-lane-panel">
+            <div className="panel-heading">Market State Lane</div>
+            <div className="temporal-lane-list">
+              {leftLanes.map((lane) => (
+                <div className="temporal-lane-card" key={lane.lane_id}>
+                  <div>
+                    <strong>{lane.label}</strong>
+                    <small>{lane.item_count} visible rows</small>
+                  </div>
+                  <StatusPill status={lane.status} severity={temporalLaneSeverity(lane.status)} />
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="panel timewheel-axis-panel">
+            <div className="panel-heading">Timewheel</div>
+            <div className="timewheel-axis">
+              {ticks.map((tick) => (
+                <div className={tick.is_center ? 'timewheel-tick selected' : 'timewheel-tick'} key={tick.tick_start_utc}>
+                  <span className="tick-dot" />
+                  <div>
+                    <strong>{tick.label}</strong>
+                    <small>{startCase(tick.market_session_status)} · {tick.event_count ?? 0} events</small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="panel temporal-lane-panel">
+            <div className="panel-heading">Event Lane</div>
+            <div className="temporal-event-stack">
+              {ticks.map((tick) => {
+                const tickEvents = eventForTick(events, tick);
+                if (!tickEvents.length) return null;
+                return (
+                  <div className="temporal-event-group" key={`events-${tick.tick_start_utc}`}>
+                    <span>{tick.label}</span>
+                    {tickEvents.map((event) => (
+                      <article className="temporal-event-card" key={`${event.lane}-${event.event_id}`}>
+                        <strong>{event.title}</strong>
+                        <small>{startCase(event.lane)} · {startCase(event.event_type)}{event.symbol ? ` · ${event.symbol}` : ''}</small>
+                      </article>
+                    ))}
+                  </div>
+                );
+              })}
+              {!events.length ? <div className="empty-chart compact">No visible event markers in this viewport.</div> : null}
+            </div>
+            <div className="temporal-lane-list compact-lanes">
+              {rightLanes.map((lane) => (
+                <div className="temporal-lane-card" key={lane.lane_id}>
+                  <div>
+                    <strong>{lane.label}</strong>
+                    <small>{lane.item_count} visible rows</small>
+                  </div>
+                  <StatusPill status={lane.status} severity={temporalLaneSeverity(lane.status)} />
+                </div>
+              ))}
+            </div>
+          </section>
+        </section>
+      </>
+    );
+  };
+
   const renderCalendarView = () => {
     if (!eventCalendarModel) {
       return <section className="panel loading-panel">Loading calendar summary…</section>;
@@ -1916,7 +2072,7 @@ function App() {
 
   const renderMainView = () => {
     if (activeView === 'status') return renderCurrentStatusView();
-    if (activeView === 'calendar') return renderCalendarView();
+    if (activeView === 'timewheel') return renderTemporalExplorerView();
     if (activeView === 'data') return <DataExplorerView />;
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
@@ -1989,8 +2145,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Current Status' : activeView === 'data' ? 'Data' : activeView === 'calendar' ? 'Calendar' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'calendar' ? 'Events / Calendar' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Current Status' : activeView === 'data' ? 'Data' : activeView === 'timewheel' ? 'Temporal Explorer' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'timewheel' ? 'Timewheel / Dashboard' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);

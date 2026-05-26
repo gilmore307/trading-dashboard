@@ -8,7 +8,7 @@ export interface DashboardReadModel {
   status: string;
   severity?: Severity;
   summary: string;
-  chart_payload: HistoricalTaskProgressChartPayload | CurrentSystemStatusChartPayload | RealtimeSignalChartPayload | EventCalendarChartPayload | Record<string, unknown> | unknown[];
+  chart_payload: HistoricalTaskProgressChartPayload | CurrentSystemStatusChartPayload | RealtimeSignalChartPayload | EventCalendarChartPayload | TemporalExplorerChartPayload | Record<string, unknown> | unknown[];
   profile_refs: unknown[];
   issue_refs: unknown[];
   diagnostic_refs: unknown[];
@@ -70,6 +70,74 @@ export interface EventCalendarChartPayload {
   families?: EventCalendarFamilyPayload[];
   upcoming_events?: EventCalendarEventPayload[];
   recent_events?: EventCalendarEventPayload[];
+}
+
+export interface TemporalExplorerTickPayload {
+  tick_start_utc: string;
+  tick_end_utc: string;
+  label: string;
+  is_center?: boolean;
+  market_session_status?: string;
+  event_count?: number;
+  chart_bar_count?: number;
+}
+
+export interface TemporalExplorerLanePayload {
+  lane_id: string;
+  label: string;
+  status: string;
+  item_count: number;
+}
+
+export interface TemporalExplorerEventPayload {
+  event_id: string;
+  event_time: string;
+  title: string;
+  lane: string;
+  event_type: string;
+  scope?: string | null;
+  symbol?: string | null;
+  status?: string | null;
+  source_priority?: string | null;
+}
+
+export interface TemporalExplorerChartBarPayload {
+  symbol: string;
+  timeframe: string;
+  bucket_start: string;
+  bucket_end: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
+  bar_count?: number;
+}
+
+export interface TemporalExplorerChartPayload {
+  viewport?: {
+    center_time_utc?: string;
+    frame?: string;
+    available_frames?: string[];
+    start_utc?: string;
+    end_utc?: string;
+  };
+  timewheel_ticks?: TemporalExplorerTickPayload[];
+  left_lanes?: TemporalExplorerLanePayload[];
+  right_lanes?: TemporalExplorerLanePayload[];
+  events?: TemporalExplorerEventPayload[];
+  counts?: {
+    total_events?: number;
+    by_lane?: Record<string, number>;
+  };
+  chart?: {
+    symbol?: string;
+    timeframe?: string;
+    status?: string;
+    bars?: TemporalExplorerChartBarPayload[];
+    role?: string;
+  };
+  substrate_status?: Record<string, { status?: string; row_count?: number; reason?: string }>;
 }
 
 export interface StageCoveragePayload {
