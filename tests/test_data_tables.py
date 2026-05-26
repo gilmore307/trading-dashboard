@@ -42,11 +42,16 @@ class DataTablesTest(unittest.TestCase):
             ],
         )
 
-    def test_catalog_labels_are_physical_sql_table_names(self) -> None:
-        for row in table_catalog():
-            self.assertEqual(row["label"], f"{row['schema']}.{row['table']}")
+    def test_catalog_labels_use_current_canonical_sql_names(self) -> None:
         labels = {row["table_id"]: row["label"] for row in table_catalog()}
-        self.assertEqual(labels["target_state_model_output"], "trading_model.model_03_target_state_vector")
+        self.assertEqual(labels["market_regime_bars"], "trading_data.m01_market_regime_data_acquisition")
+        self.assertEqual(labels["market_regime_features"], "trading_data.m01_market_regime_feature_generation")
+        self.assertEqual(labels["market_regime_model_output"], "trading_model.m01_market_regime_model_generation")
+        self.assertEqual(labels["target_state_model_output"], "trading_model.m03_target_state_vector_model_generation")
+
+    def test_catalog_keeps_compatible_physical_query_tables_until_migration_lands(self) -> None:
+        physical_tables = {row["table_id"]: f"{row['schema']}.{row['table']}" for row in table_catalog()}
+        self.assertEqual(physical_tables["market_regime_model_output"], "trading_model.model_01_market_regime")
 
     def test_event_table_puts_event_type_first(self) -> None:
         spec = _TABLE_BY_ID["event_risk_governor_events"]

@@ -1364,7 +1364,7 @@ function DataExplorerView() {
           <button className="primary-action compact-action" type="submit">Search</button>
         </form>
       </div>
-      {selectedSpec ? <p className="dashboard-data-note">{selectedSpec.schema}.{selectedSpec.table} · {selectedSpec.description}</p> : null}
+      {selectedSpec ? <p className="dashboard-data-note">{selectedSpec.label} · {selectedSpec.description}</p> : null}
       {error ? <div className="execution-reason">{error}</div> : null}
       <div className="data-table-meta">
         <span>{loading ? 'Loading…' : result ? `Showing ${pageStart}-${pageEnd} of ${result.total}` : 'No table loaded'}</span>

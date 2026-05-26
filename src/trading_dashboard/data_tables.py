@@ -38,7 +38,7 @@ class DataTableSpec:
 ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     DataTableSpec(
         table_id="market_regime_bars",
-        label="trading_data.source_01_market_regime",
+        label="trading_data.m01_market_regime_data_acquisition",
         schema="trading_data",
         table="source_01_market_regime",
         description="Downloaded bar rows for the reviewed market/sector ETF universe.",
@@ -46,7 +46,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="target_state_bars_quotes",
-        label="trading_data.source_03_target_state",
+        label="trading_data.m03_target_state_vector_data_acquisition",
         schema="trading_data",
         table="source_03_target_state",
         description="Downloaded target-symbol bars and quote-derived fields used by target-state inputs.",
@@ -54,7 +54,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="event_risk_governor_events",
-        label="trading_data.source_10_event_risk_governor",
+        label="trading_data.m10_event_risk_governor_data_acquisition",
         schema="trading_data",
         table="source_10_event_risk_governor",
         description="Downloaded/normalized event rows used by the event-risk-governor source.",
@@ -80,7 +80,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="market_regime_features",
-        label="trading_data.feature_01_market_regime",
+        label="trading_data.m01_market_regime_feature_generation",
         schema="trading_data",
         table="feature_01_market_regime",
         description="Generated market-regime feature payloads derived from downloaded source bars.",
@@ -89,7 +89,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="market_regime_model_output",
-        label="trading_model.model_01_market_regime",
+        label="trading_model.m01_market_regime_model_generation",
         schema="trading_model",
         table="model_01_market_regime",
         description="Market-regime model output rows generated from reviewed Layer 1 features.",
@@ -98,7 +98,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="sector_context_features",
-        label="trading_data.feature_02_sector_context",
+        label="trading_data.m02_sector_context_feature_generation",
         schema="trading_data",
         table="feature_02_sector_context",
         description="Generated sector-context feature payloads derived from downloaded source bars.",
@@ -107,7 +107,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="sector_context_model_output",
-        label="trading_model.model_02_sector_context",
+        label="trading_model.m02_sector_context_model_generation",
         schema="trading_model",
         table="model_02_sector_context",
         description="Sector-context model output rows generated from reviewed Layer 2 features.",
@@ -116,7 +116,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="target_state_features",
-        label="trading_data.feature_03_target_state_vector",
+        label="trading_data.m03_target_state_vector_feature_generation",
         schema="trading_data",
         table="feature_03_target_state_vector",
         description="Generated target-state feature vectors derived from downloaded target data.",
@@ -124,7 +124,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="target_state_model_output",
-        label="trading_model.model_03_target_state_vector",
+        label="trading_model.m03_target_state_vector_model_generation",
         schema="trading_model",
         table="model_03_target_state_vector",
         description="Target-state model output rows generated from reviewed Layer 3 features.",
@@ -133,7 +133,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="event_failure_risk_model_output",
-        label="trading_model.model_04_event_failure_risk",
+        label="trading_model.m04_event_failure_risk_model_generation",
         schema="trading_model",
         table="model_04_event_failure_risk",
         description="Event-failure-risk model output rows generated from reviewed Layer 4 context.",
@@ -142,7 +142,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="alpha_confidence_model_output",
-        label="trading_model.model_05_alpha_confidence",
+        label="trading_model.m05_alpha_confidence_model_generation",
         schema="trading_model",
         table="model_05_alpha_confidence",
         description="Alpha-confidence model output rows generated from upstream state and event context.",
@@ -151,7 +151,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="dynamic_risk_policy_model_output",
-        label="trading_model.model_06_dynamic_risk_policy",
+        label="trading_model.m06_dynamic_risk_policy_model_generation",
         schema="trading_model",
         table="model_06_dynamic_risk_policy",
         description="Dynamic-risk-policy model output rows generated from market, event, alpha, and portfolio context.",
@@ -160,7 +160,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="position_projection_model_output",
-        label="trading_model.model_07_position_projection",
+        label="trading_model.m07_position_projection_model_generation",
         schema="trading_model",
         table="model_07_position_projection",
         description="Position-projection model output rows generated from alpha confidence, risk policy, and position context.",
@@ -169,7 +169,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="underlying_action_model_output",
-        label="trading_model.model_08_underlying_action",
+        label="trading_model.m08_underlying_action_model_generation",
         schema="trading_model",
         table="model_08_underlying_action",
         description="Underlying-action model output rows generated from position projection and upstream context.",
@@ -178,7 +178,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="option_expression_model_output",
-        label="trading_model.model_09_option_expression",
+        label="trading_model.m09_option_expression_model_generation",
         schema="trading_model",
         table="model_09_option_expression",
         description="Option-expression model output rows generated from underlying-action and option-chain context.",
@@ -187,7 +187,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="event_risk_governor_features",
-        label="trading_data.feature_10_event_risk_governor",
+        label="trading_data.m10_event_risk_governor_feature_generation",
         schema="trading_data",
         table="feature_10_event_risk_governor",
         description="Generated event-risk-governor feature payloads derived from downloaded event rows.",
@@ -195,7 +195,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="event_risk_governor_model_output",
-        label="trading_model.model_10_event_risk_governor",
+        label="trading_model.m10_event_risk_governor_model_generation",
         schema="trading_model",
         table="model_10_event_risk_governor",
         description="Event-risk-governor model output rows generated from reviewed Layer 10 feature/context inputs.",
