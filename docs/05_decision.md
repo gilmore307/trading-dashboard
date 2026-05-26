@@ -97,11 +97,11 @@ Status: Accepted
 
 ### Context
 
-The dashboard calendar route is a Temporal Explorer, not a raw event browser. It includes a normal month-grid date selector, but the chart viewport, scheduled/released/news substrate, replay/model lanes, and explicit source gaps must still align on one shared time axis. Market state is summarized on Status so the Timewheel can stay focused on time-aligned chart and event inspection.
+The dashboard calendar route is a Temporal Explorer, not a raw event browser. The chart viewport, scheduled/released/news substrate, replay/model lanes, and explicit source gaps must align on one shared time axis. Market state is summarized on Status so the Timewheel can stay focused on time-aligned chart and event inspection.
 
 ### Decision
 
-Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The chart x-axis is the Timewheel: selected frame, Layer 10 accepted event markers, visible tick labels, and center time all live on the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, substrate status cards, a Sunday-start Timeline Status month calendar, symbol/frame/center-time selectors, selected-unit event details, and chart-cache status. `event_calendar_summary` remains only a narrow support read model.
+Add a read-only Timewheel page backed by `temporal_explorer_summary` from `trading-storage`. The chart x-axis is the Timewheel: selected frame, Layer 10 accepted event markers, visible tick labels, and center time all live on the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, substrate status cards, symbol/frame/center-time selectors, selected-unit event details, and chart-cache status. `event_calendar_summary` remains only a narrow support read model.
 
 ### Consequences
 

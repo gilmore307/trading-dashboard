@@ -181,7 +181,7 @@ If realtime monitoring has not started, `realtime_signal_summary` should say `no
 
 Purpose: support the Timewheel / Temporal Explorer page.
 
-Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables, chart cache, execution runtime status, and replay artifact root. The dashboard shows substrate population as a status card above the chart, presents Timeline Status as a Sunday-start month-grid calendar for date selection, treats the chart x-axis as the Timewheel, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to Layer 10 accepted event families; ordinary scheduled events, released macro results, and news index rows appear as substrate population/readiness, not chart markers. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
+Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables, chart cache, execution runtime status, and replay artifact root. The dashboard shows substrate population as a status card above the chart, treats the chart x-axis as the Timewheel, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to Layer 10 accepted event families; ordinary scheduled events, released macro results, and news index rows appear as substrate population/readiness, not chart markers. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
 
 Owner-facing fields:
 

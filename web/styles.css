@@ -201,28 +201,13 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .temporal-substrate-card div { display: grid; gap: 5px; min-width: 0; }
 .temporal-substrate-card div > span { color: #8fa2ba; font-size: 10px; line-height: 1.2; text-transform: uppercase; letter-spacing: .08em; font-weight: 850; overflow-wrap: anywhere; }
 .temporal-substrate-card strong { color: #f8fbff; font-size: 22px; line-height: 1; letter-spacing: -0.03em; }
-.timeline-calendar-head, .temporal-chart-controls { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.temporal-chart-controls { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
 .temporal-chart-controls { justify-content: flex-end; align-items: end; }
 .temporal-control { display: grid; gap: 7px; color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 850; }
 .temporal-control input, .temporal-control select { min-width: 142px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 12px; padding: 8px 10px; color: #e7edf7; background: rgba(2, 6, 23, .68); font: inherit; font-size: 12px; font-weight: 800; outline: none; }
 .temporal-control input:focus, .temporal-control select:focus { border-color: rgba(125, 211, 252, .62); box-shadow: 0 0 0 3px rgba(14, 165, 233, .12); }
 .axis-nudge-controls { display: flex; gap: 8px; }
 .axis-nudge-controls button { border: 1px solid rgba(148, 163, 184, .20); color: #cbd5e1; background: rgba(15, 23, 42, .64); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
-.temporal-calendar-panel { padding: 14px 18px 16px; }
-.timeline-calendar-head .panel-heading { margin-bottom: 0; }
-.calendar-month-controls { display: flex; align-items: center; gap: 8px; color: #f8fbff; }
-.calendar-month-controls strong { min-width: 118px; text-align: center; font-size: 14px; }
-.calendar-month-controls button { border: 1px solid rgba(148, 163, 184, .20); color: #cbd5e1; background: rgba(15, 23, 42, .64); border-radius: 10px; padding: 7px 9px; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
-.timeline-calendar-weekdays, .timeline-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.timeline-calendar-weekdays { gap: 4px; margin: 8px 0 5px; }
-.timeline-calendar-weekdays span { color: #8fa2ba; font-size: 11px; font-weight: 900; text-align: center; }
-.timeline-calendar-grid { gap: 4px; grid-auto-rows: 40px; }
-.timeline-calendar-day { min-width: 0; min-height: 0; display: grid; align-content: center; justify-items: center; gap: 3px; padding: 4px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, .10); background: rgba(15, 23, 42, .36); color: #dbeafe; text-align: center; cursor: pointer; }
-.timeline-calendar-day:hover, .timeline-calendar-day.selected { border-color: rgba(125, 211, 252, .55); background: rgba(14, 165, 233, .14); }
-.timeline-calendar-day.selected { box-shadow: inset 0 0 0 1px rgba(125, 211, 252, .26); }
-.timeline-calendar-day.muted { opacity: .46; }
-.timeline-calendar-day strong { color: #f8fbff; font-size: 12px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.timeline-calendar-day-meta { max-width: 100%; color: #7dd3fc; font-size: 9px; line-height: 1.1; font-weight: 850; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .integrated-timewheel { display: grid; gap: 14px; }
 .temporal-chart-frame { position: relative; min-height: 236px; display: grid; gap: 8px; padding-bottom: 50px; border-radius: 18px; border: 1px solid rgba(148, 163, 184, .14); background: linear-gradient(180deg, rgba(2, 6, 23, .38), rgba(15, 23, 42, .54)); overflow: hidden; }
 .mini-candle-chart { height: 170px; display: flex; align-items: stretch; gap: 4px; padding: 12px 12px 0; overflow: hidden; }
@@ -271,8 +256,6 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 @media (max-width: 1220px) {
   .timewheel-chart-head { flex-direction: column; }
   .temporal-status-strip, .subchart-grid, .temporal-substrate-grid { grid-template-columns: 1fr; }
-  .timeline-calendar-grid { grid-auto-rows: 40px; }
-  .timeline-calendar-day { padding: 4px 3px; }
   .timeline-x-axis { grid-auto-columns: minmax(54px, 1fr); gap: 5px; }
 }
 
