@@ -443,7 +443,7 @@ function taskStateSeverity(state?: string | null): string {
 }
 
 function taskStateLabel(task: HistoricalTaskTimelineItemPayload): string {
-  if (task.task_state === 'current') return 'Now';
+  if (task.task_state === 'current') return 'Active';
   if (task.task_state === 'completed') return 'Past';
   if (task.task_state === 'future') return 'Future';
   if (task.task_state === 'failed') return 'Failed';
@@ -1164,7 +1164,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           label="Month"
           listId="task-month-options"
           value={monthFilter}
-          options={[["auto", "Now/latest period"], ["all", "All months"], ...monthOptions]}
+          options={[["auto", "Active/latest period"], ["all", "All months"], ...monthOptions]}
           onChange={setMonthFilter}
         />
         <SearchableFilter
@@ -1191,7 +1191,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
         <label>
           <span>Status</span>
           <select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}>
-            <option value="auto">Now if available</option>
+            <option value="auto">Active if available</option>
             <option value="all">All statuses</option>
             {stateOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
@@ -2145,7 +2145,7 @@ function App() {
       return (
         <>
           <section className="metric-grid">
-            <MetricCard label="Current period" value={chart.current_month ?? 'Unknown'} />
+            <MetricCard label="Active historical period" value={chart.current_month ?? 'Unknown'} />
             <MetricCard label="Active task" value={activeTaskLabel(chart)} />
             <MetricCard label="Workflow" value={startCase(historicalModel.status)} hint={chart.terminal_complete ? 'Terminal complete' : `Lock ${startCase(chart.lock_status)}`} />
             <MetricCard label="Progress" value={formatPercent(chart.progress_percent)} hint={`${terminalStages}/${stageTotal || 0} terminal stages`} />
@@ -2183,7 +2183,7 @@ function App() {
     return (
       <>
         <section className="metric-grid">
-          <MetricCard label="Period" value={chart.current_month ?? 'Unknown'} />
+          <MetricCard label="Active historical period" value={chart.current_month ?? 'Unknown'} />
           <MetricCard label="Active task" value={activeTaskLabel(chart)} />
           <MetricCard label="Provider posture" value={startCase(chart.provider_status)} />
           <MetricCard label="Lock" value={startCase(chart.lock_status)} />
