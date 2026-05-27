@@ -397,7 +397,7 @@ Chentong clarified that the task list should display the finest child tasks so c
 
 ### Decision
 
-Task List treats each row as `month + layer + operational stage/work type`. Rows are grouped by historical month, still filterable by layer/status/task type, and each row has a read-only details toggle. Source/feature stages from six-month folds are displayed on their month rows; model stages stay on the fold. Model-group replay rows use canonical phase labels and keep the training fold as `month`, with the replay/test window exposed in task detail. Expanded details show task identity, status/reason, latest execution result when attached, evidence count/refs, blockers, and progress only when there is real progress evidence such as row counts, month counts, elapsed/expected time, or a worker-written task-progress file. The task timeline must not expose the current incomplete calendar month as a Ready task before the completed-month cutoff opens it.
+Task List treats each historical training row as `fold/period + layer + operational stage/work type`. Rows are grouped by fold period, still filterable by period/layer/status/task type/target, and each row has a read-only details toggle. Source/feature stages from six-month folds stay on the fold row and expose month child partitions in detail. Model-group replay rows use canonical phase labels and keep the training fold as `month`, with the replay/test window exposed in task detail. Expanded details show task identity, status/reason, latest execution result when attached, evidence count/refs, blockers, and progress only when there is real progress evidence such as row counts, month counts, elapsed/expected time, or an active progress file. Worker labels are not shown and worker filtering is not supported in Tasks because one fold can be executed by multiple internal provider/ingest lanes. The task timeline must not expose the current incomplete calendar month or fold as a Ready task before the completed-month cutoff opens it.
 
 ### Consequences
 
@@ -489,7 +489,7 @@ Status: Accepted
 
 ### Context
 
-Layer 3 and later historical model stages are target-specific, but the Task List only emphasized month, layer, worker, and workflow phase. Status also labeled the free-disk metric as `Storage`, which could be mistaken for total disk, storage service health, or storage lifecycle status. Runtime throughput labels such as `Window`, `Peak burst`, and `Idle / blocked` were also too terse for owner-facing interpretation.
+Layer 3 and later historical model stages are target-specific, but the Task List only emphasized period, layer, and workflow phase. Status also labeled the free-disk metric as `Storage`, which could be mistaken for total disk, storage service health, or storage lifecycle status. Runtime throughput labels such as `Window`, `Peak burst`, and `Idle / blocked` were also too terse for owner-facing interpretation.
 
 ### Decision
 

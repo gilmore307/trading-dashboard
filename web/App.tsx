@@ -465,10 +465,6 @@ function taskWorkTypeFilterValue(task: HistoricalTaskTimelineItemPayload): strin
   return task.stage_type ?? task.task_label ?? 'unknown';
 }
 
-function taskWorkerFilterValue(task: HistoricalTaskTimelineItemPayload): string {
-  return task.worker_id || task.detail?.worker?.worker_id || task.worker_label || task.detail?.worker?.worker_label || 'unassigned_worker';
-}
-
 function taskTargetSymbol(task: HistoricalTaskTimelineItemPayload): string | null {
   return task.target_symbol || task.detail?.dataset_unit?.target_symbol || null;
 }
@@ -726,10 +722,6 @@ function SearchableFilter({
 
 function timestampText(value?: string | null): string {
   return value ? formatTimestamp(value) : 'Not recorded';
-}
-
-function workerLabel(task: HistoricalTaskTimelineItemPayload): string {
-  return task.worker_label || task.detail?.worker?.worker_label || 'Worker not assigned';
 }
 
 function taskProgressFallback(task: HistoricalTaskTimelineItemPayload): { percent: number; label: string; hint: string } {
@@ -997,7 +989,6 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const [layerFilter, setLayerFilter] = useState('all');
   const [stateFilter, setStateFilter] = useState('auto');
   const [workTypeFilter, setWorkTypeFilter] = useState('all');
-  const [workerFilter, setWorkerFilter] = useState('all');
   const [targetFilter, setTargetFilter] = useState('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
@@ -1006,10 +997,6 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const stateOptions = useMemo(() => uniqueTaskOptions(tasks, (task) => task.task_state, taskStateLabel, taskStateOptionRank), [tasks]);
   const workTypeOptions = useMemo(
     () => uniqueTaskOptions(tasks, taskWorkTypeFilterValue, (task) => startCase(task.stage_type || task.task_label), workTypeOptionRank),
-    [tasks],
-  );
-  const workerOptions = useMemo(
-    () => uniqueTaskOptions(tasks, taskWorkerFilterValue, workerLabel),
     [tasks],
   );
   const targetOptions = useMemo(
@@ -1043,11 +1030,10 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
       if (layerFilter !== 'all' && taskLayerFilterValue(task) !== layerFilter) return false;
       if (effectiveStateFilter !== 'all' && task.task_state !== effectiveStateFilter) return false;
       if (workTypeFilter !== 'all' && taskWorkTypeFilterValue(task) !== workTypeFilter) return false;
-      if (workerFilter !== 'all' && taskWorkerFilterValue(task) !== workerFilter) return false;
       if (targetFilter !== 'all' && taskTargetFilterValue(task) !== targetFilter) return false;
       return true;
     }),
-    [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, tasks, workerFilter, workTypeFilter],
+    [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, tasks, workTypeFilter],
   );
   const monthGroups = useMemo(() => groupTasksByMonth(filteredTasks), [filteredTasks]);
   const virtualRows = useMemo(() => flattenTaskRows(monthGroups), [monthGroups]);
@@ -1091,7 +1077,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   useEffect(() => {
     setScrollTop(0);
     if (virtualListRef.current) virtualListRef.current.scrollTop = 0;
-  }, [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, workerFilter, workTypeFilter]);
+  }, [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, workTypeFilter]);
 
   const renderTaskRow = (task: HistoricalTaskTimelineItemPayload) => {
     const taskKey = taskRowKey(task);
@@ -1103,7 +1089,6 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className="task-title-row">
             <strong>{task.task_label}</strong>
             <div className="task-title-badges">
-              <span className="task-worker-chip">Worker: {workerLabel(task)}</span>
               <StatusPill status={taskStateLabel(task)} severity={taskStateSeverity(task.task_state)} />
             </div>
           </div>
@@ -1112,7 +1097,6 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             <span>{layerLabel(task)}</span>
             {taskTargetMetaLabel(task) ? <span>{taskTargetMetaLabel(task)}</span> : null}
             <span>{startCase(task.stage_type)}</span>
-            <span>{workerLabel(task)}</span>
             <span>{startCase(task.status)}</span>
             {task.status_updated_at_utc || task.updated_at_utc ? <span>Status updated {formatTimestamp((task.status_updated_at_utc ?? task.updated_at_utc) || undefined)}</span> : null}
           </div>
@@ -1155,7 +1139,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className="panel-heading">Task List</div>
           <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} child tasks</div>
         </div>
-        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('auto'); setLayerFilter('all'); setStateFilter('auto'); setWorkTypeFilter('all'); setWorkerFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
+        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('auto'); setLayerFilter('all'); setStateFilter('auto'); setWorkTypeFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
           Reset filters
         </button>
       </div>
@@ -1194,13 +1178,6 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             <option value="auto">Active if available</option>
             <option value="all">All statuses</option>
             {stateOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>Worker</span>
-          <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)}>
-            <option value="all">All workers</option>
-            {workerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
       </div>
