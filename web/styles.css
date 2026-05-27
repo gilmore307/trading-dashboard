@@ -295,6 +295,12 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .task-title-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
 .task-meta { display: flex; flex-wrap: wrap; gap: 8px; color: #8fa2ba; font-size: 12px; }
 .task-meta span { padding: 5px 8px; border-radius: 999px; background: rgba(148, 163, 184, .08); border: 1px solid rgba(148, 163, 184, .12); }
+.task-row-progress { display: grid; grid-template-columns: minmax(180px, .36fr) minmax(220px, .64fr); gap: 10px; align-items: center; min-width: 0; padding: 9px 10px; border-radius: 12px; background: rgba(2, 6, 23, .24); border: 1px solid rgba(125, 211, 252, .14); }
+.task-row-progress.inferred { border-color: rgba(148, 163, 184, .12); opacity: .82; }
+.task-row-progress.failed { border-color: rgba(248, 113, 113, .26); }
+.task-row-progress-copy { min-width: 0; display: grid; gap: 2px; }
+.task-row-progress-copy span { color: #dbeafe; font-size: 12px; font-weight: 900; overflow-wrap: anywhere; }
+.task-row-progress-copy small { color: #8fa2ba; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
 .task-reason { color: #b8c6da; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
 .task-counts { display: grid; gap: 6px; justify-items: end; color: #7c8ea5; font-size: 12px; font-weight: 750; }
 
@@ -304,6 +310,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
   .task-row { grid-template-columns: 1fr; }
   .task-title-row { align-items: flex-start; flex-direction: column; }
   .task-title-badges { justify-content: flex-start; }
+  .task-row-progress { grid-template-columns: 1fr; }
   .task-counts { justify-items: start; }
   .sidebar { position: static; height: auto; overflow: visible; }
 }
@@ -328,6 +335,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .task-timestamp-grid b { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; }
 .mini-progress { height: 10px; border-radius: 999px; overflow: hidden; background: rgba(30, 41, 59, .85); border: 1px solid rgba(148, 163, 184, .12); }
 .mini-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #38bdf8, #22c55e); }
+.mini-progress-fill.failed { background: linear-gradient(90deg, #fb7185, #f97316); }
 @media (max-width: 1220px) {
   .task-detail-grid, .task-timestamp-grid { grid-template-columns: 1fr; }
   .signal-card-grid { grid-template-columns: 1fr; }

@@ -601,7 +601,7 @@ function flattenTaskRows(monthGroups: [string, HistoricalTaskTimelineItemPayload
 
 function taskVirtualRowHeight(row: TaskVirtualRow, expandedTasks: Set<string>): number {
   if (row.kind === 'month') return 56;
-  return expandedTasks.has(row.key) ? 430 : 132;
+  return expandedTasks.has(row.key) ? 470 : 172;
 }
 
 function optionLabel(options: TaskOption[], value: string, fallback: string): string {
@@ -733,7 +733,7 @@ function taskProgressFallback(task: HistoricalTaskTimelineItemPayload): { percen
     return { percent: 100, label: 'Failed', hint: task.reason || 'Task reached a terminal failure state.' };
   }
   if (status === 'running') {
-    return { percent: 50, label: 'In progress', hint: task.reason || 'Task is currently running.' };
+    return { percent: 0, label: '0% · Running', hint: task.reason || 'Task is running; no finer-grained counter has been reported yet.' };
   }
   if (status === 'ready') {
     return { percent: 0, label: '0% · Ready', hint: task.reason || 'Task is ready but has not started.' };
@@ -744,16 +744,41 @@ function taskProgressFallback(task: HistoricalTaskTimelineItemPayload): { percen
   return { percent: 0, label: startCase(task.status || 'Not started'), hint: task.reason || 'No execution progress recorded yet.' };
 }
 
+function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: number; label: string; hint: string; hasEvidence: boolean; failed: boolean } {
+  const progress = task.detail?.progress;
+  if (!progress) {
+    const fallback = taskProgressFallback(task);
+    return {
+      percent: Math.max(0, Math.min(100, fallback.percent)),
+      label: fallback.label,
+      hint: fallback.hint,
+      hasEvidence: false,
+      failed: String(task.status || '').toLowerCase() === 'failed',
+    };
+  }
+  const expected = Math.max(0, progress.expected_count ?? 0);
+  const ready = Math.max(0, progress.ready_count ?? 0);
+  const failedCount = Math.max(0, progress.failed_count ?? 0);
+  const percent = expected > 0 ? (Math.min(ready, expected) / expected) * 100 : 0;
+  const unitLabel = progress.unit_label || 'units';
+  const updated = progress.updated_at_utc ? ` · Updated ${formatTimestamp(progress.updated_at_utc)}` : '';
+  const source = progress.progress_source ? ` · ${startCase(progress.progress_source)}` : '';
+  return {
+    percent: Math.max(0, Math.min(100, percent)),
+    label: `${formatPercent(percent)} · ${ready}/${expected} ${unitLabel}`,
+    hint: `Pending ${progress.pending_count ?? 0} · Failed ${failedCount} · Accepted skips ${progress.accepted_failed_count ?? 0}${source}${updated}`,
+    hasEvidence: true,
+    failed: failedCount > 0 || String(progress.status || task.status || '').toLowerCase() === 'failed',
+  };
+}
+
 function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) {
   const detail = task.detail ?? {};
   const progress = detail.progress;
   const execution = detail.last_execution;
   const blockers = detail.blockers ?? [];
   const receipts = detail.receipt_refs ?? [];
-  const progressPercent = progress?.expected_count ? ((progress.ready_count ?? 0) / progress.expected_count) * 100 : 0;
-  const progressUnitLabel = progress?.unit_label || 'ready';
-  const fallbackProgress = taskProgressFallback(task);
-  const fallbackProgressPercent = Math.max(0, Math.min(100, fallbackProgress.percent));
+  const progressView = taskProgressView(task);
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -779,20 +804,20 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
         {progress ? (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
-            <strong>{formatPercent(progressPercent)} · {progress.ready_count ?? 0}/{progress.expected_count ?? 0} {progressUnitLabel}</strong>
-            <div className="mini-progress" aria-label={`Task progress ${formatPercent(progressPercent)}`}>
-              <div className="mini-progress-fill" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} />
+            <strong>{progressView.label}</strong>
+            <div className="mini-progress" aria-label={`Task progress ${progressView.label}`}>
+              <div className={`mini-progress-fill${progressView.failed ? ' failed' : ''}`} style={{ width: `${progressView.percent}%` }} />
             </div>
-            <small>Pending {progress.pending_count ?? 0} · Failed {progress.failed_count ?? 0} · Accepted skips {progress.accepted_failed_count ?? 0}</small>
+            <small>{progressView.hint}</small>
           </div>
         ) : (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
-            <strong>{fallbackProgress.label}</strong>
-            <div className="mini-progress" aria-label={`Task progress ${fallbackProgress.label}`}>
-              <div className="mini-progress-fill" style={{ width: `${fallbackProgressPercent}%` }} />
+            <strong>{progressView.label}</strong>
+            <div className="mini-progress" aria-label={`Task progress ${progressView.label}`}>
+              <div className={`mini-progress-fill${progressView.failed ? ' failed' : ''}`} style={{ width: `${progressView.percent}%` }} />
             </div>
-            <small>{fallbackProgress.hint}</small>
+            <small>{progressView.hint}</small>
           </div>
         )}
         {execution ? (
@@ -1082,6 +1107,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const renderTaskRow = (task: HistoricalTaskTimelineItemPayload) => {
     const taskKey = taskRowKey(task);
     const isExpanded = expandedTasks.has(taskKey);
+    const progress = taskProgressView(task);
     return (
       <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
         <div className="task-index">{task.task_number ?? task.sequence}</div>
@@ -1099,6 +1125,15 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             <span>{startCase(task.stage_type)}</span>
             <span>{startCase(task.status)}</span>
             {task.status_updated_at_utc || task.updated_at_utc ? <span>Status updated {formatTimestamp((task.status_updated_at_utc ?? task.updated_at_utc) || undefined)}</span> : null}
+          </div>
+          <div className={`task-row-progress${progress.hasEvidence ? '' : ' inferred'}${progress.failed ? ' failed' : ''}`}>
+            <div className="task-row-progress-copy">
+              <span>{progress.label}</span>
+              <small>{progress.hasEvidence ? progress.hint : 'No finer-grained progress evidence attached.'}</small>
+            </div>
+            <div className="mini-progress" aria-label={`Task progress ${progress.label}`}>
+              <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
+            </div>
           </div>
           {task.reason ? <div className="task-reason">{task.reason}</div> : null}
           {isExpanded ? <TaskDetailPanel task={task} /> : null}

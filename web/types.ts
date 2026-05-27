@@ -106,6 +106,10 @@ export interface StageCoveragePayload {
   failed_count?: number;
   accepted_failed_count?: number;
   can_unlock_downstream?: boolean;
+  progress_source?: string | null;
+  updated_at_utc?: string | null;
+  worker_id?: string | null;
+  nodes?: unknown[];
 }
 
 export interface StageExecutionPayload {
