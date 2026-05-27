@@ -51,6 +51,9 @@ class DataTablesTest(unittest.TestCase):
 
     def test_catalog_keeps_compatible_physical_query_tables_until_migration_lands(self) -> None:
         physical_tables = {row["table_id"]: f"{row['schema']}.{row['table']}" for row in table_catalog()}
+        self.assertEqual(physical_tables["market_regime_bars"], "trading_data.m01_market_regime_data_acquisition")
+        self.assertEqual(physical_tables["market_regime_features"], "trading_data.m01_market_regime_feature_generation")
+        self.assertEqual(physical_tables["sector_context_features"], "trading_data.m02_sector_context_feature_generation")
         self.assertEqual(physical_tables["market_regime_model_output"], "trading_model.model_01_market_regime")
 
     def test_event_table_puts_event_type_first(self) -> None:

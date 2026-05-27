@@ -40,7 +40,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         table_id="market_regime_bars",
         label="trading_data.m01_market_regime_data_acquisition",
         schema="trading_data",
-        table="source_01_market_regime",
+        table="m01_market_regime_data_acquisition",
         description="Downloaded bar rows for the reviewed market/sector ETF universe.",
         default_sort="symbol",
     ),
@@ -82,7 +82,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         table_id="market_regime_features",
         label="trading_data.m01_market_regime_feature_generation",
         schema="trading_data",
-        table="feature_01_market_regime",
+        table="m01_market_regime_feature_generation",
         description="Generated market-regime feature payloads derived from downloaded source bars.",
         default_sort="snapshot_time",
         default_direction="desc",
@@ -100,7 +100,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         table_id="sector_context_features",
         label="trading_data.m02_sector_context_feature_generation",
         schema="trading_data",
-        table="feature_02_sector_context",
+        table="m02_sector_context_feature_generation",
         description="Generated sector-context feature payloads derived from downloaded source bars.",
         default_sort="snapshot_time",
         default_direction="desc",
@@ -206,7 +206,9 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
 
 _TABLE_BY_ID = {table.table_id: table for table in ALLOWED_TABLES}
 _LAYERED_TABLE_RE = re.compile(r"^(source|feature|model)_(\d{2})_")
+_NUMBERED_STAGE_TABLE_RE = re.compile(r"^m(\d{2})_.*_(data_acquisition|feature_generation|model_generation)$")
 _SURFACE_ORDER = {"source": 0, "feature": 1, "model": 2}
+_STAGE_SURFACE_ORDER = {"data_acquisition": 0, "feature_generation": 1, "model_generation": 2}
 MAX_LIMIT = 200
 DEFAULT_LIMIT = 50
 
@@ -226,7 +228,11 @@ def database_url(explicit: str | None = None) -> str:
 def _catalog_sort_key(table: DataTableSpec) -> tuple[int, int, str]:
     match = _LAYERED_TABLE_RE.match(table.table)
     if not match:
-        return (99, 99, table.label)
+        numbered_match = _NUMBERED_STAGE_TABLE_RE.match(table.label.split(".", 1)[-1])
+        if not numbered_match:
+            return (99, 99, table.label)
+        layer, surface = numbered_match.groups()
+        return (int(layer), _STAGE_SURFACE_ORDER[surface], table.label)
     surface, layer = match.groups()
     return (int(layer), _SURFACE_ORDER[surface], table.label)
 
