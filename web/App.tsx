@@ -1118,7 +1118,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className={`task-row-progress${progress.hasEvidence ? '' : ' inferred'}${progress.failed ? ' failed' : ''}`}>
             <div className="task-row-progress-copy">
               <span>{progress.label}</span>
-              <small>{progress.hasEvidence ? progress.hint : 'No finer-grained progress evidence attached.'}</small>
+              <small>{progress.hint}</small>
             </div>
             <div className="mini-progress" aria-label={`Task progress ${progress.label}`}>
               <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
