@@ -200,24 +200,6 @@ function formatNetworkRate(kbps?: number | null): string {
   return `${kbps.toFixed(1)} KB/s`;
 }
 
-function sumStageCounts(counts?: Record<string, number>): number {
-  return Object.values(counts ?? {}).reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
-}
-
-function terminalStageCount(counts?: Record<string, number>): number {
-  return (counts?.succeeded ?? 0) + (counts?.not_applicable ?? 0);
-}
-
-function workflowGateLabel(ok?: boolean | null): string {
-  if (ok === true) return 'Ready';
-  if (ok === false) return 'Blocked';
-  return 'Unknown';
-}
-
-function providerPostureIsOk(status?: string | null): boolean {
-  return status === 'ready' || status === 'available' || status === 'no_provider_work_selected' || status === 'not_required' || status === 'idle';
-}
-
 function signalStatusSeverity(status?: string | null): string {
   const normalized = String(status ?? '').toLowerCase();
   if (['unsafe', 'failed', 'violation'].includes(normalized)) return 'critical';
@@ -2366,34 +2348,7 @@ function App() {
       return <TaskTimelineList tasks={chart.task_timeline ?? []} />;
     }
     if (activeView === 'models') {
-      return (
-        <>
-          <ModelLayerOverview chart={chart} />
-          <section className="detail-grid">
-            <section className="panel">
-              <div className="panel-heading">System Gates</div>
-              <div className="service-list">
-                <div className="service-row">
-                  <span>Service Runtime</span>
-                  <strong className={chart.service_runtime_ready ? 'service-ok' : 'service-warn'}>{workflowGateLabel(chart.service_runtime_ready)}</strong>
-                </div>
-                <div className="service-row">
-                  <span>Scheduler Lock</span>
-                  <strong className={chart.lock_status === 'active' ? 'service-ok' : 'service-warn'}>{startCase(chart.lock_status)}</strong>
-                </div>
-                <div className="service-row">
-                  <span>Provider Stage Posture</span>
-                  <strong className={providerPostureIsOk(chart.provider_status) ? 'service-ok' : 'service-warn'}>{startCase(chart.provider_status)}</strong>
-                </div>
-                <div className="service-row">
-                  <span>Terminal Complete</span>
-                  <strong className={chart.terminal_complete ? 'service-ok' : 'service-warn'}>{chart.terminal_complete ? 'Yes' : 'No'}</strong>
-                </div>
-              </div>
-            </section>
-          </section>
-        </>
-      );
+      return <ModelLayerOverview chart={chart} />;
     }
     if (activeView === 'registry') return <PlaceholderView title="Definitions" />;
     if (activeView === 'realtime') return renderRealtimeSignalsView();
