@@ -359,12 +359,12 @@ Chentong clarified that the Tasks page should answer what work is being performe
 
 ### Decision
 
-The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Model-specific current-month/current-stage/progress/coverage cards move to Models. The generic `Task Progress Summary` card is removed from page content.
+The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns the model-specific view as a ten-layer stack: each layer card shows state, current detail, evidence-backed progress, receipts, blockers, and model-generation split status when present. The generic `Task Progress Summary` card is removed from page content.
 
 ### Consequences
 
 - Tasks is list-first and operational-stage-first.
-- Models owns model/historical progress cards until a richer model-layer read model replaces this temporary reuse of `historical_task_progress_summary`.
+- Models owns the ten-layer model status surface until a richer model-layer read model replaces this temporary reuse of `historical_task_progress_summary`.
 - Dashboard remains read-only and consumes storage-hosted summaries rather than workflow checkpoint internals directly.
 
 ## D016 - Task list defaults to current work and exposes filters

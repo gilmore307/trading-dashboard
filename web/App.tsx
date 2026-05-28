@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { HistoricalProgressVisual, MetricCard, StatusPill } from './components';
+import { HistoricalProgressVisual, MetricCard, ProgressBar, StatusPill } from './components';
 import { fetchDataTableCatalog, fetchDataTableRows, type DataTableQueryResult, type DataTableSpec } from './dataTables';
 import { formatTimestamp, startCase } from './format';
 import { fetchLatestReadModel, openLatestReadModelSocket, type ReadModelStreamStatus } from './readModels';
@@ -767,6 +767,230 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
     hasEvidence: true,
     failed: failedCount > 0 || String(progress.status || task.status || '').toLowerCase() === 'failed',
   };
+}
+
+type ModelLayerDefinition = {
+  layer: number;
+  modelId: string;
+  label: string;
+  description: string;
+  detail: string;
+};
+
+const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
+  {
+    layer: 1,
+    modelId: 'model_01_market_regime',
+    label: 'Market Regime',
+    description: 'Market-wide regime and cross-asset background state.',
+    detail: 'Builds the broad market panel used by later target and risk layers.',
+  },
+  {
+    layer: 2,
+    modelId: 'model_02_sector_context',
+    label: 'Sector Context',
+    description: 'Sector, industry, and proxy context around the market backdrop.',
+    detail: 'Keeps the target-specific stack grounded in sector-relative conditions.',
+  },
+  {
+    layer: 3,
+    modelId: 'model_03_target_state_vector',
+    label: 'Target State Vector',
+    description: 'Target-specific state vector for the selected symbol and fold.',
+    detail: 'Turns local target history and upstream context into model-facing state.',
+  },
+  {
+    layer: 4,
+    modelId: 'model_04_event_failure_risk',
+    label: 'Event Failure Risk',
+    description: 'Fold-scoped event failure gates before replay.',
+    detail: 'Consumes reviewed event-observation inputs without treating Layer 10 as a pre-replay model.',
+  },
+  {
+    layer: 5,
+    modelId: 'model_05_alpha_confidence',
+    label: 'Alpha Confidence',
+    description: 'Confidence and quality estimate for the candidate alpha thesis.',
+    detail: 'Separates confidence in signal quality from action or execution decisions.',
+  },
+  {
+    layer: 6,
+    modelId: 'model_06_dynamic_risk_policy',
+    label: 'Dynamic Risk Policy',
+    description: 'Risk-policy adjustment layer for changing market and target conditions.',
+    detail: 'Produces risk posture evidence while keeping broker/account mutation out of manager.',
+  },
+  {
+    layer: 7,
+    modelId: 'model_07_position_projection',
+    label: 'Position Projection',
+    description: 'Projected position behavior and exposure implications.',
+    detail: 'Evaluates position path context before direct underlying action is considered.',
+  },
+  {
+    layer: 8,
+    modelId: 'model_08_underlying_action',
+    label: 'Underlying Action',
+    description: 'Direct underlying action thesis and plan evidence.',
+    detail: 'Forms the canonical risk target consumed by later event-risk governance.',
+  },
+  {
+    layer: 9,
+    modelId: 'model_09_option_expression',
+    label: 'Option Expression',
+    description: 'Optional expression and trading-guidance context.',
+    detail: 'May add option-expression context, but must not absorb residual event-risk attribution.',
+  },
+  {
+    layer: 10,
+    modelId: 'model_10_event_risk_governor',
+    label: 'Event Risk Governor',
+    description: 'Post-replay residual event-risk and failure attribution.',
+    detail: 'Starts after model-group replay and attributes failures, residuals, missed opportunities, and path deviations.',
+  },
+];
+
+function modelLayerTasks(tasks: HistoricalTaskTimelineItemPayload[], layer: number): HistoricalTaskTimelineItemPayload[] {
+  if (layer === 10) return tasks.filter((task) => task.task_id === 'model_group.model_10_event_risk_governor');
+  return tasks.filter((task) => task.layer === layer);
+}
+
+function modelLayerState(tasks: HistoricalTaskTimelineItemPayload[]): string {
+  if (!tasks.length) return 'blocked';
+  if (tasks.some((task) => task.task_state === 'failed' || String(task.status).toLowerCase() === 'failed')) return 'failed';
+  if (tasks.some((task) => task.task_state === 'current' || ['running', 'ready'].includes(String(task.status).toLowerCase()))) return 'current';
+  if (tasks.every((task) => ['completed', 'skipped'].includes(task.task_state) || ['succeeded', 'not_applicable'].includes(String(task.status).toLowerCase()))) return 'completed';
+  if (tasks.some((task) => task.task_state === 'future' || String(task.status).toLowerCase() === 'blocked')) return 'future';
+  return 'current';
+}
+
+function modelLayerProgress(tasks: HistoricalTaskTimelineItemPayload[]): { ready: number; expected: number; percent: number; unitLabel: string } {
+  const progressTasks = tasks.filter((task) => task.detail?.progress);
+  if (progressTasks.length) {
+    const ready = progressTasks.reduce((sum, task) => sum + Math.max(0, task.detail?.progress?.ready_count ?? 0), 0);
+    const expected = progressTasks.reduce((sum, task) => sum + Math.max(0, task.detail?.progress?.expected_count ?? 0), 0);
+    const unitLabel = progressTasks[0]?.detail?.progress?.unit_label || 'units';
+    return { ready, expected, percent: expected > 0 ? (Math.min(ready, expected) / expected) * 100 : 0, unitLabel };
+  }
+  const expected = tasks.length;
+  const ready = tasks.filter((task) => ['completed', 'skipped'].includes(task.task_state) || ['succeeded', 'not_applicable'].includes(String(task.status).toLowerCase())).length;
+  return { ready, expected, percent: expected > 0 ? (ready / expected) * 100 : 0, unitLabel: 'tasks' };
+}
+
+function latestTaskUpdate(tasks: HistoricalTaskTimelineItemPayload[]): string | null {
+  const timestamps = tasks
+    .map((task) => task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc ?? task.started_at_utc ?? task.created_at_utc)
+    .filter(Boolean) as string[];
+  return timestamps.sort().at(-1) ?? null;
+}
+
+function modelLayerCurrentTask(tasks: HistoricalTaskTimelineItemPayload[]): HistoricalTaskTimelineItemPayload | null {
+  return (
+    tasks.find((task) => task.task_state === 'current') ??
+    tasks.find((task) => ['running', 'ready'].includes(String(task.status).toLowerCase())) ??
+    tasks.find((task) => task.task_state === 'failed' || String(task.status).toLowerCase() === 'failed') ??
+    tasks.at(-1) ??
+    null
+  );
+}
+
+function modelSplitTasks(tasks: HistoricalTaskTimelineItemPayload[]): HistoricalTaskTimelineItemPayload[] {
+  return tasks.filter((task) => task.stage_type === 'model_generation');
+}
+
+function ModelLayerCard({ definition, tasks }: { definition: ModelLayerDefinition; tasks: HistoricalTaskTimelineItemPayload[] }) {
+  const state = modelLayerState(tasks);
+  const progress = modelLayerProgress(tasks);
+  const currentTask = modelLayerCurrentTask(tasks);
+  const splitTasks = modelSplitTasks(tasks);
+  const blockerCount = tasks.reduce((sum, task) => sum + (task.blocker_count ?? task.detail?.blockers?.length ?? 0), 0);
+  const receiptCount = tasks.reduce((sum, task) => sum + (task.receipt_count ?? task.detail?.receipt_refs?.length ?? 0), 0);
+  const updatedAt = latestTaskUpdate(tasks);
+  const target = currentTask ? taskTargetMetaLabel(currentTask) : null;
+  return (
+    <article className={`model-layer-card model-layer-${state}`}>
+      <div className="model-layer-index">
+        <span>{definition.layer}</span>
+        <small>Layer</small>
+      </div>
+      <div className="model-layer-main">
+        <div className="model-layer-head">
+          <div>
+            <strong>{definition.label}</strong>
+            <small>{definition.modelId}</small>
+          </div>
+          <StatusPill status={state} severity={taskStateSeverity(state)} />
+        </div>
+        <p>{definition.description}</p>
+        <div className="model-layer-progress">
+          <div>
+            <span>{formatPercent(progress.percent)} · {progress.ready}/{progress.expected} {progress.unitLabel}</span>
+            <small>{currentTask ? `${currentTask.task_label} · ${startCase(currentTask.status)}` : definition.detail}</small>
+          </div>
+          <ProgressBar value={progress.percent} />
+        </div>
+        <div className="model-layer-meta">
+          <span>{monthLabel(currentTask?.month)}</span>
+          {target ? <span>{target}</span> : null}
+          <span>{receiptCount} receipts</span>
+          <span>{blockerCount} blockers</span>
+          {updatedAt ? <span>Updated {formatTimestamp(updatedAt)}</span> : null}
+        </div>
+        <div className="model-layer-detail">{definition.detail}</div>
+        {splitTasks.length ? (
+          <div className="model-split-strip" aria-label={`${definition.label} model-generation splits`}>
+            {splitTasks.map((task) => {
+              const splitName = task.task_id.split('.').at(-1) ?? task.stage_type ?? 'split';
+              const splitProgress = taskProgressView(task);
+              return (
+                <div className="model-split-chip" key={taskRowKey(task)}>
+                  <span>{startCase(splitName)}</span>
+                  <strong>{startCase(task.status)}</strong>
+                  <small>{splitProgress.label}</small>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function ModelLayerOverview({ chart }: { chart: HistoricalTaskProgressChartPayload }) {
+  const allTasks = chart.task_timeline ?? [];
+  const periodTasks = chart.current_month ? allTasks.filter((task) => task.month === chart.current_month) : [];
+  const tasks = periodTasks.length ? periodTasks : allTasks;
+  const layers = MODEL_LAYER_DEFINITIONS.map((definition) => ({
+    definition,
+    tasks: modelLayerTasks(tasks, definition.layer),
+  }));
+  const currentLayer = layers.find(({ tasks: layerTasks }) => layerTasks.some((task) => task.task_state === 'current'));
+  const completedLayers = layers.filter(({ tasks: layerTasks }) => modelLayerState(layerTasks) === 'completed').length;
+  return (
+    <>
+      <section className="metric-grid four model-layer-summary">
+        <MetricCard label="Layer stack" value={`${completedLayers}/10`} hint="Completed model layers" />
+        <MetricCard label="Current layer" value={currentLayer ? `Layer ${currentLayer.definition.layer}` : 'None'} hint={currentLayer?.definition.label ?? 'No current model layer'} />
+        <MetricCard label="Active period" value={chart.current_month ?? 'Unknown'} />
+        <MetricCard label="Workflow" value={startCase(chart.terminal_complete ? 'complete' : chart.lock_status)} hint={chart.next_expected_system_action ?? undefined} />
+      </section>
+      <section className="panel model-layer-panel">
+        <div className="task-list-header">
+          <div>
+            <div className="panel-heading">Model Layers</div>
+            <p className="panel-subtitle">Layer 1-9 show training and split status for the current fold. Layer 10 shows post-replay failure attribution before evaluation and promotion.</p>
+          </div>
+          <StatusPill status={chart.terminal_complete ? 'complete' : 'running'} severity={chart.terminal_complete ? 'low' : 'info'} />
+        </div>
+        <div className="model-layer-list">
+          {layers.map(({ definition, tasks: layerTasks }) => (
+            <ModelLayerCard definition={definition} tasks={layerTasks} key={definition.layer} />
+          ))}
+        </div>
+      </section>
+    </>
+  );
 }
 
 function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) {
@@ -2138,17 +2362,9 @@ function App() {
       return <TaskTimelineList tasks={chart.task_timeline ?? []} />;
     }
     if (activeView === 'models') {
-      const stageTotal = sumStageCounts(chart.stage_counts);
-      const terminalStages = terminalStageCount(chart.stage_counts);
       return (
         <>
-          <section className="metric-grid">
-            <MetricCard label="Active historical period" value={chart.current_month ?? 'Unknown'} />
-            <MetricCard label="Active task" value={activeTaskLabel(chart)} />
-            <MetricCard label="Workflow" value={startCase(historicalModel.status)} hint={chart.terminal_complete ? 'Terminal complete' : `Lock ${startCase(chart.lock_status)}`} />
-            <MetricCard label="Progress" value={formatPercent(chart.progress_percent)} hint={`${terminalStages}/${stageTotal || 0} terminal stages`} />
-          </section>
-          <HistoricalProgressVisual chart={chart} />
+          <ModelLayerOverview chart={chart} />
           <section className="detail-grid">
             <section className="panel">
               <div className="panel-heading">System Gates</div>

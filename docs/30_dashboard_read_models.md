@@ -135,7 +135,7 @@ The alert page is an owner-actionable issue queue, not a log viewer.
 
 Purpose: support the Historical Modeling subtab under Tasks.
 
-Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks/Models views.
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks/Models views. Tasks consumes the timeline as an operational work list; Models reuses the same evidence to render the current ten-layer model stack.
 
 Owner-facing fields:
 
