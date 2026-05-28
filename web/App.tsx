@@ -37,6 +37,8 @@ const SERVICE_LABELS: Record<string, string> = {
   'trading-execution-realtime-runtime-check.path': 'Realtime Runtime Check Watcher',
   'trading-storage-dashboard-read-model-refresh.timer': 'Dashboard Refresh Schedule',
   'trading-storage-dashboard-read-model-refresh.service': 'Dashboard Refresh Worker',
+  'trading-data-te-calendar-refresh.timer': 'Trading Economics Calendar Schedule',
+  'trading-data-te-calendar-refresh.service': 'Trading Economics Calendar Worker',
 };
 
 const BACKGROUND_SERVICE_DISPLAY_ORDER: Record<string, number> = {
@@ -44,10 +46,12 @@ const BACKGROUND_SERVICE_DISPLAY_ORDER: Record<string, number> = {
   'trading-storage-dashboard-read-model-refresh.timer': 20,
   'trading-storage-dashboard-read-model-refresh.service': 30,
   'trading-manager-historical-scheduler.service': 40,
-  'trading-execution-realtime-monitor-loop.service': 50,
-  'trading-execution-realtime-runtime-check.path': 60,
-  'trading-execution-realtime-runtime-check.timer': 70,
-  'trading-execution-realtime-runtime-check.service': 80,
+  'trading-data-te-calendar-refresh.timer': 50,
+  'trading-data-te-calendar-refresh.service': 60,
+  'trading-execution-realtime-monitor-loop.service': 70,
+  'trading-execution-realtime-runtime-check.path': 80,
+  'trading-execution-realtime-runtime-check.timer': 90,
+  'trading-execution-realtime-runtime-check.service': 100,
 };
 
 const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
