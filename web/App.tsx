@@ -451,18 +451,12 @@ function taskStateLabel(task: HistoricalTaskTimelineItemPayload): string {
   return startCase(task.task_state);
 }
 
-function layerLabel(task: HistoricalTaskTimelineItemPayload): string {
-  if (typeof task.layer === 'number') return `Layer ${task.layer}`;
-  return task.layer_key ? startCase(task.layer_key) : 'General';
+function taskFilterValue(task: HistoricalTaskTimelineItemPayload): string {
+  return task.task_id || task.task_label || task.stage_type || 'unknown';
 }
 
-function taskLayerFilterValue(task: HistoricalTaskTimelineItemPayload): string {
-  if (typeof task.layer === 'number') return String(task.layer);
-  return task.layer_key ?? 'general';
-}
-
-function taskWorkTypeFilterValue(task: HistoricalTaskTimelineItemPayload): string {
-  return task.stage_type ?? task.task_label ?? 'unknown';
+function taskFilterLabel(task: HistoricalTaskTimelineItemPayload): string {
+  return task.task_label || startCase(task.stage_type || task.task_id || 'unknown');
 }
 
 function taskTargetSymbol(task: HistoricalTaskTimelineItemPayload): string | null {
@@ -532,16 +526,18 @@ function monthOptionRank(value: string): number {
   return normalizedStart * 10 + (match[2] ? 1 : 0);
 }
 
-function layerOptionRank(value: string): number {
-  const normalized = Number(value);
-  return Number.isFinite(normalized) ? normalized : Number.MAX_SAFE_INTEGER;
-}
-
 function taskStateOptionRank(value: string): number {
   return TASK_STATE_FILTER_ORDER[value] ?? Number.MAX_SAFE_INTEGER;
 }
 
-function workTypeOptionRank(value: string): number {
+function taskOptionRank(value: string): number {
+  const layerMatch = /^layer_(\d{2})_/u.exec(value);
+  if (layerMatch) return Number(layerMatch[1]);
+  if (value === 'model_group.replay') return 100;
+  if (value === 'model_group.model_10_event_risk_governor') return 110;
+  if (value === 'model_group.evaluation') return 120;
+  if (value === 'model_group.promotion') return 130;
+  if (value === 'model_group.maintenance') return 140;
   return WORK_TYPE_FILTER_ORDER[value] ?? Number.MAX_SAFE_INTEGER;
 }
 
@@ -784,7 +780,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
       <div className="task-detail-grid">
         <div className="task-detail-card">
           <span>Task identity</span>
-          <strong>{monthLabel(task.month)} · {layerLabel(task)} · {startCase(task.stage_type)}</strong>
+          <strong>{monthLabel(task.month)} · {task.task_label}</strong>
           <small>{[task.task_id, taskTargetMetaLabel(task)].filter(Boolean).join(' · ')}</small>
         </div>
         <div className="task-detail-card">
@@ -937,7 +933,7 @@ function collectDiagnosticSummary(
       typeKey: 'task',
       typeLabel: 'Task',
       status: 'Failed',
-      detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${startCase(task.stage_type)}${task.reason ? ` · ${task.reason}` : ''}`,
+      detail: `${monthLabel(task.month)} · ${task.task_label} · ${startCase(task.stage_type)}${task.reason ? ` · ${task.reason}` : ''}`,
       severity: 'error',
       handlingStatus: 'open',
       occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
@@ -957,7 +953,7 @@ function collectDiagnosticSummary(
       typeKey: 'task_coverage',
       typeLabel: 'Task Coverage',
       status: 'Action Required',
-      detail: `${monthLabel(task.month)} · ${layerLabel(task)} · ${unresolvedFailedCount}/${progress?.expected_count ?? 0} unresolved requests failed; downstream remains blocked.`,
+      detail: `${monthLabel(task.month)} · ${task.task_label} · ${unresolvedFailedCount}/${progress?.expected_count ?? 0} unresolved requests failed; downstream remains blocked.`,
       severity: 'error',
       handlingStatus: 'open',
       occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
@@ -1011,17 +1007,15 @@ function collectDiagnosticSummary(
 
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
   const [monthFilter, setMonthFilter] = useState('auto');
-  const [layerFilter, setLayerFilter] = useState('all');
   const [stateFilter, setStateFilter] = useState('auto');
-  const [workTypeFilter, setWorkTypeFilter] = useState('all');
+  const [taskFilter, setTaskFilter] = useState('all');
   const [targetFilter, setTargetFilter] = useState('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const monthOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, (task) => monthLabel(task.month), monthOptionRank), [tasks]);
-  const layerOptions = useMemo(() => uniqueTaskOptions(tasks, taskLayerFilterValue, layerLabel, layerOptionRank), [tasks]);
   const stateOptions = useMemo(() => uniqueTaskOptions(tasks, (task) => task.task_state, taskStateLabel, taskStateOptionRank), [tasks]);
-  const workTypeOptions = useMemo(
-    () => uniqueTaskOptions(tasks, taskWorkTypeFilterValue, (task) => startCase(task.stage_type || task.task_label), workTypeOptionRank),
+  const taskOptions = useMemo(
+    () => uniqueTaskOptions(tasks, taskFilterValue, taskFilterLabel, taskOptionRank),
     [tasks],
   );
   const targetOptions = useMemo(
@@ -1052,13 +1046,12 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const filteredTasks = useMemo(
     () => tasks.filter((task) => {
       if (effectiveMonthFilter !== 'all' && taskMonthFilterValue(task) !== effectiveMonthFilter) return false;
-      if (layerFilter !== 'all' && taskLayerFilterValue(task) !== layerFilter) return false;
       if (effectiveStateFilter !== 'all' && task.task_state !== effectiveStateFilter) return false;
-      if (workTypeFilter !== 'all' && taskWorkTypeFilterValue(task) !== workTypeFilter) return false;
+      if (taskFilter !== 'all' && taskFilterValue(task) !== taskFilter) return false;
       if (targetFilter !== 'all' && taskTargetFilterValue(task) !== targetFilter) return false;
       return true;
     }),
-    [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, tasks, workTypeFilter],
+    [effectiveMonthFilter, effectiveStateFilter, targetFilter, tasks, taskFilter],
   );
   const monthGroups = useMemo(() => groupTasksByMonth(filteredTasks), [filteredTasks]);
   const virtualRows = useMemo(() => flattenTaskRows(monthGroups), [monthGroups]);
@@ -1102,7 +1095,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   useEffect(() => {
     setScrollTop(0);
     if (virtualListRef.current) virtualListRef.current.scrollTop = 0;
-  }, [effectiveMonthFilter, effectiveStateFilter, layerFilter, targetFilter, workTypeFilter]);
+  }, [effectiveMonthFilter, effectiveStateFilter, targetFilter, taskFilter]);
 
   const renderTaskRow = (task: HistoricalTaskTimelineItemPayload) => {
     const taskKey = taskRowKey(task);
@@ -1120,7 +1113,6 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           </div>
           <div className="task-meta">
             <span>{monthLabel(task.month)}</span>
-            <span>{layerLabel(task)}</span>
             {taskTargetMetaLabel(task) ? <span>{taskTargetMetaLabel(task)}</span> : null}
             <span>{startCase(task.stage_type)}</span>
             <span>{startCase(task.status)}</span>
@@ -1174,7 +1166,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className="panel-heading">Task List</div>
           <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} child tasks</div>
         </div>
-        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('auto'); setLayerFilter('all'); setStateFilter('auto'); setWorkTypeFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
+        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('auto'); setStateFilter('auto'); setTaskFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
           Reset filters
         </button>
       </div>
@@ -1194,17 +1186,10 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           onChange={setTargetFilter}
         />
         <label>
-          <span>Layer</span>
-          <select value={layerFilter} onChange={(event) => setLayerFilter(event.target.value)}>
-            <option value="all">All layers</option>
-            {layerOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </label>
-        <label>
           <span>Task</span>
-          <select value={workTypeFilter} onChange={(event) => setWorkTypeFilter(event.target.value)}>
+          <select value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}>
             <option value="all">All tasks</option>
-            {workTypeOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            {taskOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
         <label>
