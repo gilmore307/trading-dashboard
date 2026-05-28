@@ -478,7 +478,7 @@ function activeTaskLabel(chart: HistoricalTaskProgressChartPayload): string {
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
   const target = taskTargetSymbol(task);
   if (target) return target;
-  return 'Market / sector panel';
+  return 'General';
 }
 
 function taskTargetMetaLabel(task: HistoricalTaskTimelineItemPayload): string | null {
@@ -540,7 +540,7 @@ function taskOptionRank(value: string): number {
 }
 
 function targetOptionRank(value: string): number {
-  if (value === 'not_targeted') return 90;
+  if (value === 'not_targeted') return 0;
   return 10;
 }
 
