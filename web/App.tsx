@@ -756,10 +756,14 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
   const unitLabel = progress.unit_label || 'units';
   const updated = progress.updated_at_utc ? ` · Updated ${formatTimestamp(progress.updated_at_utc)}` : '';
   const source = progress.progress_source ? ` · ${startCase(progress.progress_source)}` : '';
+  const partitions = progress.expected_partition_count
+    ? ` · Partitions ${progress.covered_partition_count ?? 0}/${progress.expected_partition_count}`
+    : '';
+  const basis = progress.progress_basis ? ` · ${progress.progress_basis}` : '';
   return {
     percent: Math.max(0, Math.min(100, percent)),
     label: `${formatPercent(percent)} · ${ready}/${expected} ${unitLabel}`,
-    hint: `Pending ${progress.pending_count ?? 0} · Failed ${failedCount} · Accepted skips ${progress.accepted_failed_count ?? 0}${source}${updated}`,
+    hint: `Pending ${progress.pending_count ?? 0} · Failed ${failedCount} · Accepted skips ${progress.accepted_failed_count ?? 0}${partitions}${source}${updated}${basis}`,
     hasEvidence: true,
     failed: failedCount > 0 || String(progress.status || task.status || '').toLowerCase() === 'failed',
   };

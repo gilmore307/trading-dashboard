@@ -107,6 +107,9 @@ export interface StageCoveragePayload {
   accepted_failed_count?: number;
   can_unlock_downstream?: boolean;
   progress_source?: string | null;
+  progress_basis?: string | null;
+  covered_partition_count?: number;
+  expected_partition_count?: number;
   updated_at_utc?: string | null;
   worker_id?: string | null;
   nodes?: unknown[];
