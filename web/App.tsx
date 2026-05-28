@@ -466,7 +466,6 @@ function taskTargetSymbol(task: HistoricalTaskTimelineItemPayload): string | nul
 function taskTargetFilterValue(task: HistoricalTaskTimelineItemPayload): string {
   const target = taskTargetSymbol(task);
   if (target) return target;
-  if ((task.layer ?? 0) >= 3 || task.target_required || task.detail?.dataset_unit?.target_required) return 'target_pending';
   return 'not_targeted';
 }
 
@@ -479,7 +478,6 @@ function activeTaskLabel(chart: HistoricalTaskProgressChartPayload): string {
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
   const target = taskTargetSymbol(task);
   if (target) return target;
-  if ((task.layer ?? 0) >= 3 || task.target_required || task.detail?.dataset_unit?.target_required) return 'Target pending';
   return 'Market / sector panel';
 }
 
@@ -542,7 +540,6 @@ function taskOptionRank(value: string): number {
 }
 
 function targetOptionRank(value: string): number {
-  if (value === 'target_pending') return 80;
   if (value === 'not_targeted') return 90;
   return 10;
 }
