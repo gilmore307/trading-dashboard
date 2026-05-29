@@ -86,7 +86,7 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   trading_economics_calendar_source_events: 310,
 };
 
-type ViewId = 'status' | 'tasks' | 'timewheel' | 'data' | 'diagnostics' | 'models' | 'registry' | 'realtime' | 'performance';
+type ViewId = 'status' | 'tasks' | 'timewheel' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance';
 
 const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'status', label: 'Status', state: 'Live' },
@@ -94,6 +94,7 @@ const navItems: Array<{ id: ViewId; label: string; state: string }> = [
   { id: 'timewheel', label: 'Timewheel', state: 'Temporal explorer' },
   { id: 'data', label: 'Data', state: 'Data + model outputs' },
   { id: 'models', label: 'Models', state: 'Historical modeling' },
+  { id: 'replay', label: 'Replay', state: 'Historical replay' },
   { id: 'registry', label: 'Definitions', state: 'Coming soon' },
   { id: 'realtime', label: 'Realtime Signals', state: 'Shadow monitor' },
   { id: 'performance', label: 'Trading Performance', state: 'Coming soon' },
@@ -1402,6 +1403,12 @@ function cumulativePoints(points: Array<{ label: string; value: number }>): Arra
   });
 }
 
+function compactMonthLabel(label: string): string {
+  const match = label.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return label;
+  return `${match[1].slice(2)}-${match[2]}`;
+}
+
 function calibrationCurvePoints(version: ModelGroupPromotionVersionPayload | null): Array<{ label: string; score: number; hitRate: number }> {
   const calibration = nestedRecord(version?.metrics, 'calibration_diagnostics');
   return nestedArray(calibration, 'bins')
@@ -1882,7 +1889,7 @@ function TemporalDiagnosticCurve({
               <circle cx={point.x} cy={point.y} r="4">
                 <title>{`${point.label}: ${point.value.toFixed(4)}`}</title>
               </circle>
-              {showLabel ? <text x={point.x} y={height - 24} textAnchor="middle">{point.label.slice(5) || point.label}</text> : null}
+              {showLabel ? <text x={point.x} y={height - 24} textAnchor="middle">{compactMonthLabel(point.label)}</text> : null}
             </g>
           );
         })}
@@ -2539,6 +2546,333 @@ function ActiveModelEvidence({
   );
 }
 
+type ReplaySeries = {
+  id: string;
+  label: string;
+  color: string;
+  points: Array<{ label: string; value: number }>;
+  valueByMonth: Map<string, number>;
+};
+
+type ReplayVersionEntry = {
+  version: ModelGroupPromotionVersionPayload;
+  index: number;
+};
+
+function replaySeriesForVersions(
+  entries: ReplayVersionEntry[],
+  metricKey: string,
+  mode: 'raw' | 'cumulative',
+): ReplaySeries[] {
+  return entries.map(({ version, index }) => {
+    const raw = temporalDiagnosticPoints(version, metricKey).sort((left, right) => left.label.localeCompare(right.label));
+    const points = mode === 'cumulative' ? cumulativePoints(raw) : raw;
+    return {
+      id: versionStableId(version, index),
+      label: compactVersionLabel(version, index),
+      color: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length],
+      points,
+      valueByMonth: new Map(points.map((point) => [point.label, point.value])),
+    };
+  }).filter((series) => series.points.length);
+}
+
+function replayMonths(series: ReplaySeries[]): string[] {
+  return [...new Set(series.flatMap((item) => item.points.map((point) => point.label)))].sort();
+}
+
+function clampInt(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function ReplayOverlayChart({
+  title,
+  series,
+  yLabel,
+  emptyLabel,
+}: {
+  title: string;
+  series: ReplaySeries[];
+  yLabel: string;
+  emptyLabel: string;
+}) {
+  const months = replayMonths(series);
+  const windowSize = Math.min(Math.max(12, Math.ceil(months.length / 2)), 24, Math.max(months.length, 1));
+  const maxStart = Math.max(0, months.length - windowSize);
+  const [start, setStart] = useState(0);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [drag, setDrag] = useState<{ x: number; start: number } | null>(null);
+
+  useEffect(() => {
+    setStart((current) => clampInt(current, 0, maxStart));
+  }, [maxStart]);
+
+  if (!series.length || !months.length) {
+    return (
+      <section className="model-chart-panel replay-wide-chart">
+        <div className="model-chart-title">{title}</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+
+  const visibleMonths = months.slice(start, start + windowSize);
+  const width = 1120;
+  const height = 360;
+  const padding = 54;
+  const bottomPadding = 62;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding - bottomPadding;
+  const visibleValues = series.flatMap((item) => visibleMonths.map((month) => item.valueByMonth.get(month)).filter((value): value is number => typeof value === 'number'));
+  const minValue = Math.min(0, ...visibleValues);
+  const maxValue = Math.max(0, ...visibleValues);
+  const range = maxValue - minValue || 1;
+  const projectX = (index: number) => padding + (visibleMonths.length === 1 ? 0.5 : index / (visibleMonths.length - 1)) * chartWidth;
+  const projectY = (value: number) => height - bottomPadding - ((value - minValue) / range) * chartHeight;
+  const zeroY = projectY(0);
+  const hoveredMonth = hoverIndex === null ? null : visibleMonths[hoverIndex] ?? null;
+  const hoverX = hoverIndex === null ? null : projectX(hoverIndex);
+  const pointerIndex = (clientX: number, element: SVGSVGElement) => {
+    const rect = element.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / Math.max(rect.width, 1);
+    const x = ratio * width;
+    return clampInt(((x - padding) / Math.max(chartWidth, 1)) * (visibleMonths.length - 1), 0, visibleMonths.length - 1);
+  };
+
+  return (
+    <section className="model-chart-panel replay-wide-chart">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">{title}</span>
+        <strong>{compactMonthLabel(visibleMonths[0])} to {compactMonthLabel(visibleMonths[visibleMonths.length - 1])}</strong>
+      </div>
+      <svg
+        className={`replay-overlay-chart${drag ? ' dragging' : ''}`}
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={title}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setDrag({ x: event.clientX, start });
+          setHoverIndex(pointerIndex(event.clientX, event.currentTarget));
+        }}
+        onPointerMove={(event) => {
+          setHoverIndex(pointerIndex(event.clientX, event.currentTarget));
+          if (!drag) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const monthDelta = ((drag.x - event.clientX) / Math.max(rect.width, 1)) * windowSize;
+          setStart(clampInt(drag.start + monthDelta, 0, maxStart));
+        }}
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+          setDrag(null);
+        }}
+        onPointerCancel={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+          setDrag(null);
+        }}
+        onPointerLeave={() => {
+          if (!drag) setHoverIndex(null);
+        }}
+      >
+        <line className="curve-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
+        <line className="curve-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line className="curve-zero-line" x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} />
+        {series.map((item) => {
+          const points = visibleMonths
+            .map((month, index) => {
+              const value = item.valueByMonth.get(month);
+              return typeof value === 'number' ? `${projectX(index)},${projectY(value)}` : null;
+            })
+            .filter(Boolean)
+            .join(' ');
+          return points ? <polyline key={item.id} className="replay-overlay-line" points={points} style={{ stroke: item.color }} /> : null;
+        })}
+        {series.map((item) => visibleMonths.map((month, index) => {
+          const value = item.valueByMonth.get(month);
+          if (typeof value !== 'number') return null;
+          return <circle key={`${item.id}-${month}`} cx={projectX(index)} cy={projectY(value)} r={hoverIndex === index ? 4.8 : 3.4} style={{ fill: item.color }} />;
+        }))}
+        {hoveredMonth && hoverX !== null ? (
+          <g className="replay-hover-layer">
+            <line x1={hoverX} y1={padding} x2={hoverX} y2={height - bottomPadding} />
+            <rect x={Math.min(hoverX + 12, width - 250)} y={padding + 6} width="238" height={32 + series.length * 22} rx="12" />
+            <text x={Math.min(hoverX + 26, width - 236)} y={padding + 28}>{hoveredMonth}</text>
+            {series.map((item, index) => {
+              const value = item.valueByMonth.get(hoveredMonth);
+              return (
+                <text key={item.id} x={Math.min(hoverX + 26, width - 236)} y={padding + 52 + index * 22} style={{ fill: item.color }}>
+                  {item.label}: {typeof value === 'number' ? formatMetricValue(value, 4) : 'missing'}
+                </text>
+              );
+            })}
+          </g>
+        ) : null}
+        {visibleMonths.map((month, index) => {
+          const showLabel = visibleMonths.length <= 8 || index === 0 || index === visibleMonths.length - 1 || index % Math.ceil(visibleMonths.length / 6) === 0;
+          return showLabel ? <text key={month} x={projectX(index)} y={height - 24} textAnchor="middle">{compactMonthLabel(month)}</text> : null;
+        })}
+        <text className="curve-y-label" x={20} y={padding + chartHeight / 2} transform={`rotate(-90 20 ${padding + chartHeight / 2})`}>{yLabel}</text>
+      </svg>
+      <div className="replay-chart-footer">
+        <span>Drag chart to pan</span>
+        <span>{months.length} monthly slices</span>
+      </div>
+    </section>
+  );
+}
+
+function ReplayVersionSelector({
+  versions,
+  selectedIds,
+  onChange,
+}: {
+  versions: ModelGroupPromotionVersionPayload[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  if (!versions.length) return null;
+  return (
+    <section className="panel replay-selector-panel">
+      <div className="model-chart-title">Replay Versions</div>
+      <div className="replay-version-selector">
+        {versions.map((version, index) => {
+          const id = versionStableId(version, index);
+          const selected = selectedIds.includes(id);
+          return (
+            <button
+              className={selected ? 'selected' : ''}
+              key={id}
+              type="button"
+              onClick={() => {
+                const next = selected ? selectedIds.filter((item) => item !== id) : [...selectedIds, id];
+                onChange(next.length ? next : [id]);
+              }}
+            >
+              <i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />
+              <strong>{compactVersionLabel(version, index)}</strong>
+              <span>{startCase(modelIdentity(version))}</span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ReplayOutcomeTable({ entries }: { entries: ReplayVersionEntry[] }) {
+  const rows = entries.map(({ version, index }) => {
+    const coverage = nestedRecord(nestedRecord(version.metrics, 'decision_variable_schema_diagnostics'), 'coverage');
+    return {
+      id: versionStableId(version, index),
+      label: compactVersionLabel(version, index),
+      accepted: metricNumber(nestedRecord(nestedRecord(coverage, 'decision_disposition'), 'values'), 'accepted') ?? 0,
+      rejected: metricNumber(nestedRecord(nestedRecord(coverage, 'decision_disposition'), 'values'), 'rejected') ?? 0,
+      filled: metricNumber(nestedRecord(nestedRecord(coverage, 'replay_fill_status'), 'values'), 'filled') ?? 0,
+      notFilled: metricNumber(nestedRecord(nestedRecord(coverage, 'replay_fill_status'), 'values'), 'not_filled') ?? 0,
+      takenGood: metricNumber(nestedRecord(nestedRecord(coverage, 'eval_action_class'), 'values'), 'taken_good') ?? 0,
+      takenBad: metricNumber(nestedRecord(nestedRecord(coverage, 'eval_action_class'), 'values'), 'taken_bad') ?? 0,
+      avoidedBad: metricNumber(nestedRecord(nestedRecord(coverage, 'eval_action_class'), 'values'), 'avoided_bad') ?? 0,
+      missedGood: metricNumber(nestedRecord(nestedRecord(coverage, 'eval_action_class'), 'values'), 'missed_good') ?? 0,
+    };
+  });
+  return (
+    <section className="panel replay-table-panel">
+      <div className="panel-heading">Trade Outcome</div>
+      <div className="replay-table replay-outcome-table">
+        <div className="replay-table-row replay-table-head">
+          <span>Version</span><span>Accepted</span><span>Rejected</span><span>Filled</span><span>Taken Good</span><span>Taken Bad</span><span>Avoided Bad</span><span>Missed Good</span>
+        </div>
+        {rows.length ? rows.map((row) => (
+          <div className="replay-table-row" key={row.id}>
+            <strong>{row.label}</strong>
+            <span>{row.accepted}</span>
+            <span>{row.rejected}</span>
+            <span>{row.filled}/{row.filled + row.notFilled}</span>
+            <span>{row.takenGood}</span>
+            <span>{row.takenBad}</span>
+            <span>{row.avoidedBad}</span>
+            <span>{row.missedGood}</span>
+          </div>
+        )) : <div className="empty-chart compact">No replay outcome diagnostics published</div>}
+      </div>
+    </section>
+  );
+}
+
+function ReplayMonthlyTable({ entries }: { entries: ReplayVersionEntry[] }) {
+  const rows = entries.flatMap(({ version, index }) => {
+    let cumulative = 0;
+    const drawdowns = new Map(temporalDiagnosticPoints(version, 'max_drawdown').map((point) => [point.label, point.value]));
+    return temporalDiagnosticPoints(version, 'net_return_total')
+      .sort((left, right) => left.label.localeCompare(right.label))
+      .map((point) => {
+        cumulative += point.value;
+        return {
+          key: `${versionStableId(version, index)}-${point.label}`,
+          version: compactVersionLabel(version, index),
+          month: point.label,
+          netReturn: point.value,
+          cumulative,
+          drawdown: drawdowns.get(point.label) ?? null,
+        };
+      });
+  });
+  return (
+    <section className="panel replay-table-panel">
+      <div className="panel-heading">Monthly Replay</div>
+      <div className="replay-table replay-monthly-table">
+        <div className="replay-table-row replay-table-head">
+          <span>Month</span><span>Version</span><span>Net Return</span><span>Cumulative</span><span>Max Drawdown</span>
+        </div>
+        {rows.length ? rows.map((row) => (
+          <div className="replay-table-row" key={row.key}>
+            <strong>{row.month}</strong>
+            <span>{row.version}</span>
+            <span>{formatMetricValue(row.netReturn, 4)}</span>
+            <span>{formatMetricValue(row.cumulative, 4)}</span>
+            <span>{formatMetricValue(row.drawdown, 4)}</span>
+          </div>
+        )) : <div className="empty-chart compact">No monthly replay slices published</div>}
+      </div>
+    </section>
+  );
+}
+
+function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
+  const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const entries = versions.map((version, index) => ({ version, index }));
+  const versionIds = versions.map((version, index) => versionStableId(version, index));
+  const defaultIds = versionIds.slice(0, 4);
+  const versionKey = versionIds.join('|');
+  const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const valid = new Set(versionIds);
+      const kept = current.filter((id) => valid.has(id));
+      return kept.length ? kept : defaultIds;
+    });
+  }, [defaultIds.join('|'), versionKey]);
+  const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
+  const returnSeries = replaySeriesForVersions(selectedEntries, 'net_return_total', 'cumulative');
+  const drawdownSeries = replaySeriesForVersions(selectedEntries, 'max_drawdown', 'raw');
+  const selectedVersion = selectedEntries[0]?.version ?? null;
+  return (
+    <section className="replay-view">
+      <ReplayVersionSelector versions={versions} selectedIds={selectedIds} onChange={setSelectedIds} />
+      <ReplayOverlayChart title="Cumulative Return Overlay" series={returnSeries} yLabel="Cumulative return" emptyLabel="No replay return slices published" />
+      <ReplayOverlayChart title="Drawdown Overlay" series={drawdownSeries} yLabel="Max drawdown" emptyLabel="No replay drawdown slices published" />
+      <div className="replay-chart-grid">
+        <ScoreDecileReturnCurve version={selectedVersion} emptyLabel="Select a replay version with score decile return evidence" />
+        <ThresholdReturnCurve version={selectedVersion} emptyLabel="Select a replay version with threshold return evidence" />
+        <CostSensitivityCurve version={selectedVersion} emptyLabel="Select a replay version with cost sensitivity evidence" />
+        <SliceDistributionPanel version={selectedVersion} />
+      </div>
+      <ReplayOutcomeTable entries={selectedEntries} />
+      <ReplayMonthlyTable entries={selectedEntries} />
+    </section>
+  );
+}
+
 function parameterConfigKey(label: string): string {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 }
@@ -2676,20 +3010,12 @@ function ModelGroupDetail({
         )}
         <AdaptiveDiagnosticChart title="Brier" globalSeries={versionMetricSeries(versions, 'brier_score')} selectedVersion={selectedVersion} selectedKind="monthly_brier" emptyLabel="Brier series not published" />
         <AdaptiveDiagnosticChart title="Calibration" globalSeries={versionMetricSeries(versions, 'ece')} selectedVersion={selectedVersion} selectedKind="calibration" emptyLabel="Calibration series not published" />
-        <ScoreDecileReturnCurve version={selectedVersion} emptyLabel="Select a model with score decile return evidence" />
       </ModelScorecardSection>
-      <ModelScorecardSection title="Selection Quality" subtitle="Whether selected trades are good, bad fills are avoided, and skipped winners are attributed correctly.">
-        <AdaptiveDiagnosticChart title="Threshold Return" globalSeries={versionMetricSeries(versions, 'profit_factor')} selectedVersion={selectedVersion} selectedKind="threshold_return" emptyLabel="Threshold utility series not published" />
+      <ModelScorecardSection title="Selection Diagnostics" subtitle="Decision-variable schema and slice labels used for model review; replay economics live under Replay.">
         <DecisionVariableAuditPanel version={selectedVersion ?? diagnosticVersion} />
       </ModelScorecardSection>
-      <ModelScorecardSection title="Economic Quality" subtitle="After-cost return, baseline-relative utility, drawdown, tail loss, and cost sensitivity.">
-        <AdaptiveDiagnosticChart title="Economic Return" globalSeries={versionMetricSeries(versions, 'excess_return_total')} selectedVersion={selectedVersion} selectedKind="monthly_return" emptyLabel="Return series not published" />
-        <AdaptiveDiagnosticChart title="Drawdown" globalSeries={versionMetricSeries(versions, 'max_drawdown')} selectedVersion={selectedVersion} selectedKind="monthly_drawdown" emptyLabel="Drawdown series not published" />
-        <AdaptiveDiagnosticChart title="Cost Sensitivity" globalSeries={versionMetricSeries(versions, 'cost_sensitivity_2x')} selectedVersion={selectedVersion} selectedKind="cost_sensitivity" emptyLabel="Cost sensitivity series not published" />
-      </ModelScorecardSection>
-      <ModelScorecardSection title="Slices" subtitle="Long/short/flat, action/disposition, confidence-band, and feature-space separation views.">
+      <ModelScorecardSection title="Feature Space" subtitle="Feature-space separation views for model evidence; replay outcome slices live under Replay.">
         <AdaptiveDiagnosticChart title="Silhouette" globalSeries={versionMetricSeries(versions, 'silhouette_outcome_label')} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
-        <SliceDistributionPanel version={selectedVersion} />
         <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCA diagnostics not published" />
         <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCoA diagnostics not published" />
       </ModelScorecardSection>
@@ -3828,6 +4154,7 @@ function contractForView(view: ViewId): string {
   if (view === 'timewheel') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   if (view === 'models') return MODEL_LAYER_READINESS;
+  if (view === 'replay') return MODEL_PROMOTION_POSTURE;
   return HISTORICAL_TASK_PROGRESS;
 }
 
@@ -3958,6 +4285,8 @@ function App() {
       ? realtimeModel
     : activeView === 'models'
       ? modelLayerModel ?? historicalModel
+    : activeView === 'replay'
+      ? modelPromotionModel ?? historicalModel
       : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
   const activeError = readModelErrors[activeContractType] ?? null;
@@ -4377,6 +4706,7 @@ function App() {
     if (activeView === 'status') return renderCurrentStatusView();
     if (activeView === 'timewheel') return renderTemporalExplorerView();
     if (activeView === 'data') return <DataExplorerView />;
+    if (activeView === 'replay') return <ReplayView promotionChart={modelPromotionChart} />;
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
       return <DiagnosticsSummaryView items={diagnosticItems} currentStatusModel={currentStatusModel} historicalModel={historicalModel} />;

@@ -29,7 +29,7 @@ storage/06_dashboard_cache/read_models/<contract_type>/latest.json
 
 The WebSocket route sends a snapshot on connect and on `latest.json` changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
 
-The dashboard renders Status, Tasks, Timewheel, Models, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
+The dashboard renders Status, Tasks, Timewheel, Models, Replay, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -246,10 +246,11 @@ Dashboard presentation:
 
 - one selectable model-group page plus one selectable page per model layer;
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
-- group page charts are organized as four scorecards: Ranking / Calibration, Selection Quality, Economic Quality, and Slices;
-- AUROC/ROC remains ranking evidence, while score-decile return, threshold utility, good/bad fills, missed winners, excess return, drawdown, cost sensitivity, long/short/action slices, PCA, and PCoA carry the owner-facing model-performance interpretation when published;
+- group page charts are organized as scorecards for Ranking / Calibration, Selection Diagnostics, and Feature Space;
+- AUROC/ROC remains ranking evidence, while decision-variable schema/coverage, silhouette, PCA, and PCoA carry the owner-facing model-validity interpretation when published;
 - layer pages show chart/table-first component evidence dossiers: model claim, required evidence, validity status, evidence-status distribution, evidence matrix, model specification, and optimization parameters;
 - each layer page exposes that layer's version-level optimization parameter table. When the selected active/baseline version does not publish candidate config or hyperparameter evidence, the table shows required parameters and explicitly marks values as not published instead of inventing settings;
+- replay return, drawdown, threshold utility, cost sensitivity, score-decile return, slice distribution, good/bad fills, missed winners, and monthly replay rows live under Replay rather than Models;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
 Canonical layer map:
@@ -303,6 +304,13 @@ Owner-facing fields:
 - last update.
 
 The dashboard must not activate models. It only reports promotion posture.
+
+Replay presentation:
+
+- Replay initially consumes `model_promotion_posture_summary.group_versions` for historical replay economics because that is where current version-level replay diagnostics are published;
+- full-width return and drawdown overlay charts can compare multiple versions on one axis, expose hover values at the current month, and allow horizontal drag/pan for long ranges;
+- replay trade-outcome and monthly tables summarize the same selected versions;
+- future storage work should split large replay payloads into a dedicated replay read model when promotion posture is no longer the narrow canonical home.
 
 ### `registry_dictionary_profile`
 

@@ -359,7 +359,7 @@ Chentong clarified that the Tasks page should answer what work is being performe
 
 ### Decision
 
-The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model evaluation presentation: tab `0` is the model-group pipeline and owns version comparison, promotion identity, and performance diagnostics; tabs `1`-`10` show individual component models through chart/table-first evidence dossiers covering model claim, required evidence, validity status, model specification, and optimization targets. Task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
+The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model evaluation presentation: tab `0` is the model-group pipeline and owns version comparison, promotion identity, ranking/calibration, decision-variable, and feature-space diagnostics; tabs `1`-`10` show individual component models through chart/table-first evidence dossiers covering model claim, required evidence, validity status, model specification, and optimization targets. Historical replay economics move to Replay. Task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
 
 ### Consequences
 
@@ -615,3 +615,22 @@ The Data page displays `event_category_type` as the user-facing `event_type` col
 
 - The current downloaded event rows visibly show their type as `equity_abnormal_activity`.
 - Future event-source ingestion for news, earnings, macro, filings, or other categories should populate the same event-type column rather than adding a separate UI-only category.
+
+## D028 - Replay owns historical replay economics
+
+Date: 2026-05-29
+Status: Accepted
+
+### Context
+
+Chentong clarified that Models should focus on model behavior, validity, statistical analysis, feature-space evidence, and optimization parameters. Replay return, drawdown, cost sensitivity, slice distribution, and trade outcomes are useful, but mixing them into Models made model evaluation look like runtime/P&L reporting.
+
+### Decision
+
+Add a top-level Replay page. Replay consumes historical model-promotion/replay evidence and owns return, drawdown, cost, slice, and trade-outcome presentation. The primary return and drawdown charts are full-width overlays that can show multiple model versions at once, support hover readouts for the current x position, and support horizontal dragging so long time ranges remain readable. Models keeps model-group comparison, promotion identity, ranking/calibration, decision-variable diagnostics, feature-space plots, and layer-level optimization tables.
+
+### Consequences
+
+- Replay charts and tables are historical replay evidence only; the dashboard still performs no model activation, broker action, or account/position mutation.
+- Detailed replay economics should not be duplicated back into Models.
+- A dedicated replay read model may replace the current `model_promotion_posture_summary` consumption once replay payloads outgrow promotion posture.
