@@ -422,6 +422,7 @@ export interface ModelPromotionPostureChartPayload {
   promotions?: ModelPromotionItemPayload[];
   items?: ModelPromotionItemPayload[];
   group_versions?: ModelGroupPromotionVersionPayload[];
+  excluded_group_versions?: Array<Record<string, unknown>>;
   status_counts?: Record<string, number>;
   identity_counts?: Record<string, number>;
   [key: string]: unknown;

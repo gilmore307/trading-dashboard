@@ -1092,6 +1092,10 @@ function groupPromotionVersions(layerChart: ModelLayerReadinessChartPayload, pro
   }));
 }
 
+function groupPromotionExclusions(promotionChart: ModelPromotionPostureChartPayload): Array<Record<string, unknown>> {
+  return Array.isArray(promotionChart.excluded_group_versions) ? promotionChart.excluded_group_versions : [];
+}
+
 function modelIdentity(item: Pick<ModelPromotionItemPayload, 'activation_status' | 'promotion_status'> | ModelGroupPromotionVersionPayload): string {
   const identity = 'identity' in item ? String(item.identity ?? '').toLowerCase() : '';
   if (identity) return identity;
@@ -1333,6 +1337,15 @@ function sliceRowCountValues(version: ModelGroupPromotionVersionPayload | null, 
       .map((row) => [String(row.value ?? 'unknown'), metricNumber(row, 'row_count')])
       .filter((entry): entry is [string, number] => Boolean(entry[0]) && entry[1] !== null),
   );
+}
+
+function diagnosticUnavailableReason(version: ModelGroupPromotionVersionPayload | null, key: string): string | null {
+  const availability = nestedRecord(version?.metrics, 'diagnostic_availability');
+  const panel = nestedRecord(availability, key);
+  if (!panel) return null;
+  const status = String(panel.status ?? '');
+  if (status !== 'unavailable') return null;
+  return startCase(String(panel.reason_code ?? 'diagnostics unavailable'));
 }
 
 function selectedRocCurve(version: ModelGroupPromotionVersionPayload | null): Array<{ fpr: number; tpr: number; threshold: number | null }> {
@@ -2159,6 +2172,7 @@ function SliceDistributionPanel({
   const dispositionValues = sliceRowCountValues(version, 'decision_disposition');
   const confidenceValues = sliceRowCountValues(version, 'decision_confidence_band');
   const hasValues = [sideValues, actionValues, dispositionValues, confidenceValues].some((values) => Object.keys(values).length);
+  const unavailableReason = diagnosticUnavailableReason(version, 'slice_distribution');
   return (
     <section className="model-chart-panel">
       <div className="model-chart-title">Slice Distribution</div>
@@ -2173,7 +2187,7 @@ function SliceDistributionPanel({
           <div className="model-chart-note">These are row-count slices from the scorecard; use them to spot when multiple silhouette bars are driven by the same accepted/rejected split.</div>
         </>
       ) : (
-        <div className="empty-chart compact">Slice scorecard rows not published</div>
+        <div className="empty-chart compact">{unavailableReason ?? 'Slice scorecard rows not published'}</div>
       )}
     </section>
   );
@@ -2454,8 +2468,38 @@ function ModelVersionTable({
           </button>
         );
       }) : (
-        <div className="empty-chart compact">No model-group promotion versions published yet</div>
+        <div className="empty-chart compact">No valid scoped model-group promotion evidence published yet</div>
       )}
+    </section>
+  );
+}
+
+function ExcludedPromotionEvidencePanel({
+  exclusions,
+}: {
+  exclusions: Array<Record<string, unknown>>;
+}) {
+  if (!exclusions.length) return null;
+  const reasonCounts = new Map<string, number>();
+  for (const exclusion of exclusions) {
+    const codes = Array.isArray(exclusion.reason_codes) ? exclusion.reason_codes : [];
+    for (const code of codes) {
+      const key = String(code);
+      reasonCounts.set(key, (reasonCounts.get(key) ?? 0) + 1);
+    }
+  }
+  return (
+    <section className="model-chart-panel evidence-exclusion-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Excluded Promotion Evidence</span>
+        <strong>{exclusions.length} skipped</strong>
+      </div>
+      <div className="exclusion-reasons">
+        {[...reasonCounts.entries()].map(([reason, count]) => (
+          <span key={reason}>{startCase(reason)} · {count}</span>
+        ))}
+      </div>
+      <div className="model-chart-note">Skipped artifacts are not target-scoped promotion evidence, so they are excluded from version charts and slice analysis.</div>
     </section>
   );
 }
@@ -2509,6 +2553,7 @@ function ModelGroupDetail({
   promotionChart: ModelPromotionPostureChartPayload;
 }) {
   const versions = groupPromotionVersions(layerChart, promotionChart, promotions);
+  const exclusions = groupPromotionExclusions(promotionChart);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [scatterGroupKey, setScatterGroupKey] = useState<ScatterGroupKey>('decision_intended_side');
   const activeRef = activeModelRef(runtimeChart);
@@ -2528,6 +2573,7 @@ function ModelGroupDetail({
       </div>
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
+      <ExcludedPromotionEvidencePanel exclusions={exclusions} />
       <IdentityDistribution versions={versions} />
       <EvaluationDisagreementPanel version={selectedVersion} />
       <ModelScorecardSection title="Ranking / Calibration" subtitle="Prediction sorting and probability quality; AUROC is diagnostic, not the hard promotion gate.">

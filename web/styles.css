@@ -251,6 +251,9 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .model-silhouette-chart rect { stroke: rgba(2, 6, 23, .72); stroke-width: 1.4; }
 .model-silhouette-chart .silhouette-positive { fill: #34d399; }
 .model-silhouette-chart .silhouette-negative { fill: #f87171; }
+.evidence-exclusion-panel { border-color: rgba(251, 191, 36, .24); background: rgba(113, 63, 18, .10); }
+.exclusion-reasons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.exclusion-reasons span { border: 1px solid rgba(251, 191, 36, .28); border-radius: 999px; padding: 7px 10px; color: #fde68a; background: rgba(120, 53, 15, .22); font-size: 12px; font-weight: 850; }
 
 @media (max-width: 1220px) {
   .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid { grid-template-columns: 1fr; }
