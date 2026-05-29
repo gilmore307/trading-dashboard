@@ -1021,7 +1021,7 @@ function promotionLayerNumber(item: ModelPromotionItemPayload): number | null {
 
 function modelStatusSeverity(status?: string | null): string {
   const normalized = String(status ?? '').toLowerCase();
-  if (['active', 'live', 'approved', 'promoted', 'shadow', 'eligible', 'succeeded', 'completed', 'ready'].includes(normalized)) return 'low';
+  if (['active', 'live', 'approved', 'promoted', 'baseline_active', 'shadow', 'eligible', 'succeeded', 'completed', 'ready'].includes(normalized)) return 'low';
   if (['running', 'candidate', 'review_required', 'in_review', 'pending', 'not_started', 'missing'].includes(normalized)) return 'info';
   if (['retiring', 'superseded', 'deferred', 'blocked'].includes(normalized)) return 'medium';
   if (['failed', 'rejected', 'revoked', 'eliminated'].includes(normalized)) return 'high';
@@ -1091,6 +1091,7 @@ function modelIdentity(item: Pick<ModelPromotionItemPayload, 'activation_status'
   const activation = String(item.activation_status ?? '').toLowerCase();
   const status = String('decision_status' in item ? item.decision_status ?? '' : item.promotion_status ?? '').toLowerCase();
   if (activation === 'active' || status === 'active') return 'active';
+  if (status === 'baseline_active') return 'active';
   if (['eligible', 'shadow', 'approved', 'promoted'].includes(status)) return 'shadow';
   if (['deferred', 'rejected', 'revoked', 'superseded', 'blocked'].includes(status)) return 'retired';
   return 'candidate';
