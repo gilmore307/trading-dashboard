@@ -1183,6 +1183,27 @@ function featureDiagnostics(version: ModelGroupPromotionVersionPayload | null): 
   return diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics as Record<string, unknown> : null;
 }
 
+function decisionVariableDiagnostics(version: ModelGroupPromotionVersionPayload | null): Record<string, unknown> | null {
+  const diagnostics = version?.metrics?.decision_variable_schema_diagnostics;
+  return diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics as Record<string, unknown> : null;
+}
+
+function coverageValues(diagnostics: Record<string, unknown> | null, field: string): Record<string, number> {
+  const coverage = nestedRecord(diagnostics, 'coverage');
+  const fieldCoverage = nestedRecord(coverage, field);
+  const values = nestedRecord(fieldCoverage, 'values');
+  if (!values) return {};
+  return Object.fromEntries(
+    Object.entries(values)
+      .map(([key, value]) => [key, typeof value === 'number' ? value : Number(value)])
+      .filter((entry): entry is [string, number] => Number.isFinite(entry[1])),
+  );
+}
+
+function normalizedVariableSamples(diagnostics: Record<string, unknown> | null): Array<Record<string, unknown>> {
+  return nestedArray(diagnostics, 'normalized_row_samples');
+}
+
 function diagnosticPoints(version: ModelGroupPromotionVersionPayload | null, key: 'pca' | 'pcoa'): Array<Record<string, unknown>> {
   const diagnostics = featureDiagnostics(version);
   const section = diagnostics?.[key];
@@ -1259,6 +1280,8 @@ function selectedDiagnosticSeries(
   const points = [
     { label: 'Outcome', value: metricNumber(silhouette, 'outcome_label') },
     { label: 'Decision', value: metricNumber(silhouette, 'decision_action') },
+    { label: 'Side', value: metricNumber(silhouette, 'decision_intended_side') },
+    { label: 'Action', value: metricNumber(silhouette, 'decision_intended_action') },
   ].filter((point): point is { label: string; value: number } => point.value !== null);
   return points.length ? [{ name: 'Silhouette', points }] : [];
 }
@@ -1391,27 +1414,55 @@ function ModelLifecycleStat({
   );
 }
 
+type ScatterGroupKey = 'outcome_label' | 'decision_intended_side' | 'decision_intended_action' | 'decision_disposition';
+
+const SCATTER_GROUP_OPTIONS: Array<{ key: ScatterGroupKey; label: string }> = [
+  { key: 'outcome_label', label: 'Outcome' },
+  { key: 'decision_intended_side', label: 'Side' },
+  { key: 'decision_intended_action', label: 'Action' },
+  { key: 'decision_disposition', label: 'Disposition' },
+];
+
+const SCATTER_GROUP_COLORS = ['#34d399', '#f87171', '#38bdf8', '#fbbf24', '#a78bfa', '#fb7185', '#94a3b8'];
+
 function FeatureScatterChart({
   title,
   version,
   diagnosticKey,
+  groupKey,
+  onGroupKeyChange,
   emptyLabel,
 }: {
   title: string;
   version: ModelGroupPromotionVersionPayload | null;
   diagnosticKey: 'pca' | 'pcoa';
+  groupKey: ScatterGroupKey;
+  onGroupKeyChange: (key: ScatterGroupKey) => void;
   emptyLabel: string;
 }) {
   const points = diagnosticPoints(version, diagnosticKey)
     .map((point) => ({
       x: metricNumber(point, 'x'),
       y: metricNumber(point, 'y'),
-      outcome: String(point.outcome_label ?? 'unknown'),
-      action: String(point.decision_action ?? ''),
+      outcome_label: String(point.outcome_label ?? 'unknown'),
+      decision_action: String(point.decision_action ?? ''),
+      decision_intended_side: String(point.decision_intended_side ?? 'unknown'),
+      decision_intended_action: String(point.decision_intended_action ?? 'unknown'),
+      decision_disposition: String(point.decision_disposition ?? 'unknown'),
       target: String(point.target_ref ?? ''),
       timestamp: String(point.timestamp ?? ''),
     }))
-    .filter((point): point is { x: number; y: number; outcome: string; action: string; target: string; timestamp: string } => point.x !== null && point.y !== null);
+    .filter((point): point is {
+      x: number;
+      y: number;
+      outcome_label: string;
+      decision_action: string;
+      decision_intended_side: string;
+      decision_intended_action: string;
+      decision_disposition: string;
+      target: string;
+      timestamp: string;
+    } => point.x !== null && point.y !== null);
   if (!points.length) {
     return (
       <section className="model-chart-panel">
@@ -1433,26 +1484,38 @@ function FeatureScatterChart({
   const yRange = maxY - minY || 1;
   const projectX = (value: number) => padding + ((value - minX) / xRange) * (width - padding * 2);
   const projectY = (value: number) => height - padding - ((value - minY) / yRange) * (height - padding * 2);
-  const ellipseGroups = ['1', '0'].map((outcome) => {
-    const ellipse = ellipseForPoints(points.filter((point) => point.outcome === outcome));
+  const groupCounts = points.reduce<Record<string, number>>((counts, point) => {
+    const value = String(point[groupKey] || 'unknown');
+    counts[value] = (counts[value] ?? 0) + 1;
+    return counts;
+  }, {});
+  const groupNames = Object.entries(groupCounts)
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .map(([name]) => name);
+  const colorForGroup = (group: string): string => {
+    const index = groupNames.indexOf(group);
+    return SCATTER_GROUP_COLORS[index >= 0 ? index % SCATTER_GROUP_COLORS.length : SCATTER_GROUP_COLORS.length - 1];
+  };
+  const ellipseGroups = groupNames.map((group) => {
+    const ellipse = ellipseForPoints(points.filter((point) => String(point[groupKey] || 'unknown') === group));
     if (!ellipse) return null;
     return {
-      outcome,
+      group,
       cx: projectX(ellipse.cx),
       cy: projectY(ellipse.cy),
       rx: Math.max(4, (ellipse.rx / xRange) * (width - padding * 2)),
       ry: Math.max(4, (ellipse.ry / yRange) * (height - padding * 2)),
     };
-  }).filter((ellipse): ellipse is { outcome: string; cx: number; cy: number; rx: number; ry: number } => Boolean(ellipse));
-  const positiveCount = points.filter((point) => point.outcome === '1').length;
-  const negativeCount = points.filter((point) => point.outcome === '0').length;
+  }).filter((ellipse): ellipse is { group: string; cx: number; cy: number; rx: number; ry: number } => Boolean(ellipse));
   return (
     <section className="model-chart-panel">
       <div className="model-chart-title-row">
         <span className="model-chart-title">{title}</span>
         <div className="scatter-summary">
-          <span><i className="scatter-dot-positive" />Outcome 1 · {positiveCount}</span>
-          <span><i className="scatter-dot-negative" />Outcome 0 · {negativeCount}</span>
+          <select value={groupKey} onChange={(event) => onGroupKeyChange(event.target.value as ScatterGroupKey)} aria-label={`${title} grouping`}>
+            {SCATTER_GROUP_OPTIONS.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+          </select>
+          {groupNames.slice(0, 4).map((group) => <span key={group}><i style={{ background: colorForGroup(group) }} />{startCase(group)} · {groupCounts[group]}</span>)}
           <strong>{diagnosticExplainedVariance(version, diagnosticKey)}</strong>
         </div>
       </div>
@@ -1461,12 +1524,12 @@ function FeatureScatterChart({
         <line x1={width / 2} y1={padding} x2={width / 2} y2={height - padding} />
         {ellipseGroups.map((ellipse) => (
           <ellipse
-            key={ellipse.outcome}
+            key={ellipse.group}
             cx={ellipse.cx}
             cy={ellipse.cy}
             rx={ellipse.rx}
             ry={ellipse.ry}
-            className={ellipse.outcome === '1' ? 'scatter-ellipse-positive' : 'scatter-ellipse-negative'}
+            style={{ stroke: colorForGroup(ellipse.group) }}
           />
         ))}
         {points.map((point, index) => (
@@ -1475,9 +1538,9 @@ function FeatureScatterChart({
             cx={projectX(point.x)}
             cy={projectY(point.y)}
             r="4"
-            className={point.outcome === '1' ? 'scatter-positive' : point.outcome === '0' ? 'scatter-negative' : 'scatter-neutral'}
+            style={{ fill: colorForGroup(String(point[groupKey] || 'unknown')) }}
           >
-            <title>{`${point.target || 'target'} ${point.action || 'action'} ${point.timestamp || ''}`}</title>
+            <title>{`${point.target || 'target'} ${point.decision_intended_side}/${point.decision_intended_action} ${point.decision_disposition} ${point.timestamp || ''}`}</title>
           </circle>
         ))}
       </svg>
@@ -2042,6 +2105,93 @@ function IdentityDistribution({ versions }: { versions: ModelGroupPromotionVersi
   );
 }
 
+function CoverageBars({
+  title,
+  values,
+}: {
+  title: string;
+  values: Record<string, number>;
+}) {
+  const entries = Object.entries(values).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0])).slice(0, 5);
+  const total = entries.reduce((sum, [, value]) => sum + value, 0);
+  return (
+    <div className="variable-coverage-block">
+      <span>{title}</span>
+      {entries.length ? entries.map(([label, value], index) => (
+        <div className="variable-coverage-row" key={label}>
+          <small>{startCase(label)}</small>
+          <div><i style={{ width: `${total ? (value / total) * 100 : 0}%`, background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} /></div>
+          <strong>{value}</strong>
+        </div>
+      )) : <em>Not reported</em>}
+    </div>
+  );
+}
+
+function DecisionVariableAuditPanel({
+  version,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+}) {
+  const diagnostics = decisionVariableDiagnostics(version);
+  if (!version || !diagnostics) {
+    return (
+      <section className="model-chart-panel decision-variable-panel">
+        <div className="model-chart-title">Decision Variable Audit</div>
+        <div className="empty-chart compact">Select a model with decision-variable diagnostics</div>
+      </section>
+    );
+  }
+  const status = String(diagnostics.status ?? version.metrics?.decision_variable_schema_status ?? 'not_reported');
+  const rowCount = metricNumber(diagnostics, 'row_count');
+  const unknownCounts = nestedRecord(diagnostics, 'unknown_counts');
+  const leakageStatus = String(diagnostics.feature_namespace_leakage_status ?? 'not_reported');
+  const leakageColumns = Array.isArray(diagnostics.feature_namespace_leakage_columns) ? diagnostics.feature_namespace_leakage_columns.map(String) : [];
+  const samples = normalizedVariableSamples(diagnostics).slice(0, 5);
+  return (
+    <section className="model-chart-panel decision-variable-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Decision Variable Audit · {compactVersionLabel(version, 0)}</span>
+        <div className="active-model-meta">
+          <StatusPill status={status} severity={status === 'passed' ? 'low' : 'medium'} />
+          <StatusPill status={`feature leakage ${leakageStatus}`} severity={leakageStatus === 'passed' ? 'low' : 'medium'} />
+        </div>
+      </div>
+      <div className="decision-variable-stats">
+        <ModelLifecycleStat label="Rows" value={formatMetricValue(rowCount, 0)} />
+        <ModelLifecycleStat label="Unknown side" value={formatMetricValue(metricNumber(unknownCounts, 'decision_intended_side'), 0)} />
+        <ModelLifecycleStat label="Unknown agency" value={formatMetricValue(metricNumber(unknownCounts, 'decision_agency'), 0)} />
+      </div>
+      <div className="variable-coverage-grid">
+        <CoverageBars title="Long / short / flat" values={coverageValues(diagnostics, 'decision_intended_side')} />
+        <CoverageBars title="Open / skip action" values={coverageValues(diagnostics, 'decision_intended_action')} />
+        <CoverageBars title="Decision disposition" values={coverageValues(diagnostics, 'decision_disposition')} />
+        <CoverageBars title="Right / wrong action" values={coverageValues(diagnostics, 'eval_action_class')} />
+        <CoverageBars title="Economic result" values={coverageValues(diagnostics, 'eval_economic_class')} />
+        <CoverageBars title="Execution fill" values={coverageValues(diagnostics, 'replay_fill_status')} />
+      </div>
+      {leakageColumns.length ? <div className="variable-leakage">Leaky feature fields: {leakageColumns.join(', ')}</div> : null}
+      {samples.length ? (
+        <div className="variable-sample-table">
+          <div className="variable-sample-row variable-sample-head">
+            <span>Side</span><span>Action</span><span>Disposition</span><span>Agency</span><span>Eval</span><span>Excess</span>
+          </div>
+          {samples.map((sample, index) => (
+            <div className="variable-sample-row" key={`${sample.decision_id ?? index}`}>
+              <span>{startCase(String(sample.decision_intended_side ?? 'unknown'))}</span>
+              <span>{startCase(String(sample.decision_intended_action ?? 'unknown'))}</span>
+              <span>{startCase(String(sample.decision_disposition ?? 'unknown'))}</span>
+              <span>{startCase(String(sample.decision_agency ?? 'unknown'))}</span>
+              <span>{startCase(String(sample.eval_action_class ?? 'unknown'))}</span>
+              <span>{formatMetricValue(metricNumber(sample, 'replay_excess_return'), 4)}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function ModelVersionTable({
   versions,
   selectedVersionId,
@@ -2148,6 +2298,7 @@ function ModelGroupDetail({
 }) {
   const versions = groupPromotionVersions(layerChart, promotionChart, promotions);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [scatterGroupKey, setScatterGroupKey] = useState<ScatterGroupKey>('outcome_label');
   const activeRef = activeModelRef(runtimeChart);
   const activeVersion = versions.find((version) => modelIdentity(version) === 'active') ?? null;
   const selectedVersion = versions.find((version, index) => versionStableId(version, index) === selectedVersionId) ?? null;
@@ -2166,6 +2317,7 @@ function ModelGroupDetail({
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <IdentityDistribution versions={versions} />
+      <DecisionVariableAuditPanel version={selectedVersion ?? diagnosticVersion} />
       <div className="model-chart-grid">
         {selectedVersion ? (
           <RocCurveChart version={selectedVersion} emptyLabel="ROC curve not published" />
@@ -2179,8 +2331,8 @@ function ModelGroupDetail({
         <AdaptiveDiagnosticChart title="Threshold Return" globalSeries={versionMetricSeries(versions, 'profit_factor')} selectedVersion={selectedVersion} selectedKind="threshold_return" emptyLabel="Profit-factor series not published" />
         <AdaptiveDiagnosticChart title="Cost Sensitivity" globalSeries={versionMetricSeries(versions, 'cost_sensitivity_2x')} selectedVersion={selectedVersion} selectedKind="cost_sensitivity" emptyLabel="Cost sensitivity series not published" />
         <AdaptiveDiagnosticChart title="Silhouette" globalSeries={versionMetricSeries(versions, 'silhouette_outcome_label')} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
-        <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" emptyLabel="PCA diagnostics not published" />
-        <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" emptyLabel="PCoA diagnostics not published" />
+        <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCA diagnostics not published" />
+        <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCoA diagnostics not published" />
       </div>
     </section>
   );

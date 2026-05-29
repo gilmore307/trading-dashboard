@@ -173,6 +173,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .scatter-summary { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; color: #cbd5e1; font-size: 11px; font-weight: 850; }
 .scatter-summary span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .scatter-summary i { width: 8px; height: 8px; display: inline-block; border-radius: 50%; }
+.scatter-summary select { max-width: 142px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 10px; padding: 6px 8px; color: #d8e6f7; background: rgba(2, 6, 23, .70); font: inherit; font-size: 11px; font-weight: 850; outline: none; }
 .scatter-dot-positive { background: #34d399; }
 .scatter-dot-negative { background: #f87171; }
 .identity-bars { display: grid; gap: 12px; align-content: center; min-height: 210px; }
@@ -185,6 +186,23 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .identity-shadow { background: #38bdf8; }
 .identity-candidate { background: #a78bfa; }
 .identity-retired { background: #fbbf24; }
+.decision-variable-panel { margin-bottom: 14px; }
+.decision-variable-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.decision-variable-stats .model-lifecycle-stat { min-height: 86px; padding: 12px; }
+.decision-variable-stats .model-lifecycle-stat strong { font-size: 18px; }
+.variable-coverage-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.variable-coverage-block { min-width: 0; display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); }
+.variable-coverage-block > span { color: #7c8ea5; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
+.variable-coverage-block em { color: #64748b; font-style: normal; font-size: 12px; font-weight: 750; }
+.variable-coverage-row { min-width: 0; display: grid; grid-template-columns: minmax(84px, .8fr) minmax(0, 1fr) 54px; gap: 8px; align-items: center; color: #cbd5e1; font-size: 12px; font-weight: 800; }
+.variable-coverage-row small { min-width: 0; color: #cbd5e1; overflow-wrap: anywhere; }
+.variable-coverage-row div { height: 10px; border-radius: 999px; overflow: hidden; background: rgba(2, 6, 23, .68); border: 1px solid rgba(148, 163, 184, .10); }
+.variable-coverage-row i { display: block; height: 100%; min-width: 2px; border-radius: inherit; }
+.variable-coverage-row strong { color: #e7edf7; font-size: 12px; text-align: right; }
+.variable-leakage { color: #fde68a; border: 1px solid rgba(245, 158, 11, .24); background: rgba(113, 63, 18, .16); border-radius: 12px; padding: 10px 12px; font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+.variable-sample-table { display: grid; gap: 6px; overflow-x: auto; }
+.variable-sample-row { min-width: 760px; display: grid; grid-template-columns: repeat(6, minmax(90px, 1fr)); gap: 8px; align-items: center; padding: 9px 10px; border-radius: 11px; background: rgba(15, 23, 42, .38); color: #cbd5e1; font-size: 12px; font-weight: 750; }
+.variable-sample-head { background: rgba(2, 6, 23, .48); color: #7c8ea5; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 900; }
 .model-version-table-panel { min-width: 0; overflow-x: auto; display: grid; gap: 8px; margin-bottom: 14px; }
 .model-version-table-toolbar { min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .model-version-table-toolbar div { min-width: 0; display: grid; gap: 3px; }
@@ -225,6 +243,7 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 @media (max-width: 1220px) {
   .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid { grid-template-columns: 1fr; }
   .identity-panel .identity-bars { grid-template-columns: 1fr; }
+  .decision-variable-stats, .variable-coverage-grid { grid-template-columns: 1fr; }
   .model-layer-tabs { position: static; max-height: none; }
   .model-layer-detail-head, .model-version-row { flex-direction: column; }
 }
