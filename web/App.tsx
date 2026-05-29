@@ -1312,6 +1312,30 @@ function selectedDiagnosticSeries(
   return points.length ? [{ name: 'Silhouette', points }] : [];
 }
 
+function equivalentSilhouetteNote(points: Array<{ label: string; value: number }>): string | null {
+  const groups = new Map<string, string[]>();
+  for (const point of points) {
+    const key = point.value.toFixed(6);
+    groups.set(key, [...(groups.get(key) ?? []), point.label]);
+  }
+  const duplicate = [...groups.entries()]
+    .map(([value, labels]) => ({ value, labels }))
+    .filter((group) => group.labels.length > 1)
+    .sort((left, right) => right.labels.length - left.labels.length)[0];
+  if (!duplicate) return null;
+  return `${duplicate.labels.join(' / ')} have the same feature-space separation in this run; the selected rows form an equivalent split, so the bars intentionally match.`;
+}
+
+function sliceRowCountValues(version: ModelGroupPromotionVersionPayload | null, key: string): Record<string, number> {
+  const slices = nestedRecord(scorecardSection(version, 'slices'), key);
+  const rows = Array.isArray(slices) ? slices : [];
+  return Object.fromEntries(
+    rows
+      .map((row) => [String((row as Record<string, unknown>).value ?? 'unknown'), metricNumber(row as Record<string, unknown>, 'row_count')])
+      .filter((entry): entry is [string, number] => Boolean(entry[0]) && entry[1] !== null),
+  );
+}
+
 function selectedRocCurve(version: ModelGroupPromotionVersionPayload | null): Array<{ fpr: number; tpr: number; threshold: number | null }> {
   const predictive = nestedRecord(version?.metrics, 'predictive_diagnostics');
   const published = nestedArray(predictive, 'roc_curve')
@@ -2063,6 +2087,7 @@ function SilhouetteDiagnosticBars({
   const padding = 42;
   const centerX = width / 2;
   const scale = (width - padding * 2) / 2;
+  const equivalentNote = equivalentSilhouetteNote(series);
   return (
     <section className="model-chart-panel">
       <div className="model-chart-title-row">
@@ -2085,6 +2110,37 @@ function SilhouetteDiagnosticBars({
           );
         })}
       </svg>
+      {equivalentNote ? <div className="model-chart-note">{equivalentNote}</div> : null}
+    </section>
+  );
+}
+
+function SliceDistributionPanel({
+  version,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+}) {
+  const sideValues = sliceRowCountValues(version, 'decision_intended_side');
+  const actionValues = sliceRowCountValues(version, 'decision_intended_action');
+  const dispositionValues = sliceRowCountValues(version, 'decision_disposition');
+  const confidenceValues = sliceRowCountValues(version, 'decision_confidence_band');
+  const hasValues = [sideValues, actionValues, dispositionValues, confidenceValues].some((values) => Object.keys(values).length);
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title">Slice Distribution</div>
+      {hasValues ? (
+        <>
+          <div className="variable-coverage-grid compact">
+            <CoverageBars title="Side rows" values={sideValues} />
+            <CoverageBars title="Action rows" values={actionValues} />
+            <CoverageBars title="Disposition rows" values={dispositionValues} />
+            <CoverageBars title="Confidence rows" values={confidenceValues} />
+          </div>
+          <div className="model-chart-note">These are row-count slices from the scorecard; use them to spot when multiple silhouette bars are driven by the same accepted/rejected split.</div>
+        </>
+      ) : (
+        <div className="empty-chart compact">Slice scorecard rows not published</div>
+      )}
     </section>
   );
 }
@@ -2461,6 +2517,7 @@ function ModelGroupDetail({
       </ModelScorecardSection>
       <ModelScorecardSection title="Slices" subtitle="Long/short/flat, action/disposition, confidence-band, and feature-space separation views.">
         <AdaptiveDiagnosticChart title="Silhouette" globalSeries={versionMetricSeries(versions, 'silhouette_outcome_label')} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
+        <SliceDistributionPanel version={selectedVersion} />
         <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCA diagnostics not published" />
         <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCoA diagnostics not published" />
       </ModelScorecardSection>
