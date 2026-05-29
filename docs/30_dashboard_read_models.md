@@ -56,7 +56,7 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 
 ## Dashboard Read-Model Contracts
 
-The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_layer_readiness_summary`, and `model_promotion_posture_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
+The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_layer_readiness_summary`, `model_layer_evaluation_summary`, and `model_promotion_posture_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
 
 ### `current_system_status_summary`
 
@@ -267,6 +267,25 @@ Canonical layer map:
 | 10 | Event Risk Governor / Event Intelligence Overlay | `event_risk_intervention` / event-adjusted risk guidance |
 
 Dashboard model pages must follow the accepted current layer map.
+
+### `model_layer_evaluation_summary`
+
+Purpose: support layer subtabs as model-evidence dossiers rather than operational task-status pages.
+
+Owner-facing fields per layer:
+
+- layer claim, target definition, input scope, and output contract;
+- evidence status and validity status;
+- evaluation sections for population, predictive evidence, statistical reliability, calibration/distribution, signal diagnostics, robustness, integrity, and downstream contribution;
+- explicit missing-evidence reasons and required artifact fields;
+- group-level context only when clearly labeled as reference, not as layer-specific evidence.
+
+Dashboard presentation:
+
+- layer pages lead with claim, evidence, and validity decision;
+- missing per-layer statistical artifacts are displayed as `insufficient_evidence`;
+- task progress, receipts, blockers, and safety flags are subordinate operational debug evidence, not model-validity proof;
+- group-level AUROC/return/PCA/slice metrics must not be relabeled as layer-level metrics.
 
 ### `model_promotion_posture_summary`
 

@@ -364,7 +364,7 @@ The left navigation remains fixed. Tasks renders a storage-hosted task timeline 
 ### Consequences
 
 - Tasks is list-first and operational-stage-first.
-- Models consumes `model_layer_readiness_summary`, `model_promotion_posture_summary`, and `execution_realtime_trading_runtime_status` as model asset evidence. `historical_task_progress_summary` remains the Tasks source and must not drive model-page status wording.
+- Models consumes `model_layer_readiness_summary`, `model_layer_evaluation_summary`, `model_promotion_posture_summary`, and `execution_realtime_trading_runtime_status` as model asset evidence. Layer subtabs lead with model claim, evidence, and validity decision; `historical_task_progress_summary` remains the Tasks source and must not drive model-page status wording.
 - Dashboard remains read-only and consumes storage-hosted summaries rather than workflow checkpoint internals directly.
 
 ## D016 - Task list defaults to current work and exposes filters

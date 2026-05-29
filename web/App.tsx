@@ -13,6 +13,8 @@ import type {
   HistoricalTaskProgressChartPayload,
   HistoricalTaskTimelineItemPayload,
   ModelLayerLifecyclePayload,
+  ModelLayerEvaluationChartPayload,
+  ModelLayerEvaluationPayload,
   ModelLayerReadinessChartPayload,
   ModelGroupPromotionVersionPayload,
   ModelPromotionItemPayload,
@@ -29,6 +31,7 @@ const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
 const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
 const TEMPORAL_EXPLORER_SUMMARY = 'temporal_explorer_summary';
 const MODEL_LAYER_READINESS = 'model_layer_readiness_summary';
+const MODEL_LAYER_EVALUATION = 'model_layer_evaluation_summary';
 const MODEL_PROMOTION_POSTURE = 'model_promotion_posture_summary';
 const EXECUTION_RUNTIME_STATUS = 'execution_realtime_trading_runtime_status';
 
@@ -109,6 +112,10 @@ function isTemporalExplorerChart(payload: DashboardReadModel['chart_payload']): 
 }
 
 function isModelLayerReadinessChart(payload: DashboardReadModel['chart_payload']): payload is ModelLayerReadinessChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+function isModelLayerEvaluationChart(payload: DashboardReadModel['chart_payload']): payload is ModelLayerEvaluationChartPayload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
 
@@ -990,6 +997,7 @@ type ModelLayerView = {
   definition: ModelLayerDefinition;
   tasks: HistoricalTaskTimelineItemPayload[];
   lifecycle: ModelLayerLifecyclePayload | null;
+  evaluation: ModelLayerEvaluationPayload | null;
   promotions: ModelPromotionItemPayload[];
 };
 
@@ -2794,6 +2802,71 @@ function LayerEvidencePanel({ view }: { view: ModelLayerView }) {
   );
 }
 
+function evidenceStatusSeverity(status?: string | null): string {
+  const normalized = String(status ?? '').toLowerCase();
+  if (['evaluated', 'available', 'passed', 'valid', 'reference_only'].includes(normalized)) return 'low';
+  if (['not_applicable', 'missing', 'insufficient_evidence'].includes(normalized)) return 'medium';
+  if (['failed_validity', 'failed', 'invalid'].includes(normalized)) return 'high';
+  return 'info';
+}
+
+function requiredEvidenceLabel(values?: string[]): string {
+  if (!values?.length) return 'No required evidence list published.';
+  return values.map(startCase).join(' · ');
+}
+
+function ModelEvidenceDossier({ view }: { view: ModelLayerView }) {
+  const evaluation = view.evaluation;
+  const claim = maybeRecord(evaluation?.claim);
+  const validity = maybeRecord(evaluation?.validity_decision);
+  const groupContext = maybeRecord(evaluation?.group_context);
+  const sections = evaluation?.sections ?? [];
+  const evidenceStatus = evaluation?.evidence_status ?? 'insufficient_evidence';
+  const validityStatus = evaluation?.validity_status ?? 'insufficient_evidence';
+  return (
+    <section className="model-evidence-dossier">
+      <div className="evidence-dossier-head">
+        <div>
+          <span>Model Evidence Dossier</span>
+          <strong>{startCase(String(evidenceStatus))}</strong>
+        </div>
+        <StatusPill status={String(validityStatus)} severity={evidenceStatusSeverity(validityStatus)} />
+      </div>
+      <div className="evidence-claim-grid">
+        <section>
+          <span>Layer Claim</span>
+          <strong>{String(claim.modeling_claim ?? view.definition.objective)}</strong>
+          <small>{String(claim.target_definition ?? view.definition.inputScope)}</small>
+        </section>
+        <section>
+          <span>Validity Decision</span>
+          <strong>{startCase(String(validity.status ?? validityStatus))}</strong>
+          <small>{String(validity.reason ?? 'No layer-specific evaluation decision artifact has been published.')}</small>
+        </section>
+        <section>
+          <span>Group Context</span>
+          <strong>{groupContext.available ? 'Reference available' : 'No group reference'}</strong>
+          <small>{String(groupContext.note ?? 'Group-level metrics are context only and are not layer-specific evidence.')}</small>
+        </section>
+      </div>
+      <div className="evidence-section-grid">
+        {sections.length ? sections.map((section) => (
+          <article className="evidence-section-card" key={section.section_id ?? section.label}>
+            <div>
+              <span>{section.label ?? startCase(String(section.section_id ?? 'evidence'))}</span>
+              <StatusPill status={String(section.status ?? 'missing')} severity={evidenceStatusSeverity(section.status)} />
+            </div>
+            <strong>{String(section.reason ?? 'No evidence note published.')}</strong>
+            <small>{requiredEvidenceLabel(section.required_evidence)}</small>
+          </article>
+        )) : (
+          <div className="empty-chart compact">No layer evaluation summary has been published for this layer</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function ModelLayerDetail({
   view,
 }: {
@@ -2807,11 +2880,11 @@ function ModelLayerDetail({
       <div className="model-layer-detail-head">
         <div>
           <div className="panel-heading">Layer {view.definition.layer} · {view.definition.label}</div>
-          <p className="panel-subtitle">{view.definition.description}</p>
+          <p className="panel-subtitle">{view.definition.description} Evidence below is layer-specific; operational state is separated from model validity.</p>
         </div>
         <StatusPill status={String(lifecycle?.lifecycle_status ?? lifecycle?.status ?? 'model component')} severity={modelStatusSeverity(String(lifecycle?.lifecycle_status ?? lifecycle?.status ?? 'model component'))} />
       </div>
-      <LayerStatusCards view={view} />
+      <ModelEvidenceDossier view={view} />
       <div className="model-detail-grid">
         <section className="model-detail-section">
           <span>Model Family</span>
@@ -2845,6 +2918,10 @@ function ModelLayerDetail({
         <span>Optimization Target</span>
         <ModelParameterGrid definition={view.definition} />
       </section>
+      <section className="model-detail-section wide-detail operational-debug-section">
+        <span>Operational Debug</span>
+        <LayerStatusCards view={view} />
+      </section>
       <section className="model-detail-section wide-detail">
         <span>Layer Task Timeline</span>
         <LayerTaskTimeline tasks={view.tasks} />
@@ -2875,11 +2952,13 @@ function ModelLayerDetail({
 function ModelLayerOverview({
   chart,
   layerChart,
+  layerEvaluationChart,
   promotionChart,
   runtimeChart,
 }: {
   chart: HistoricalTaskProgressChartPayload;
   layerChart: ModelLayerReadinessChartPayload;
+  layerEvaluationChart: ModelLayerEvaluationChartPayload;
   promotionChart: ModelPromotionPostureChartPayload;
   runtimeChart: ExecutionRuntimeStatusChartPayload;
 }) {
@@ -2892,6 +2971,10 @@ function ModelLayerOverview({
     const layerNumber = lifecycleLayerNumber(layer);
     if (layerNumber !== null) lifecycleByLayer.set(layerNumber, layer);
   });
+  const evaluationByLayer = new Map<number, ModelLayerEvaluationPayload>();
+  (layerEvaluationChart.layers ?? []).forEach((layer) => {
+    if (typeof layer.layer === 'number') evaluationByLayer.set(layer.layer, layer);
+  });
   const promotionsByLayer = new Map<number, ModelPromotionItemPayload[]>();
   promotionItems(promotionChart).forEach((item) => {
     const layerNumber = promotionLayerNumber(item);
@@ -2901,6 +2984,7 @@ function ModelLayerOverview({
     definition,
     tasks: modelLayerTasks(tasks, definition.layer),
     lifecycle: lifecycleByLayer.get(definition.layer) ?? null,
+    evaluation: evaluationByLayer.get(definition.layer) ?? null,
     promotions: promotionsByLayer.get(definition.layer) ?? [],
   }));
   const selectedView = layers.find((layer) => layer.definition.layer === selectedLayer) ?? layers[0];
@@ -3827,6 +3911,7 @@ function App() {
   const [realtimeModel, setRealtimeModel] = useState<DashboardReadModel | null>(null);
   const [temporalExplorerModel, setTemporalExplorerModel] = useState<DashboardReadModel | null>(null);
   const [modelLayerModel, setModelLayerModel] = useState<DashboardReadModel | null>(null);
+  const [modelLayerEvaluationModel, setModelLayerEvaluationModel] = useState<DashboardReadModel | null>(null);
   const [modelPromotionModel, setModelPromotionModel] = useState<DashboardReadModel | null>(null);
   const [executionRuntimeModel, setExecutionRuntimeModel] = useState<DashboardReadModel | null>(null);
   const [readModelErrors, setReadModelErrors] = useState<Record<string, string>>({});
@@ -3844,6 +3929,7 @@ function App() {
     if (payload.contract_type === REALTIME_SIGNAL_SUMMARY) setRealtimeModel(payload);
     if (payload.contract_type === TEMPORAL_EXPLORER_SUMMARY) setTemporalExplorerModel(payload);
     if (payload.contract_type === MODEL_LAYER_READINESS) setModelLayerModel(payload);
+    if (payload.contract_type === MODEL_LAYER_EVALUATION) setModelLayerEvaluationModel(payload);
     if (payload.contract_type === MODEL_PROMOTION_POSTURE) setModelPromotionModel(payload);
     if (payload.contract_type === EXECUTION_RUNTIME_STATUS) setExecutionRuntimeModel(payload);
     setReadModelErrors((previous) => {
@@ -3894,10 +3980,11 @@ function App() {
     void loadReadModel(REALTIME_SIGNAL_SUMMARY, controller.signal);
     void loadReadModel(EXECUTION_RUNTIME_STATUS, controller.signal);
     void loadOptionalReadModel(MODEL_LAYER_READINESS, controller.signal);
+    void loadOptionalReadModel(MODEL_LAYER_EVALUATION, controller.signal);
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE, controller.signal);
     const liveContracts = new Set<string>();
     const contracts = [CURRENT_SYSTEM_STATUS, TEMPORAL_EXPLORER_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY, EXECUTION_RUNTIME_STATUS];
-    const optionalContracts = [MODEL_LAYER_READINESS, MODEL_PROMOTION_POSTURE];
+    const optionalContracts = [MODEL_LAYER_READINESS, MODEL_LAYER_EVALUATION, MODEL_PROMOTION_POSTURE];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         liveContracts.add(contractType);
@@ -3969,6 +4056,10 @@ function App() {
     if (!modelLayerModel || !isModelLayerReadinessChart(modelLayerModel.chart_payload)) return {} as ModelLayerReadinessChartPayload;
     return modelLayerModel.chart_payload;
   }, [modelLayerModel]);
+  const modelLayerEvaluationChart = useMemo(() => {
+    if (!modelLayerEvaluationModel || !isModelLayerEvaluationChart(modelLayerEvaluationModel.chart_payload)) return {} as ModelLayerEvaluationChartPayload;
+    return modelLayerEvaluationModel.chart_payload;
+  }, [modelLayerEvaluationModel]);
   const modelPromotionChart = useMemo(() => {
     if (!modelPromotionModel || !isModelPromotionPostureChart(modelPromotionModel.chart_payload)) return {} as ModelPromotionPostureChartPayload;
     return modelPromotionModel.chart_payload;
@@ -4372,6 +4463,7 @@ function App() {
         <ModelLayerOverview
           chart={chart}
           layerChart={modelLayerChart}
+          layerEvaluationChart={modelLayerEvaluationChart}
           promotionChart={modelPromotionChart}
           runtimeChart={executionRuntimeChart}
         />
@@ -4413,6 +4505,7 @@ function App() {
     void loadReadModel(REALTIME_SIGNAL_SUMMARY);
     void loadReadModel(EXECUTION_RUNTIME_STATUS);
     void loadOptionalReadModel(MODEL_LAYER_READINESS);
+    void loadOptionalReadModel(MODEL_LAYER_EVALUATION);
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE);
   };
 
