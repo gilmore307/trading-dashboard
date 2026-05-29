@@ -2273,11 +2273,19 @@ function EvaluationDisagreementPanel({
   version: ModelGroupPromotionVersionPayload | null;
 }) {
   const report = evaluationDisagreementReport(version);
-  if (!version || !report) {
+  if (!version) {
     return (
       <section className="model-chart-panel disagreement-panel">
         <div className="model-chart-title">Evaluation Disagreement Report</div>
         <div className="empty-chart compact">Select a model with disagreement evidence</div>
+      </section>
+    );
+  }
+  if (!report) {
+    return (
+      <section className="model-chart-panel disagreement-panel">
+        <div className="model-chart-title">Evaluation Disagreement Report · {compactVersionLabel(version, 0)}</div>
+        <div className="empty-chart compact">Selected model was evaluated before disagreement evidence was published. Rerun model-group evaluation to populate this panel.</div>
       </section>
     );
   }
@@ -2431,7 +2439,7 @@ function ModelGroupDetail({
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <IdentityDistribution versions={versions} />
-      <EvaluationDisagreementPanel version={selectedVersion ?? diagnosticVersion} />
+      <EvaluationDisagreementPanel version={selectedVersion} />
       <ModelScorecardSection title="Ranking / Calibration" subtitle="Prediction sorting and probability quality; AUROC is diagnostic, not the hard promotion gate.">
         {selectedVersion ? (
           <RocCurveChart version={selectedVersion} emptyLabel="ROC curve not published" />
