@@ -2606,6 +2606,194 @@ function ModelParameterGrid({ definition }: { definition: ModelLayerDefinition }
   );
 }
 
+function layerTaskCounts(tasks: HistoricalTaskTimelineItemPayload[]): Record<string, number> {
+  return tasks.reduce<Record<string, number>>((counts, task) => {
+    const key = String(task.status || task.task_state || 'unknown').toLowerCase();
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function latestLayerTask(tasks: HistoricalTaskTimelineItemPayload[]): HistoricalTaskTimelineItemPayload | null {
+  if (!tasks.length) return null;
+  return [...tasks].sort((left, right) => String(
+    right.status_updated_at_utc ?? right.updated_at_utc ?? right.ended_at_utc ?? right.started_at_utc ?? right.created_at_utc ?? '',
+  ).localeCompare(String(left.status_updated_at_utc ?? left.updated_at_utc ?? left.ended_at_utc ?? left.started_at_utc ?? left.created_at_utc ?? '')))[0] ?? null;
+}
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  return [...new Set(values.map((value) => String(value ?? '').trim()).filter(Boolean))];
+}
+
+function layerBlockers(view: ModelLayerView): string[] {
+  return uniqueStrings([
+    ...(view.lifecycle?.blockers ?? []),
+    ...view.promotions.flatMap((item) => item.blockers ?? []),
+    ...view.tasks.flatMap((task) => task.detail?.blockers ?? []),
+  ]);
+}
+
+function layerEvidenceRefs(view: ModelLayerView): string[] {
+  return uniqueStrings([
+    ...(view.lifecycle?.versions ?? []).map((version) => String(version.artifact_ref ?? '')),
+    ...view.tasks.flatMap((task) => task.detail?.receipt_refs ?? []),
+  ]);
+}
+
+function boolGateLabel(value: boolean | null | undefined): string {
+  if (value === true) return 'Allowed';
+  if (value === false) return 'Blocked';
+  return 'Not reported';
+}
+
+function boolGateSeverity(value: boolean | null | undefined): string {
+  if (value === true) return 'medium';
+  if (value === false) return 'low';
+  return 'info';
+}
+
+function progressForTasks(tasks: HistoricalTaskTimelineItemPayload[]): { expected: number; ready: number; failed: number; percent: number } {
+  const totals = tasks.reduce(
+    (acc, task) => {
+      const progress = task.detail?.progress;
+      if (!progress) {
+        if (['succeeded', 'not_applicable'].includes(String(task.status).toLowerCase())) {
+          acc.expected += 1;
+          acc.ready += 1;
+        } else if (String(task.status).toLowerCase() === 'failed') {
+          acc.expected += 1;
+          acc.failed += 1;
+        }
+        return acc;
+      }
+      acc.expected += Math.max(0, progress.expected_count ?? 0);
+      acc.ready += Math.max(0, progress.ready_count ?? 0);
+      acc.failed += Math.max(0, progress.failed_count ?? 0);
+      return acc;
+    },
+    { expected: 0, ready: 0, failed: 0 },
+  );
+  const percent = totals.expected > 0 ? (Math.min(totals.ready, totals.expected) / totals.expected) * 100 : 0;
+  return { ...totals, percent };
+}
+
+function LayerStatusCards({ view }: { view: ModelLayerView }) {
+  const latestTask = latestLayerTask(view.tasks);
+  const promotion = view.promotions[0] ?? null;
+  const blockers = layerBlockers(view);
+  const evidenceRefs = layerEvidenceRefs(view);
+  const progress = progressForTasks(view.tasks);
+  const lifecycleStatus = view.lifecycle?.lifecycle_status ?? view.lifecycle?.status ?? latestTask?.status ?? 'not_started';
+  return (
+    <div className="layer-status-grid">
+      <section className="layer-status-card">
+        <span>Lifecycle</span>
+        <strong>{startCase(String(lifecycleStatus))}</strong>
+        <small>{view.lifecycle?.summary ?? latestTask?.reason ?? 'No lifecycle summary has been published yet.'}</small>
+      </section>
+      <section className="layer-status-card">
+        <span>Task Progress</span>
+        <strong>{formatPercent(progress.percent)}</strong>
+        <div className="mini-progress" aria-label={`Layer progress ${formatPercent(progress.percent)}`}>
+          <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
+        </div>
+        <small>{progress.ready}/{progress.expected || view.tasks.length} ready units · {progress.failed} failed</small>
+      </section>
+      <section className="layer-status-card">
+        <span>Promotion</span>
+        <strong>{startCase(String(promotion?.promotion_status ?? view.lifecycle?.promotion?.status ?? 'not_reported'))}</strong>
+        <small>{promotion?.summary ?? recordSummary(view.lifecycle?.promotion) ?? 'No promotion posture published for this layer.'}</small>
+      </section>
+      <section className="layer-status-card">
+        <span>Evidence</span>
+        <strong>{evidenceRefs.length} refs</strong>
+        <small>{blockers.length ? `${blockers.length} blocker(s): ${blockers.slice(0, 2).join(' · ')}` : 'No blockers attached.'}</small>
+      </section>
+    </div>
+  );
+}
+
+function LayerTaskTimeline({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
+  if (!tasks.length) return <div className="empty-chart compact">No task timeline rows published for this layer</div>;
+  return (
+    <div className="layer-task-list">
+      {[...tasks].sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0)).map((task) => {
+        const progress = taskProgressView(task);
+        const receipts = task.detail?.receipt_refs ?? [];
+        const blockers = task.detail?.blockers ?? [];
+        return (
+          <article className="layer-task-row" key={task.task_uid ?? `${task.month}-${task.task_id}`}>
+            <div className="layer-task-main">
+              <div className="layer-task-title">
+                <strong>{task.task_label}</strong>
+                <div className="task-title-badges">
+                  <StatusPill status={task.status} severity={modelStatusSeverity(task.status)} />
+                  <StatusPill status={task.task_state} severity={taskStateSeverity(task.task_state)} />
+                </div>
+              </div>
+              <div className="task-meta">
+                <span>{monthLabel(task.month)}</span>
+                <span>{task.stage_type ? startCase(task.stage_type) : task.task_id}</span>
+                {task.detail?.worker?.worker_label ? <span>{task.detail.worker.worker_label}</span> : null}
+              </div>
+              <div className={`task-row-progress${progress.hasEvidence ? '' : ' inferred'}${progress.failed ? ' failed' : ''}`}>
+                <div className="task-row-progress-copy">
+                  <span>{progress.label}</span>
+                  <small>{progress.hint}</small>
+                </div>
+                <div className="mini-progress" aria-label={`Task progress ${progress.label}`}>
+                  <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
+                </div>
+              </div>
+            </div>
+            <div className="layer-task-side">
+              <span>{receipts.length} receipts</span>
+              <span>{blockers.length} blockers</span>
+              <small>{timestampText(task.status_updated_at_utc ?? task.updated_at_utc)}</small>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function LayerEvidencePanel({ view }: { view: ModelLayerView }) {
+  const latestTask = latestLayerTask(view.tasks);
+  const detail = latestTask?.detail;
+  const dataset = detail?.dataset_unit;
+  const refs = layerEvidenceRefs(view);
+  const blockers = layerBlockers(view);
+  return (
+    <div className="layer-evidence-grid">
+      <section className="model-detail-section">
+        <span>Dataset Unit</span>
+        <strong>{dataset?.unit_kind ? startCase(dataset.unit_kind) : view.definition.trainingWindow}</strong>
+        <small>{dataset ? `${dataset.start_month ?? 'unknown'} to ${dataset.end_month ?? 'unknown'} · ${dataset.unit_months ?? '?'} months · target ${dataset.target_required ? 'required' : 'not required'}` : view.definition.inputScope}</small>
+      </section>
+      <section className="model-detail-section">
+        <span>Safety Gates</span>
+        <div className="layer-gate-list">
+          <StatusPill status={`provider ${boolGateLabel(detail?.provider_calls_allowed)}`} severity={boolGateSeverity(detail?.provider_calls_allowed)} />
+          <StatusPill status={`activation ${boolGateLabel(detail?.model_activation_allowed)}`} severity={boolGateSeverity(detail?.model_activation_allowed)} />
+          <StatusPill status={`broker ${boolGateLabel(detail?.broker_execution_allowed)}`} severity={boolGateSeverity(detail?.broker_execution_allowed)} />
+        </div>
+        <small>{detail?.safe_without_provider_calls === true ? 'Safe without provider calls.' : 'Provider safety not reported for the latest task.'}</small>
+      </section>
+      <section className="model-detail-section">
+        <span>Latest Refs</span>
+        <strong>{refs.length} evidence refs</strong>
+        {refs.length ? refs.slice(0, 4).map((ref) => <code key={ref}>{ref}</code>) : <small>No receipt or artifact refs attached.</small>}
+      </section>
+      <section className="model-detail-section">
+        <span>Current Blockers</span>
+        <strong>{blockers.length} blockers</strong>
+        {blockers.length ? blockers.slice(0, 4).map((blocker) => <code key={blocker}>{blocker}</code>) : <small>No blockers attached.</small>}
+      </section>
+    </div>
+  );
+}
+
 function ModelLayerDetail({
   view,
 }: {
@@ -2613,6 +2801,7 @@ function ModelLayerDetail({
 }) {
   const lifecycle = view.lifecycle;
   const versions = lifecycle?.versions ?? [];
+  const counts = layerTaskCounts(view.tasks);
   return (
     <section className="panel model-layer-detail-panel">
       <div className="model-layer-detail-head">
@@ -2620,8 +2809,9 @@ function ModelLayerDetail({
           <div className="panel-heading">Layer {view.definition.layer} · {view.definition.label}</div>
           <p className="panel-subtitle">{view.definition.description}</p>
         </div>
-        <StatusPill status="model component" severity="info" />
+        <StatusPill status={String(lifecycle?.lifecycle_status ?? lifecycle?.status ?? 'model component')} severity={modelStatusSeverity(String(lifecycle?.lifecycle_status ?? lifecycle?.status ?? 'model component'))} />
       </div>
+      <LayerStatusCards view={view} />
       <div className="model-detail-grid">
         <section className="model-detail-section">
           <span>Model Family</span>
@@ -2635,8 +2825,33 @@ function ModelLayerDetail({
         </section>
       </div>
       <section className="model-detail-section wide-detail">
+        <span>Inputs / Outputs</span>
+        <div className="layer-io-grid">
+          <div>
+            <strong>Input Scope</strong>
+            <small>{view.definition.inputScope}</small>
+          </div>
+          <div>
+            <strong>Output Surface</strong>
+            <small>{view.definition.outputSurface}</small>
+          </div>
+          <div>
+            <strong>Task Mix</strong>
+            <small>{Object.entries(counts).map(([status, count]) => `${startCase(status)} ${count}`).join(' · ') || 'No tasks published'}</small>
+          </div>
+        </div>
+      </section>
+      <section className="model-detail-section wide-detail">
         <span>Optimization Target</span>
         <ModelParameterGrid definition={view.definition} />
+      </section>
+      <section className="model-detail-section wide-detail">
+        <span>Layer Task Timeline</span>
+        <LayerTaskTimeline tasks={view.tasks} />
+      </section>
+      <section className="model-detail-section wide-detail">
+        <span>Evidence / Gates</span>
+        <LayerEvidencePanel view={view} />
       </section>
       <section className="model-detail-section wide-detail">
         <span>Published Versions</span>
