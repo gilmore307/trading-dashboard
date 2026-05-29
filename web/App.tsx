@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { HistoricalProgressVisual, MetricCard, ProgressBar, StatusPill } from './components';
 import { fetchDataTableCatalog, fetchDataTableRows, type DataTableQueryResult, type DataTableSpec } from './dataTables';
 import { formatTimestamp, startCase } from './format';
@@ -1188,6 +1188,20 @@ function decisionVariableDiagnostics(version: ModelGroupPromotionVersionPayload 
   return diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics as Record<string, unknown> : null;
 }
 
+function modelScorecards(version: ModelGroupPromotionVersionPayload | null): Record<string, unknown> | null {
+  const scorecards = version?.metrics?.scorecards;
+  return scorecards && typeof scorecards === 'object' && !Array.isArray(scorecards) ? scorecards as Record<string, unknown> : null;
+}
+
+function evaluationDisagreementReport(version: ModelGroupPromotionVersionPayload | null): Record<string, unknown> | null {
+  const report = version?.metrics?.evaluation_disagreement_report;
+  return report && typeof report === 'object' && !Array.isArray(report) ? report as Record<string, unknown> : null;
+}
+
+function scorecardSection(version: ModelGroupPromotionVersionPayload | null, key: string): Record<string, unknown> | null {
+  return nestedRecord(modelScorecards(version), key);
+}
+
 function coverageValues(diagnostics: Record<string, unknown> | null, field: string): Record<string, number> {
   const coverage = nestedRecord(diagnostics, 'coverage');
   const fieldCoverage = nestedRecord(coverage, field);
@@ -1202,6 +1216,18 @@ function coverageValues(diagnostics: Record<string, unknown> | null, field: stri
 
 function normalizedVariableSamples(diagnostics: Record<string, unknown> | null): Array<Record<string, unknown>> {
   return nestedArray(diagnostics, 'normalized_row_samples');
+}
+
+function scoreDecileReturnPoints(version: ModelGroupPromotionVersionPayload | null): Array<{ label: string; x: number; y: number }> {
+  const ranking = scorecardSection(version, 'ranking_calibration');
+  return nestedArray(ranking, 'score_decile_return')
+    .map((point) => ({
+      label: `D${metricNumber(point, 'decile')?.toFixed(0) ?? ''}`,
+      x: metricNumber(point, 'decile'),
+      y: metricNumber(point, 'excess_return_total') ?? metricNumber(point, 'net_return_total'),
+    }))
+    .filter((point): point is { label: string; x: number; y: number } => point.x !== null && point.y !== null)
+    .sort((left, right) => left.x - right.x);
 }
 
 function diagnosticPoints(version: ModelGroupPromotionVersionPayload | null, key: 'pca' | 'pcoa'): Array<Record<string, unknown>> {
@@ -1905,6 +1931,33 @@ function CostSensitivityCurve({
   );
 }
 
+function ScoreDecileReturnCurve({
+  version,
+  emptyLabel,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+  emptyLabel: string;
+}) {
+  const points = scoreDecileReturnPoints(version);
+  if (!version || !points.length) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">Score Decile Return</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  return (
+    <NumericDiagnosticCurve
+      title={`Score Decile Return · ${compactVersionLabel(version, 0)}`}
+      xLabel="Score decile"
+      yLabel="Excess return"
+      points={points}
+      valueLabel={(point) => `${point.label}: ${point.y.toFixed(4)}`}
+    />
+  );
+}
+
 function NumericDiagnosticCurve({
   title,
   xLabel,
@@ -1963,6 +2016,28 @@ function NumericDiagnosticCurve({
         <text x={padding} y={height - bottomPadding + 22}>{points[0].label}</text>
         <text x={width - padding} y={height - bottomPadding + 22} textAnchor="end">{points[points.length - 1].label}</text>
       </svg>
+    </section>
+  );
+}
+
+function ModelScorecardSection({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="model-scorecard-section">
+      <div className="model-scorecard-head">
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </div>
+      <div className="model-chart-grid">
+        {children}
+      </div>
     </section>
   );
 }
@@ -2192,6 +2267,45 @@ function DecisionVariableAuditPanel({
   );
 }
 
+function EvaluationDisagreementPanel({
+  version,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+}) {
+  const report = evaluationDisagreementReport(version);
+  if (!version || !report) {
+    return (
+      <section className="model-chart-panel disagreement-panel">
+        <div className="model-chart-title">Evaluation Disagreement Report</div>
+        <div className="empty-chart compact">Select a model with disagreement evidence</div>
+      </section>
+    );
+  }
+  const disagreements = nestedArray(report, 'disagreements');
+  const gateBasis = nestedRecord(report, 'promotion_gate_basis');
+  return (
+    <section className="model-chart-panel disagreement-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Evaluation Disagreement Report · {compactVersionLabel(version, 0)}</span>
+        <StatusPill status={`${metricNumber(report, 'disagreement_count') ?? disagreements.length} findings`} severity={disagreements.length ? 'medium' : 'low'} />
+      </div>
+      <div className="disagreement-gate-note">
+        AUROC hard gate: {String(gateBasis?.auroc_is_hard_gate ?? false)}
+      </div>
+      {disagreements.length ? (
+        <div className="disagreement-list">
+          {disagreements.slice(0, 5).map((item, index) => (
+            <div className="disagreement-row" key={`${item.type ?? index}`}>
+              <strong>{startCase(String(item.type ?? 'finding'))}</strong>
+              <span>{startCase(String(item.severity ?? 'notice'))}</span>
+            </div>
+          ))}
+        </div>
+      ) : <div className="empty-chart compact">No ranking/selection/economic disagreements detected</div>}
+    </section>
+  );
+}
+
 function ModelVersionTable({
   versions,
   selectedVersionId,
@@ -2317,8 +2431,8 @@ function ModelGroupDetail({
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <IdentityDistribution versions={versions} />
-      <DecisionVariableAuditPanel version={selectedVersion ?? diagnosticVersion} />
-      <div className="model-chart-grid">
+      <EvaluationDisagreementPanel version={selectedVersion ?? diagnosticVersion} />
+      <ModelScorecardSection title="Ranking / Calibration" subtitle="Prediction sorting and probability quality; AUROC is diagnostic, not the hard promotion gate.">
         {selectedVersion ? (
           <RocCurveChart version={selectedVersion} emptyLabel="ROC curve not published" />
         ) : (
@@ -2326,14 +2440,22 @@ function ModelGroupDetail({
         )}
         <AdaptiveDiagnosticChart title="Brier" globalSeries={versionMetricSeries(versions, 'brier_score')} selectedVersion={selectedVersion} selectedKind="monthly_brier" emptyLabel="Brier series not published" />
         <AdaptiveDiagnosticChart title="Calibration" globalSeries={versionMetricSeries(versions, 'ece')} selectedVersion={selectedVersion} selectedKind="calibration" emptyLabel="Calibration series not published" />
+        <ScoreDecileReturnCurve version={selectedVersion} emptyLabel="Select a model with score decile return evidence" />
+      </ModelScorecardSection>
+      <ModelScorecardSection title="Selection Quality" subtitle="Whether selected trades are good, bad fills are avoided, and skipped winners are attributed correctly.">
+        <AdaptiveDiagnosticChart title="Threshold Return" globalSeries={versionMetricSeries(versions, 'profit_factor')} selectedVersion={selectedVersion} selectedKind="threshold_return" emptyLabel="Threshold utility series not published" />
+        <DecisionVariableAuditPanel version={selectedVersion ?? diagnosticVersion} />
+      </ModelScorecardSection>
+      <ModelScorecardSection title="Economic Quality" subtitle="After-cost return, baseline-relative utility, drawdown, tail loss, and cost sensitivity.">
         <AdaptiveDiagnosticChart title="Economic Return" globalSeries={versionMetricSeries(versions, 'excess_return_total')} selectedVersion={selectedVersion} selectedKind="monthly_return" emptyLabel="Return series not published" />
         <AdaptiveDiagnosticChart title="Drawdown" globalSeries={versionMetricSeries(versions, 'max_drawdown')} selectedVersion={selectedVersion} selectedKind="monthly_drawdown" emptyLabel="Drawdown series not published" />
-        <AdaptiveDiagnosticChart title="Threshold Return" globalSeries={versionMetricSeries(versions, 'profit_factor')} selectedVersion={selectedVersion} selectedKind="threshold_return" emptyLabel="Profit-factor series not published" />
         <AdaptiveDiagnosticChart title="Cost Sensitivity" globalSeries={versionMetricSeries(versions, 'cost_sensitivity_2x')} selectedVersion={selectedVersion} selectedKind="cost_sensitivity" emptyLabel="Cost sensitivity series not published" />
+      </ModelScorecardSection>
+      <ModelScorecardSection title="Slices" subtitle="Long/short/flat, action/disposition, confidence-band, and feature-space separation views.">
         <AdaptiveDiagnosticChart title="Silhouette" globalSeries={versionMetricSeries(versions, 'silhouette_outcome_label')} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
         <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCA diagnostics not published" />
         <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCoA diagnostics not published" />
-      </div>
+      </ModelScorecardSection>
     </section>
   );
 }

@@ -246,6 +246,8 @@ Dashboard presentation:
 
 - one selectable model-group page plus one selectable page per model layer;
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
+- group page charts are organized as four scorecards: Ranking / Calibration, Selection Quality, Economic Quality, and Slices;
+- AUROC/ROC remains ranking evidence, while score-decile return, threshold utility, good/bad fills, missed winners, excess return, drawdown, cost sensitivity, long/short/action slices, PCA, and PCoA carry the owner-facing model-performance interpretation when published;
 - layer pages show component model definition, candidate ref, input/output boundary, score boundary, training window, and key parameters;
 - task states, task blockers, and workflow progress stay under Tasks/Diagnostics and are not model-page status labels.
 
