@@ -627,7 +627,7 @@ Chentong clarified that Models should focus on model behavior, validity, statist
 
 ### Decision
 
-Add a top-level Replay page. Replay consumes historical model-promotion/replay evidence and owns return, drawdown, cost, slice, and trade-outcome presentation. The primary return and drawdown charts are full-width overlays that can show multiple model versions at once, support hover readouts for the current x position, and support horizontal dragging so long time ranges remain readable. Models keeps model-group comparison, promotion identity, ranking/calibration, decision-variable diagnostics, feature-space plots, and layer-level optimization tables.
+Add a top-level Replay page. Replay consumes historical model-promotion/replay evidence and owns return, drawdown, cost, slice, and trade-outcome presentation. The primary return and drawdown charts are full-width overlays that can show multiple model versions at once, support selectable chart frames, support hover readouts for the current x position, and support horizontal dragging so long time ranges remain readable. Models keeps model-group comparison, promotion identity, ranking/calibration, decision-variable diagnostics, feature-space plots, and layer-level optimization tables.
 
 ### Consequences
 
