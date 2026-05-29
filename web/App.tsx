@@ -1151,6 +1151,44 @@ function latestVersionMetric(versions: ModelGroupPromotionVersionPayload[], key:
   return null;
 }
 
+function latestVersionWithDiagnostic(versions: ModelGroupPromotionVersionPayload[], key: 'pca' | 'pcoa'): ModelGroupPromotionVersionPayload | null {
+  for (const version of [...versions].reverse()) {
+    const diagnostics = featureDiagnostics(version);
+    const section = diagnostics?.[key];
+    if (section && typeof section === 'object' && !Array.isArray(section)) {
+      const points = (section as Record<string, unknown>).points;
+      if (Array.isArray(points) && points.length) {
+        return version;
+      }
+    }
+  }
+  return null;
+}
+
+function featureDiagnostics(version: ModelGroupPromotionVersionPayload | null): Record<string, unknown> | null {
+  const diagnostics = version?.metrics?.feature_diagnostics;
+  return diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics) ? diagnostics as Record<string, unknown> : null;
+}
+
+function diagnosticPoints(version: ModelGroupPromotionVersionPayload | null, key: 'pca' | 'pcoa'): Array<Record<string, unknown>> {
+  const diagnostics = featureDiagnostics(version);
+  const section = diagnostics?.[key];
+  if (!section || typeof section !== 'object' || Array.isArray(section)) return [];
+  const points = (section as Record<string, unknown>).points;
+  return Array.isArray(points) ? points.filter((point): point is Record<string, unknown> => Boolean(point) && typeof point === 'object' && !Array.isArray(point)) : [];
+}
+
+function diagnosticExplainedVariance(version: ModelGroupPromotionVersionPayload | null, key: 'pca' | 'pcoa'): string {
+  const diagnostics = featureDiagnostics(version);
+  const section = diagnostics?.[key];
+  if (!section || typeof section !== 'object' || Array.isArray(section)) return 'Variance not reported';
+  const ratio = (section as Record<string, unknown>).explained_variance_ratio;
+  if (!Array.isArray(ratio)) return 'Variance not reported';
+  const values = ratio.map((value) => typeof value === 'number' ? value : Number(value)).filter((value) => Number.isFinite(value));
+  if (!values.length) return 'Variance not reported';
+  return `Top axes ${(values.reduce((sum, value) => sum + value, 0) * 100).toFixed(1)}%`;
+}
+
 function ModelLifecycleStat({
   label,
   value,
@@ -1170,6 +1208,73 @@ function ModelLifecycleStat({
         {hint ? <small>{hint}</small> : null}
       </div>
       {status ? <StatusPill status={status} severity={modelStatusSeverity(status)} /> : null}
+    </section>
+  );
+}
+
+function FeatureScatterChart({
+  title,
+  version,
+  diagnosticKey,
+  emptyLabel,
+}: {
+  title: string;
+  version: ModelGroupPromotionVersionPayload | null;
+  diagnosticKey: 'pca' | 'pcoa';
+  emptyLabel: string;
+}) {
+  const points = diagnosticPoints(version, diagnosticKey)
+    .map((point) => ({
+      x: metricNumber(point, 'x'),
+      y: metricNumber(point, 'y'),
+      outcome: String(point.outcome_label ?? 'unknown'),
+      action: String(point.decision_action ?? ''),
+      target: String(point.target_ref ?? ''),
+      timestamp: String(point.timestamp ?? ''),
+    }))
+    .filter((point): point is { x: number; y: number; outcome: string; action: string; target: string; timestamp: string } => point.x !== null && point.y !== null);
+  if (!points.length) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">{title}</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  const width = 680;
+  const height = 260;
+  const padding = 32;
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const xRange = maxX - minX || 1;
+  const yRange = maxY - minY || 1;
+  const projectX = (value: number) => padding + ((value - minX) / xRange) * (width - padding * 2);
+  const projectY = (value: number) => height - padding - ((value - minY) / yRange) * (height - padding * 2);
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">{title}</span>
+        <strong>{diagnosticExplainedVariance(version, diagnosticKey)}</strong>
+      </div>
+      <svg className="model-scatter-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} />
+        <line x1={width / 2} y1={padding} x2={width / 2} y2={height - padding} />
+        {points.map((point, index) => (
+          <circle
+            key={`${point.timestamp}-${index}`}
+            cx={projectX(point.x)}
+            cy={projectY(point.y)}
+            r="4"
+            className={point.outcome === '1' ? 'scatter-positive' : point.outcome === '0' ? 'scatter-negative' : 'scatter-neutral'}
+          >
+            <title>{`${point.target || 'target'} ${point.action || 'action'} ${point.timestamp || ''}`}</title>
+          </circle>
+        ))}
+      </svg>
     </section>
   );
 }
@@ -1253,9 +1358,10 @@ function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionP
         <span>Version</span>
         <span>Identity</span>
         <span>AUROC</span>
-        <span>Excess</span>
-        <span>Drawdown</span>
-        <span>Rows</span>
+        <span>Brier</span>
+        <span>PCA</span>
+        <span>PCoA</span>
+        <span>Silhouette</span>
         <span>Decision</span>
       </div>
       {versions.length ? versions.map((version, index) => {
@@ -1266,9 +1372,10 @@ function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionP
             <strong>{compactVersionLabel(version, index)}</strong>
             <span><StatusPill status={identity} severity={modelStatusSeverity(identity)} /></span>
             <span>{formatMetricValue(metricNumber(metrics, 'auroc'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'excess_return_total'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'max_drawdown'))}</span>
-            <span>{displayValue(metricNumber(metrics, 'decision_row_count'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'brier_score'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'pca_variance_top2'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'pcoa_variance_top2'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'silhouette_outcome_label'))}</span>
             <span>{startCase(version.decision_status ?? version.agent_review_recommendation ?? 'not_reported')}</span>
           </div>
         );
@@ -1295,9 +1402,11 @@ function ModelGroupDetail({
   const lifecycleLayers = layers.map((layer) => layer.lifecycle).filter(Boolean) as ModelLayerLifecyclePayload[];
   const versions = groupPromotionVersions(layerChart, promotionChart, promotions);
   const latestAuroc = latestVersionMetric(versions, 'auroc');
+  const latestBrier = latestVersionMetric(versions, 'brier_score');
   const latestDrawdown = latestVersionMetric(versions, 'max_drawdown');
-  const latestRows = latestVersionMetric(versions, 'decision_row_count');
-  const pcaAvailable = versions.some((version) => Boolean(version.metrics?.pca_available || version.metrics?.pcoa_available));
+  const latestSilhouette = latestVersionMetric(versions, 'silhouette_outcome_label');
+  const pcaVersion = latestVersionWithDiagnostic(versions, 'pca');
+  const pcoaVersion = latestVersionWithDiagnostic(versions, 'pcoa');
   return (
     <section className="panel model-layer-detail-panel">
       <div className="model-layer-detail-head">
@@ -1309,14 +1418,16 @@ function ModelGroupDetail({
       </div>
       <div className="model-version-kpis">
         <section><span>Latest AUROC</span><strong>{formatMetricValue(latestAuroc)}</strong></section>
-        <section><span>Latest Drawdown</span><strong>{formatMetricValue(latestDrawdown)}</strong></section>
-        <section><span>Settlement Rows</span><strong>{displayValue(latestRows)}</strong></section>
-        <section><span>PCA / PCoA</span><strong>{pcaAvailable ? 'Available' : 'Pending'}</strong></section>
+        <section><span>Latest Brier</span><strong>{formatMetricValue(latestBrier)}</strong></section>
+        <section><span>Drawdown</span><strong>{formatMetricValue(latestDrawdown)}</strong></section>
+        <section><span>Silhouette</span><strong>{formatMetricValue(latestSilhouette)}</strong></section>
       </div>
       <div className="model-chart-grid">
         <MiniMetricLineChart title="AUROC by Promotion Version" series={versionMetricSeries(versions, 'auroc')} emptyLabel="AUROC series not published" />
         <MiniMetricLineChart title="Excess Return by Promotion Version" series={versionMetricSeries(versions, 'excess_return_total')} emptyLabel="Return series not published" />
-        <MiniMetricLineChart title="Max Drawdown by Promotion Version" series={versionMetricSeries(versions, 'max_drawdown')} emptyLabel="Drawdown series not published" />
+        <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" emptyLabel="PCA diagnostics not published" />
+        <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" emptyLabel="PCoA diagnostics not published" />
+        <MiniMetricLineChart title="Silhouette by Promotion Version" series={versionMetricSeries(versions, 'silhouette_outcome_label')} emptyLabel="Silhouette series not published" />
         <IdentityDistribution versions={versions} />
       </div>
       <ModelVersionTable versions={versions} />

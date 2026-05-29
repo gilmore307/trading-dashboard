@@ -128,6 +128,8 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .model-version-kpis strong { color: #f8fbff; font-size: 24px; line-height: 1.1; overflow-wrap: anywhere; }
 .model-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 .model-chart-panel { min-width: 0; padding: 14px; border-radius: 16px; background: rgba(2, 6, 23, .30); border: 1px solid rgba(148, 163, 184, .11); display: grid; gap: 12px; }
+.model-chart-title-row { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.model-chart-title-row strong { color: #cbd5e1; font-size: 12px; font-weight: 850; white-space: nowrap; }
 .model-line-chart { width: 100%; min-height: 210px; display: block; overflow: visible; }
 .model-line-chart line { stroke: rgba(148, 163, 184, .22); stroke-width: 1; }
 .model-line-chart polyline { fill: none; stroke: #67e8f9; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
@@ -137,6 +139,12 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .model-line-chart .model-point-retired { fill: #fbbf24; }
 .model-line-chart .model-point-candidate { fill: #a78bfa; }
 .model-line-chart text { fill: #8fa2ba; font-size: 12px; font-weight: 750; }
+.model-scatter-chart { width: 100%; min-height: 230px; display: block; }
+.model-scatter-chart line { stroke: rgba(148, 163, 184, .16); stroke-width: 1; }
+.model-scatter-chart circle { stroke: rgba(2, 6, 23, .72); stroke-width: 1.5; opacity: .86; }
+.model-scatter-chart .scatter-positive { fill: #34d399; }
+.model-scatter-chart .scatter-negative { fill: #f87171; }
+.model-scatter-chart .scatter-neutral { fill: #94a3b8; }
 .identity-bars { display: grid; gap: 12px; align-content: center; min-height: 210px; }
 .identity-row { display: grid; grid-template-columns: 82px minmax(0, 1fr) 32px; gap: 10px; align-items: center; color: #cbd5e1; font-size: 12px; font-weight: 800; }
 .identity-track { height: 14px; border-radius: 999px; overflow: hidden; background: rgba(15, 23, 42, .78); border: 1px solid rgba(148, 163, 184, .12); }
@@ -146,7 +154,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .identity-candidate { background: #a78bfa; }
 .identity-retired { background: #fbbf24; }
 .model-version-table-panel { min-width: 0; overflow-x: auto; display: grid; gap: 8px; }
-.model-table-row { display: grid; grid-template-columns: minmax(150px, .9fr) 112px repeat(4, minmax(92px, .55fr)) minmax(130px, .8fr); gap: 10px; align-items: center; min-width: 980px; padding: 11px 12px; border-radius: 13px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); color: #cbd5e1; font-size: 12px; }
+.model-table-row { display: grid; grid-template-columns: minmax(150px, .9fr) 112px repeat(5, minmax(92px, .55fr)) minmax(130px, .8fr); gap: 10px; align-items: center; min-width: 1080px; padding: 11px 12px; border-radius: 13px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); color: #cbd5e1; font-size: 12px; }
 .model-table-row strong { color: #f8fbff; overflow-wrap: anywhere; }
 .model-table-head { background: rgba(2, 6, 23, .48); color: #7c8ea5; text-transform: uppercase; letter-spacing: .09em; font-weight: 900; }
 
