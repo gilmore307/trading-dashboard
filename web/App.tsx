@@ -1113,10 +1113,17 @@ function metricNumber(metrics: Record<string, unknown> | undefined, key: string)
 function compactVersionLabel(version: ModelGroupPromotionVersionPayload, index: number): string {
   const label = String(version.version_label ?? '').trim();
   if (label) return label;
+  const target = String(version.target_symbol ?? '').trim().toUpperCase();
   const compactFold = /(?<year>20\d{2})[-_ ]?fold[-_ ]?(?<fold>\d+)/iu.exec(String(version.fold_id ?? ''));
-  if (compactFold?.groups) return `${compactFold.groups.year} fold${Number(compactFold.groups.fold)}`;
+  if (compactFold?.groups) {
+    const foldLabel = `${compactFold.groups.year} fold${Number(compactFold.groups.fold)}`;
+    return target ? `${target} ${foldLabel}` : foldLabel;
+  }
   const rangeFold = /(?<year>20\d{2})-(?<startMonth>\d{2})_\k<year>-\d{2}/u.exec(String(version.fold_id ?? version.candidate_model_ref ?? ''));
-  if (rangeFold?.groups) return `${rangeFold.groups.year} fold${Math.floor((Number(rangeFold.groups.startMonth) - 1) / 6) + 1}`;
+  if (rangeFold?.groups) {
+    const foldLabel = `${rangeFold.groups.year} fold${Math.floor((Number(rangeFold.groups.startMonth) - 1) / 6) + 1}`;
+    return target ? `${target} ${foldLabel}` : foldLabel;
+  }
   return String(version.version_id ?? '').trim() || `v${index + 1}`;
 }
 
