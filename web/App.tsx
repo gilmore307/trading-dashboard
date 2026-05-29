@@ -2538,6 +2538,108 @@ function ActiveModelEvidence({
   );
 }
 
+function parameterConfigKey(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function versionCandidateConfig(version: ModelGroupPromotionVersionPayload | null): Record<string, unknown> | null {
+  if (!version) return null;
+  const record = version as Record<string, unknown>;
+  for (const key of ['candidate_config', 'model_config', 'hyperparameters', 'parameters', 'tunable_parameters', 'optimization_parameters']) {
+    const candidate = maybeRecord(record[key]);
+    if (Object.keys(candidate).length) return candidate;
+  }
+  const metrics = maybeRecord(version.metrics);
+  for (const key of ['candidate_config', 'model_config', 'hyperparameters', 'parameters', 'tunable_parameters', 'optimization_parameters']) {
+    const candidate = maybeRecord(metrics[key]);
+    if (Object.keys(candidate).length) return candidate;
+  }
+  return null;
+}
+
+function nestedConfigValue(config: Record<string, unknown> | null, layer: ModelLayerDefinition, parameterLabel: string): unknown {
+  if (!config) return undefined;
+  const parameterKeys = [parameterLabel, parameterConfigKey(parameterLabel)];
+  const layerKeys = [
+    `layer_${String(layer.layer).padStart(2, '0')}`,
+    `layer_${layer.layer}`,
+    layer.label,
+    parameterConfigKey(layer.label),
+  ];
+  for (const layerKey of layerKeys) {
+    const layerConfig = maybeRecord(config[layerKey]);
+    for (const parameterKey of parameterKeys) {
+      if (parameterKey in layerConfig) return layerConfig[parameterKey];
+    }
+  }
+  for (const parameterKey of parameterKeys) {
+    if (parameterKey in config) return config[parameterKey];
+  }
+  return undefined;
+}
+
+function compactConfigValue(value: unknown): string {
+  if (value === undefined || value === null || value === '') return 'Not published';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(Number(value.toFixed(6))) : 'Not published';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'string') return value;
+  try {
+    const encoded = JSON.stringify(value);
+    return encoded.length > 80 ? `${encoded.slice(0, 77)}...` : encoded;
+  } catch {
+    return 'Published';
+  }
+}
+
+function VersionOptimizationParameters({
+  version,
+  layers,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+  layers: ModelLayerView[];
+}) {
+  if (!version) {
+    return (
+      <section className="model-chart-panel version-parameters-panel">
+        <div className="model-chart-title">Version Optimization Parameters</div>
+        <div className="empty-chart compact">Select a model version to inspect the parameter matrix</div>
+      </section>
+    );
+  }
+  const config = versionCandidateConfig(version);
+  const configMissing = !config || version.blocking_issues?.some((issue) => issue.toLowerCase().includes('candidate config evidence'));
+  const rows = layers.flatMap((view) => view.definition.optimizationTargets.map((parameter) => ({
+    layer: view.definition,
+    parameter,
+    value: nestedConfigValue(config, view.definition, parameter.label),
+  })));
+  return (
+    <section className="model-chart-panel version-parameters-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Version Optimization Parameters · {compactVersionLabel(version, 0)}</span>
+        <StatusPill status={configMissing ? 'config evidence missing' : 'config evidence available'} severity={configMissing ? 'medium' : 'low'} />
+      </div>
+      <div className="version-parameter-table" role="table" aria-label="Selected version optimization parameters">
+        <div className="version-parameter-row version-parameter-head" role="row">
+          <span>Layer</span>
+          <span>Parameter</span>
+          <span>Published Value</span>
+          <span>Optimization Target</span>
+        </div>
+        {rows.map((row) => (
+          <div className="version-parameter-row" role="row" key={`${row.layer.layer}-${row.parameter.label}`}>
+            <strong>{row.layer.layer} · {row.layer.label}</strong>
+            <span>{row.parameter.label}</span>
+            <span>{compactConfigValue(row.value)}</span>
+            <small>{row.parameter.value}</small>
+          </div>
+        ))}
+      </div>
+      {configMissing ? <div className="model-chart-note">This version does not publish candidate config evidence yet, so the table shows required optimization parameters and leaves current values as Not published.</div> : null}
+    </section>
+  );
+}
+
 function ModelGroupDetail({
   layers,
   layerChart,
@@ -2570,6 +2672,7 @@ function ModelGroupDetail({
       </div>
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
+      <VersionOptimizationParameters version={selectedVersion ?? activeVersion ?? versions[0] ?? null} layers={layers} />
       <ExcludedPromotionEvidencePanel exclusions={exclusions} />
       <IdentityDistribution versions={versions} />
       <EvaluationDisagreementPanel version={selectedVersion} />
