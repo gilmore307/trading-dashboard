@@ -14,6 +14,7 @@ import type {
   HistoricalTaskTimelineItemPayload,
   ModelLayerLifecyclePayload,
   ModelLayerReadinessChartPayload,
+  ModelGroupPromotionVersionPayload,
   ModelPromotionItemPayload,
   ModelPromotionPostureChartPayload,
   RealtimeSignalChartPayload,
@@ -787,7 +788,7 @@ type ModelLayerDefinition = {
   outputSurface: string;
   scoreBoundary: string;
   trainingWindow: string;
-  parameters: { label: string; value: string }[];
+  optimizationTargets: { label: string; value: string }[];
 };
 
 const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
@@ -803,10 +804,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Regime vector and market context scores.',
     scoreBoundary: 'Context only; it does not approve trades.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
-      { label: 'Panel unit', value: 'six_month_panel' },
-      { label: 'Split policy', value: 'chronological_rolling_fold_4_1_1' },
-      { label: 'Primary role', value: 'upstream context' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'regime separability across broad market states' },
+      { label: 'Loss pressure', value: 'minimize unstable state flips near fold boundaries' },
+      { label: 'Regularization goal', value: 'stable context features for downstream models' },
     ],
   },
   {
@@ -821,10 +822,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Sector context vector.',
     scoreBoundary: 'Context only; later layers own target/action decisions.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
-      { label: 'Panel unit', value: 'six_month_panel' },
-      { label: 'Context grain', value: 'sector / industry / proxy' },
-      { label: 'Primary role', value: 'relative backdrop' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'sector-relative context accuracy' },
+      { label: 'Loss pressure', value: 'avoid false sector rotation signals' },
+      { label: 'Regularization goal', value: 'proxy stability under market-regime shifts' },
     ],
   },
   {
@@ -839,10 +840,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Target state vector.',
     scoreBoundary: 'State representation only; no action threshold.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
-      { label: 'Dataset unit', value: 'target_symbol_six_month' },
-      { label: 'Target', value: 'AAPL for current fold' },
-      { label: 'Clock', value: 'point-in-time rows' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'target-state reconstruction fidelity' },
+      { label: 'Loss pressure', value: 'penalize stale or leaky point-in-time state' },
+      { label: 'Regularization goal', value: 'compact state vector for alpha/risk layers' },
     ],
   },
   {
@@ -857,10 +858,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Event failure risk vector.',
     scoreBoundary: 'Risk evidence only; residual attribution waits for Layer 10.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
-      { label: 'Event source', value: 'reviewed event observations' },
-      { label: 'Residual policy', value: 'post-replay in Layer 10' },
-      { label: 'Provider calls', value: 'none from dashboard' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'known event-failure risk detection' },
+      { label: 'Loss pressure', value: 'avoid treating duplicate/noisy events as hard blockers' },
+      { label: 'Regularization goal', value: 'separate pre-known event risk from residual attribution' },
     ],
   },
   {
@@ -875,10 +876,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Alpha confidence vector.',
     scoreBoundary: 'Score is model-trained; threshold policy belongs downstream.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
+    optimizationTargets: [
       { label: 'Horizons', value: '10min / 1h / 1D / 1W' },
-      { label: 'Feature count', value: '40 per horizon in current artifact' },
-      { label: 'Label type', value: 'after-cost return labels' },
+      { label: 'Primary target', value: 'after-cost alpha confidence' },
+      { label: 'Loss pressure', value: 'penalize high-confidence false positives' },
     ],
   },
   {
@@ -893,10 +894,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Dynamic risk policy vector.',
     scoreBoundary: 'Policy evidence only; broker/account mutation is forbidden here.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
-      { label: 'Risk surface', value: 'position sizing / stop posture / exposure pressure' },
-      { label: 'Safety', value: 'no broker or account mutation' },
-      { label: 'Primary role', value: 'risk adjustment' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'risk-adjusted exposure posture' },
+      { label: 'Loss pressure', value: 'penalize drawdown and tail-risk expansion' },
+      { label: 'Regularization goal', value: 'smooth risk changes under noisy alpha moves' },
     ],
   },
   {
@@ -911,10 +912,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Position projection vector.',
     scoreBoundary: 'Projection only; no final action instruction.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
-      { label: 'Exposure basis', value: 'pending-adjusted target exposure' },
-      { label: 'Path role', value: 'before underlying action' },
-      { label: 'Output role', value: 'projection / constraints' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'future exposure path error' },
+      { label: 'Loss pressure', value: 'penalize exposure overshoot and churn' },
+      { label: 'Regularization goal', value: 'stable path constraints for action selection' },
     ],
   },
   {
@@ -929,10 +930,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Underlying action plan and vector.',
     scoreBoundary: 'Offline action thesis; execution still requires later gates.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
-      { label: 'Action types', value: 'open / increase / decrease / maintain / no-trade' },
-      { label: 'Canonical handoff', value: 'risk target for Layer 10' },
-      { label: 'Expression handoff', value: 'optional Layer 9 context' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'underlying action utility after cost and risk' },
+      { label: 'Loss pressure', value: 'penalize unnecessary action churn' },
+      { label: 'Regularization goal', value: 'conservative action choice near invalidation zones' },
     ],
   },
   {
@@ -947,10 +948,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Option expression plan and expression vector.',
     scoreBoundary: 'Optional expression context; not an order instruction.',
     trainingWindow: '4 months train + 1 month validation + 1 month test.',
-    parameters: [
-      { label: 'Current source status', value: 'can encode optionable_chain_missing' },
-      { label: 'Candidate surface', value: 'contract fit / IV / Greeks / liquidity / reward-risk' },
-      { label: 'Fallback', value: 'underlying-only / no-option expression' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'expression fit versus underlying thesis' },
+      { label: 'Loss pressure', value: 'penalize illiquid or IV-unfavorable expression' },
+      { label: 'Regularization goal', value: 'prefer no-option fallback when chain evidence is weak' },
     ],
   },
   {
@@ -965,10 +966,10 @@ const MODEL_LAYER_DEFINITIONS: ModelLayerDefinition[] = [
     outputSurface: 'Event risk intervention and attribution evidence.',
     scoreBoundary: 'Governor overlay; promotion still happens at model-group level.',
     trainingWindow: 'Post-replay failure attribution, counted by failure units.',
-    parameters: [
-      { label: 'Unit', value: 'failure attribution' },
-      { label: 'Trigger', value: 'after replay' },
-      { label: 'Purpose', value: 'residual risk governance' },
+    optimizationTargets: [
+      { label: 'Primary target', value: 'residual event-risk attribution accuracy' },
+      { label: 'Loss pressure', value: 'penalize missed event-caused failures' },
+      { label: 'Regularization goal', value: 'separate true event regimes from one-off noise' },
     ],
   },
 ];
@@ -1072,6 +1073,79 @@ function groupPromotionRecord(layers: ModelLayerLifecyclePayload[], promotions: 
   return maybeRecord(layers.find((layer) => layer.promotion)?.promotion) || maybeRecord(promotions[0]);
 }
 
+function groupPromotionVersions(layerChart: ModelLayerReadinessChartPayload, promotionChart: ModelPromotionPostureChartPayload, promotions: ModelPromotionItemPayload[]): ModelGroupPromotionVersionPayload[] {
+  const fromPromotion = promotionChart.group_versions ?? [];
+  const fromLayer = Array.isArray(layerChart.group_versions) ? layerChart.group_versions as ModelGroupPromotionVersionPayload[] : [];
+  if (fromPromotion.length) return fromPromotion;
+  if (fromLayer.length) return fromLayer;
+  return promotions.map((item) => ({
+    version_id: item.version_id ?? item.model_ref ?? item.model_id,
+    fold_id: String(item.version_id ?? '').split(':')[0] || null,
+    candidate_model_ref: item.model_ref ?? null,
+    identity: modelIdentity(item),
+    decision_status: item.promotion_status ?? null,
+    agent_review_recommendation: item.latest_agent_decision_status ?? null,
+    updated_at_utc: item.latest_updated_at_utc ?? item.updated_at_utc,
+    metrics: {},
+    blocking_issues: item.blockers ?? [],
+    summary: item.summary ?? null,
+  }));
+}
+
+function modelIdentity(item: Pick<ModelPromotionItemPayload, 'activation_status' | 'promotion_status'> | ModelGroupPromotionVersionPayload): string {
+  const identity = 'identity' in item ? String(item.identity ?? '').toLowerCase() : '';
+  if (identity) return identity;
+  const activation = String(item.activation_status ?? '').toLowerCase();
+  const status = String('decision_status' in item ? item.decision_status ?? '' : item.promotion_status ?? '').toLowerCase();
+  if (activation === 'active' || status === 'active') return 'active';
+  if (['eligible', 'shadow', 'approved', 'promoted'].includes(status)) return 'shadow';
+  if (['deferred', 'rejected', 'revoked', 'superseded', 'blocked'].includes(status)) return 'retired';
+  return 'candidate';
+}
+
+function metricNumber(metrics: Record<string, unknown> | undefined, key: string): number | null {
+  const value = metrics?.[key];
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function compactVersionLabel(version: ModelGroupPromotionVersionPayload, index: number): string {
+  const fold = String(version.fold_id ?? '').replace(/^fold_/u, '').replace('_', ' -> ');
+  return fold || `v${index + 1}`;
+}
+
+function versionMetricSeries(versions: ModelGroupPromotionVersionPayload[], key: string): Array<{ label: string; value: number; status?: string | null }> {
+  const points: Array<{ label: string; value: number; status?: string | null }> = [];
+  versions.forEach((version, index) => {
+    const value = metricNumber(version.metrics, key);
+    if (value !== null) {
+      points.push({ label: compactVersionLabel(version, index), value, status: version.decision_status });
+    }
+  });
+  return points;
+}
+
+function identityCounts(versions: ModelGroupPromotionVersionPayload[]): Record<string, number> {
+  return versions.reduce<Record<string, number>>((counts, version) => {
+    const identity = modelIdentity(version);
+    counts[identity] = (counts[identity] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+function formatMetricValue(value: number | null, digits = 3): string {
+  return value === null ? 'Not reported' : value.toFixed(digits);
+}
+
+function latestVersionMetric(versions: ModelGroupPromotionVersionPayload[], key: string): number | null {
+  for (const version of [...versions].reverse()) {
+    const value = metricNumber(version.metrics, key);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
 function ModelLifecycleStat({
   label,
   value,
@@ -1095,104 +1169,151 @@ function ModelLifecycleStat({
   );
 }
 
+function MiniMetricLineChart({
+  title,
+  series,
+  emptyLabel,
+}: {
+  title: string;
+  series: Array<{ label: string; value: number; status?: string | null }>;
+  emptyLabel: string;
+}) {
+  if (!series.length) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">{title}</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  const width = 680;
+  const height = 210;
+  const padding = 34;
+  const values = series.map((point) => point.value);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = maxValue - minValue || 1;
+  const points = series.map((point, index) => {
+    const x = padding + (series.length === 1 ? 0.5 : index / (series.length - 1)) * (width - padding * 2);
+    const y = height - padding - ((point.value - minValue) / range) * (height - padding * 2);
+    return { ...point, x, y };
+  });
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title">{title}</div>
+      <svg className="model-line-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
+        <line x1={padding} y1={padding} x2={padding} y2={height - padding} />
+        <polyline points={points.map((point) => `${point.x},${point.y}`).join(' ')} />
+        {points.map((point) => (
+          <g key={`${point.label}-${point.value}`}>
+            <circle cx={point.x} cy={point.y} r="5" className={`model-point-${modelIdentity({ promotion_status: point.status })}`} />
+            <text x={point.x} y={height - 10} textAnchor="middle">{point.label}</text>
+            <text x={point.x} y={Math.max(16, point.y - 10)} textAnchor="middle">{point.value.toFixed(3)}</text>
+          </g>
+        ))}
+      </svg>
+    </section>
+  );
+}
+
+function IdentityDistribution({ versions }: { versions: ModelGroupPromotionVersionPayload[] }) {
+  const counts = identityCounts(versions);
+  const identities = ['active', 'shadow', 'candidate', 'retired'];
+  const total = Math.max(1, versions.length);
+  return (
+    <section className="model-chart-panel identity-panel">
+      <div className="model-chart-title">Version Identity</div>
+      <div className="identity-bars">
+        {identities.map((identity) => {
+          const count = counts[identity] ?? 0;
+          return (
+            <div className="identity-row" key={identity}>
+              <span>{startCase(identity)}</span>
+              <div className="identity-track"><div className={`identity-fill identity-${identity}`} style={{ width: `${(count / total) * 100}%` }} /></div>
+              <strong>{count}</strong>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionPayload[] }) {
+  return (
+    <section className="model-version-table-panel">
+      <div className="model-table-row model-table-head">
+        <span>Version</span>
+        <span>Identity</span>
+        <span>AUROC</span>
+        <span>Excess</span>
+        <span>Drawdown</span>
+        <span>Rows</span>
+        <span>Decision</span>
+      </div>
+      {versions.length ? versions.map((version, index) => {
+        const metrics = version.metrics ?? {};
+        const identity = modelIdentity(version);
+        return (
+          <div className="model-table-row" key={String(version.version_id ?? index)}>
+            <strong>{compactVersionLabel(version, index)}</strong>
+            <span><StatusPill status={identity} severity={modelStatusSeverity(identity)} /></span>
+            <span>{formatMetricValue(metricNumber(metrics, 'auroc'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'excess_return_total'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'max_drawdown'))}</span>
+            <span>{displayValue(metricNumber(metrics, 'decision_row_count'))}</span>
+            <span>{startCase(version.decision_status ?? version.agent_review_recommendation ?? 'not_reported')}</span>
+          </div>
+        );
+      }) : (
+        <div className="empty-chart compact">No model-group promotion versions published yet</div>
+      )}
+    </section>
+  );
+}
+
 function ModelGroupDetail({
   layers,
   promotions,
   layerChart,
   runtimeChart,
+  promotionChart,
 }: {
   layers: ModelLayerView[];
   promotions: ModelPromotionItemPayload[];
   layerChart: ModelLayerReadinessChartPayload;
   runtimeChart: ExecutionRuntimeStatusChartPayload;
+  promotionChart: ModelPromotionPostureChartPayload;
 }) {
   const lifecycleLayers = layers.map((layer) => layer.lifecycle).filter(Boolean) as ModelLayerLifecyclePayload[];
-  const evaluation = groupEvaluationRecord(lifecycleLayers);
-  const promotion = groupPromotionRecord(lifecycleLayers, promotions);
-  const promotionStatusCounts = promotions.reduce<Record<string, number>>((counts, item) => {
-    const status = String(item.promotion_status ?? 'not_reported').toLowerCase();
-    counts[status] = (counts[status] ?? 0) + 1;
-    return counts;
-  }, {});
-  const promotedCount = promotions.filter((item) => ['promoted', 'approved', 'active', 'shadow'].includes(String(item.promotion_status ?? item.activation_status ?? '').toLowerCase())).length;
-  const totalCandidates = promotions.length || layers.length;
-  const promotionRate = totalCandidates > 0 ? (promotedCount / totalCandidates) * 100 : 0;
-  const activeRef = activeModelRef(runtimeChart) ?? layerChart.active_model_ref ?? null;
-  const shadowRefs = layerChart.shadow_model_refs ?? [];
-  const retiringRefs = layerChart.retiring_model_refs ?? [];
-  const eliminatedRefs = layerChart.eliminated_model_refs ?? [];
-  const promotionSummary = recordSummary(promotion);
+  const versions = groupPromotionVersions(layerChart, promotionChart, promotions);
+  const latestAuroc = latestVersionMetric(versions, 'auroc');
+  const latestDrawdown = latestVersionMetric(versions, 'max_drawdown');
+  const latestRows = latestVersionMetric(versions, 'decision_row_count');
+  const pcaAvailable = versions.some((version) => Boolean(version.metrics?.pca_available || version.metrics?.pcoa_available));
   return (
     <section className="panel model-layer-detail-panel">
       <div className="model-layer-detail-head">
         <div>
-          <div className="panel-heading">0 · Model Group Pipeline</div>
-          <p className="panel-subtitle">Promotion, evaluation, active/shadow posture, and retirement are model-group decisions. Individual layers are model components inside this group.</p>
+          <div className="panel-heading">0 · Model Group Versions</div>
+          <p className="panel-subtitle">Model-group promotion is version scoped. This page compares all published group versions, their identities, and their evaluation trajectory.</p>
         </div>
-        <StatusPill status={recordStatus(promotion, 'model_group')} severity={modelStatusSeverity(recordStatus(promotion, 'model_group'))} />
+        <StatusPill status={`${versions.length} versions`} severity="info" />
       </div>
-      <div className="metric-grid four model-lifecycle-grid">
-        <ModelLifecycleStat label="Promotion rate" value={`${formatPercent(promotionRate)} · ${promotedCount}/${totalCandidates}`} status={promotedCount ? 'promoted' : 'review_required'} hint="Promoted or active candidates over group candidates" />
-        <ModelLifecycleStat label="Review required" value={promotionStatusCounts.review_required ?? 0} status={(promotionStatusCounts.review_required ?? 0) ? 'review_required' : 'none'} hint="Group candidates awaiting promotion decision" />
-        <ModelLifecycleStat label="Active live" value={activeRef ?? 'None'} status={activeRef ? 'active' : 'not_active'} hint={runtimeChart.next_gate ?? 'No active model pointer reported'} />
-        <ModelLifecycleStat label="Shadow / retired" value={`${shadowRefs.length} / ${retiringRefs.length + eliminatedRefs.length}`} status={shadowRefs.length ? 'shadow' : 'none'} hint={`shadow ${shadowRefs.length}; retiring ${retiringRefs.length}; eliminated ${eliminatedRefs.length}`} />
+      <div className="model-version-kpis">
+        <section><span>Latest AUROC</span><strong>{formatMetricValue(latestAuroc)}</strong></section>
+        <section><span>Latest Drawdown</span><strong>{formatMetricValue(latestDrawdown)}</strong></section>
+        <section><span>Settlement Rows</span><strong>{displayValue(latestRows)}</strong></section>
+        <section><span>PCA / PCoA</span><strong>{pcaAvailable ? 'Available' : 'Pending'}</strong></section>
       </div>
-      <div className="model-detail-grid">
-        <section className="model-detail-section">
-          <span>Evaluation Scope</span>
-          <strong>Model group</strong>
-          <small>{recordSummary(evaluation)}</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Promotion Scope</span>
-          <strong>{startCase(recordStatus(promotion, 'not_reported'))}</strong>
-          <small>{promotionSummary}</small>
-        </section>
-        <section className="model-detail-section">
-          <span>AUROC</span>
-          <strong>{groupMetric(promotionSummary, 'AUROC') ?? 'Not reported'}</strong>
-          <small>Current read model publishes AUROC at model-group promotion scope.</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Settlement Rows</span>
-          <strong>{groupMetric(promotionSummary, 'settlement rows') ?? 'Not reported'}</strong>
-          <small>Replay/evaluation settlement evidence for this model group.</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Excess Return</span>
-          <strong>{groupMetric(promotionSummary, 'excess_return_total') ?? 'Not reported'}</strong>
-          <small>Published group promotion metric.</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Max Drawdown</span>
-          <strong>{groupMetric(promotionSummary, 'max_drawdown') ?? 'Not reported'}</strong>
-          <small>Published group promotion metric.</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Blocking Issues</span>
-          <strong>{groupMetric(promotionSummary, 'blocking_issues') ?? '0'}</strong>
-          <small>Promotion blockers belong to the model group, not a single layer card.</small>
-        </section>
-        <section className="model-detail-section">
-          <span>PCA / Per-layer Metrics</span>
-          <strong>Not published here</strong>
-          <small>If a future producer emits per-layer evaluation metrics, this page will place them on the relevant layer. Current AUROC/promotion evidence is group-level.</small>
-        </section>
+      <div className="model-chart-grid">
+        <MiniMetricLineChart title="AUROC by Promotion Version" series={versionMetricSeries(versions, 'auroc')} emptyLabel="AUROC series not published" />
+        <MiniMetricLineChart title="Excess Return by Promotion Version" series={versionMetricSeries(versions, 'excess_return_total')} emptyLabel="Return series not published" />
+        <MiniMetricLineChart title="Max Drawdown by Promotion Version" series={versionMetricSeries(versions, 'max_drawdown')} emptyLabel="Drawdown series not published" />
+        <IdentityDistribution versions={versions} />
       </div>
-      <section className="model-detail-section wide-detail">
-        <span>Group Candidates</span>
-        <div className="model-version-list">
-          {promotions.map((item) => (
-            <article className="model-version-row" key={String(item.model_ref ?? item.version_id ?? item.model_id)}>
-              <div>
-                <strong>{String(item.model_name ?? item.model_id ?? item.model_ref ?? 'Model candidate')}</strong>
-                <small>{String(item.model_ref ?? item.version_id ?? 'No version ref')} · {startCase(item.evaluation_status ?? 'evaluation not reported')}</small>
-              </div>
-              <StatusPill status={item.promotion_status ?? 'not_reported'} severity={modelStatusSeverity(item.promotion_status)} />
-            </article>
-          ))}
-        </div>
-      </section>
+      <ModelVersionTable versions={versions} />
     </section>
   );
 }
@@ -1200,7 +1321,7 @@ function ModelGroupDetail({
 function ModelParameterGrid({ definition }: { definition: ModelLayerDefinition }) {
   return (
     <div className="model-parameter-grid">
-      {definition.parameters.map((parameter) => (
+      {definition.optimizationTargets.map((parameter) => (
         <section className="model-parameter-card" key={parameter.label}>
           <span>{parameter.label}</span>
           <strong>{parameter.value}</strong>
@@ -1216,13 +1337,7 @@ function ModelLayerDetail({
   view: ModelLayerView;
 }) {
   const lifecycle = view.lifecycle;
-  const latestVersion = lifecycle?.latest_version_ref ?? lifecycle?.current_version_ref ?? lifecycle?.versions?.[0]?.version_id ?? view.promotions[0]?.model_ref ?? 'No candidate version reported';
-  const latestUpdated = lifecycle?.latest_updated_at_utc ?? lifecycle?.updated_at_utc ?? view.promotions[0]?.latest_updated_at_utc ?? latestTaskUpdate(view.tasks);
-  const generatedRows = view.tasks
-    .filter((task) => task.stage_type === 'model_generation')
-    .map((task) => task.detail?.progress?.ready_count)
-    .filter((value): value is number => typeof value === 'number')
-    .reduce((sum, value) => sum + value, 0);
+  const versions = lifecycle?.versions ?? [];
   return (
     <section className="panel model-layer-detail-panel">
       <div className="model-layer-detail-head">
@@ -1239,38 +1354,28 @@ function ModelLayerDetail({
           <small>{view.definition.objective}</small>
         </section>
         <section className="model-detail-section">
-          <span>Current Candidate</span>
-          <strong>{latestVersion}</strong>
-          <small>{latestUpdated ? `Updated ${formatTimestamp(latestUpdated)}` : 'No update timestamp reported'}</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Input Scope</span>
-          <strong>{view.definition.inputScope}</strong>
-          <small>{view.definition.trainingWindow}</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Output Surface</span>
-          <strong>{view.definition.outputSurface}</strong>
+          <span>Layer Role</span>
+          <strong>{view.definition.detail}</strong>
           <small>{view.definition.scoreBoundary}</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Generated Rows</span>
-          <strong>{generatedRows ? displayValue(generatedRows) : 'Not reported'}</strong>
-          <small>Shown as model asset evidence, not task progress.</small>
-        </section>
-        <section className="model-detail-section">
-          <span>Evaluation / Promotion</span>
-          <strong>Model-group scope</strong>
-          <small>AUROC, settlement, promotion, active/shadow/retirement are shown in tab 0.</small>
         </section>
       </div>
       <section className="model-detail-section wide-detail">
-        <span>Model Parameters</span>
+        <span>Optimization Target</span>
         <ModelParameterGrid definition={view.definition} />
       </section>
       <section className="model-detail-section wide-detail">
-        <span>Layer Role</span>
-        <strong>{view.definition.detail}</strong>
+        <span>Published Versions</span>
+        <div className="model-version-list">
+          {versions.length ? versions.map((version, index) => (
+            <article className="model-version-row" key={String(version.version_id ?? index)}>
+              <div>
+                <strong>{String(version.version_id ?? version.model_version ?? version.run_id ?? 'Model version')}</strong>
+                <small>{String(version.summary ?? version.artifact_ref ?? '')}</small>
+              </div>
+              <StatusPill status={String(version.role ?? version.lifecycle_status ?? 'candidate')} severity={modelStatusSeverity(String(version.lifecycle_status ?? version.role ?? 'candidate'))} />
+            </article>
+          )) : <div className="empty-chart compact">No published layer version yet</div>}
+        </div>
         <small>{lifecycle?.summary ?? 'No lifecycle note published for this layer yet.'}</small>
       </section>
     </section>
@@ -1310,23 +1415,8 @@ function ModelLayerOverview({
   }));
   const promotions = promotionItems(promotionChart);
   const selectedView = layers.find((layer) => layer.definition.layer === selectedLayer) ?? layers[0];
-  const activeRef = activeModelRef(runtimeChart) ?? layerChart.active_model_ref ?? null;
-  const lifecycleLayers = layers.map((layer) => layer.lifecycle).filter(Boolean) as ModelLayerLifecyclePayload[];
-  const groupEvaluation = groupEvaluationRecord(lifecycleLayers);
-  const groupPromotion = groupPromotionRecord(lifecycleLayers, promotions);
-  const groupPromotionSummary = recordSummary(groupPromotion);
-  const promotedCount = promotions.filter((item) => ['promoted', 'approved', 'active', 'shadow'].includes(String(item.promotion_status ?? item.activation_status ?? '').toLowerCase())).length;
-  const totalCandidates = promotions.length || layers.length;
-  const promotionRate = totalCandidates > 0 ? (promotedCount / totalCandidates) * 100 : 0;
-  const reviewRequiredCount = promotions.filter((item) => String(item.promotion_status ?? '').toLowerCase() === 'review_required').length;
   return (
     <>
-      <section className="metric-grid four model-layer-summary">
-        <MetricCard label="Promotion rate" value={`${formatPercent(promotionRate)} · ${promotedCount}/${totalCandidates}`} hint="Model-group candidates promoted, active, approved, or shadowed" />
-        <MetricCard label="Evaluation AUROC" value={groupMetric(groupPromotionSummary, 'AUROC') ?? 'Not reported'} hint="Published at model-group promotion scope" />
-        <MetricCard label="Live active model" value={activeRef ? 'Present' : 'None'} hint={activeRef ?? runtimeChart.next_gate ?? 'Execution runtime has no active model pointer'} />
-        <MetricCard label="Review required" value={reviewRequiredCount} hint={recordSummary(groupEvaluation)} />
-      </section>
       <section className="model-workspace">
         <nav className="panel model-layer-tabs" aria-label="Model layer pages">
           <div className="panel-heading">Model Pages</div>
@@ -1337,8 +1427,8 @@ function ModelLayerOverview({
           >
             <span>0</span>
             <div>
-              <strong>Model Group Pipeline</strong>
-              <small>Evaluation, promotion, active, shadow, and retirement</small>
+              <strong>Model Group Versions</strong>
+              <small>Version identity, metrics, and promotion history</small>
             </div>
           </button>
           {layers.map((view) => {
@@ -1364,6 +1454,7 @@ function ModelLayerOverview({
             promotions={promotions}
             layerChart={layerChart}
             runtimeChart={runtimeChart}
+            promotionChart={promotionChart}
           />
         ) : (
           <ModelLayerDetail view={selectedView} />

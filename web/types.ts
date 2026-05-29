@@ -398,10 +398,29 @@ export interface ModelPromotionItemPayload {
   [key: string]: unknown;
 }
 
+export interface ModelGroupPromotionVersionPayload {
+  version_id?: string | null;
+  fold_id?: string | null;
+  candidate_model_ref?: string | null;
+  identity?: string | null;
+  decision_status?: string | null;
+  agent_review_recommendation?: string | null;
+  created_at_utc?: string | null;
+  updated_at_utc?: string | null;
+  metrics?: Record<string, unknown>;
+  blocking_issues?: string[];
+  summary?: string | null;
+  refs?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
 export interface ModelPromotionPostureChartPayload {
   models?: ModelPromotionItemPayload[];
   promotions?: ModelPromotionItemPayload[];
   items?: ModelPromotionItemPayload[];
+  group_versions?: ModelGroupPromotionVersionPayload[];
+  status_counts?: Record<string, number>;
+  identity_counts?: Record<string, number>;
   [key: string]: unknown;
 }
 

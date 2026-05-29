@@ -113,11 +113,11 @@ Those internals may be reachable only through an advanced diagnostic drawer when
 
 ### 4. Models
 
-Purpose: answer “What model group is eligible for live/shadow use, what evaluation and promotion evidence supports that posture, and what does each layer model actually do?”
+Purpose: answer “How are model-group versions evolving, which versions are active/shadow/retired, what objective does each component optimize, and what evaluation evidence supports the version trajectory?”
 
 Subpages:
 
-- 0 — Model Group Pipeline
+- 0 — Model Group Versions
 - Layer 1 — Market Regime
 - Layer 2 — Sector Context
 - Layer 3 — Target State Vector
@@ -131,18 +131,17 @@ Subpages:
 
 The model-group page owns:
 
-- group evaluation metrics such as AUROC when published at group scope;
-- promotion status, promotion rate, and promotion blockers;
-- active live pointer;
-- shadow, retiring, and eliminated candidate counts;
-- group candidate refs and update times.
+- all published model-group promotion versions;
+- active/shadow/retired/candidate identity by version;
+- version metric charts such as AUROC, excess return, drawdown, PCA, and PCoA when published;
+- promotion decision table rows with fold identity, decision, agent recommendation, and metric values.
 
 Layer pages own:
 
 - model family and objective;
-- input scope and output surface;
-- score boundary and training window;
-- latest candidate ref and update time;
+- layer role in the model group;
+- optimization target, loss pressure, and regularization goal;
+- published component versions when available.
 - key parameters or configuration summaries;
 - layer role in the pipeline.
 
