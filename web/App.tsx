@@ -1358,10 +1358,10 @@ function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionP
         <span>Version</span>
         <span>Identity</span>
         <span>AUROC</span>
-        <span>Brier</span>
-        <span>PCA</span>
-        <span>PCoA</span>
-        <span>Silhouette</span>
+        <span>PR-AUC</span>
+        <span>ECE</span>
+        <span>Profit</span>
+        <span>Integrity</span>
         <span>Decision</span>
       </div>
       {versions.length ? versions.map((version, index) => {
@@ -1372,10 +1372,10 @@ function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionP
             <strong>{compactVersionLabel(version, index)}</strong>
             <span><StatusPill status={identity} severity={modelStatusSeverity(identity)} /></span>
             <span>{formatMetricValue(metricNumber(metrics, 'auroc'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'brier_score'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'pca_variance_top2'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'pcoa_variance_top2'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'silhouette_outcome_label'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'pr_auc'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'ece'))}</span>
+            <span>{formatMetricValue(metricNumber(metrics, 'profit_factor'))}</span>
+            <span>{startCase(String(metrics.data_integrity_status ?? 'not_reported'))}</span>
             <span>{startCase(version.decision_status ?? version.agent_review_recommendation ?? 'not_reported')}</span>
           </div>
         );
@@ -1383,6 +1383,69 @@ function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionP
         <div className="empty-chart compact">No model-group promotion versions published yet</div>
       )}
     </section>
+  );
+}
+
+function ScientificEvidenceGrid({ versions }: { versions: ModelGroupPromotionVersionPayload[] }) {
+  const latest = versions.length ? versions[versions.length - 1] : null;
+  const metrics = latest?.metrics ?? {};
+  const cards = [
+    {
+      title: 'Predictive',
+      tag: 'Gate candidate',
+      items: [
+        ['AUROC', formatMetricValue(metricNumber(metrics, 'auroc'))],
+        ['PR-AUC', formatMetricValue(metricNumber(metrics, 'pr_auc'))],
+        ['Base rate', formatMetricValue(metricNumber(metrics, 'base_rate'))],
+      ],
+    },
+    {
+      title: 'Calibration',
+      tag: 'Gate candidate',
+      items: [
+        ['Brier', formatMetricValue(metricNumber(metrics, 'brier_score'))],
+        ['ECE', formatMetricValue(metricNumber(metrics, 'ece'))],
+        ['MCE', formatMetricValue(metricNumber(metrics, 'mce'))],
+      ],
+    },
+    {
+      title: 'Economic',
+      tag: 'Gate candidate',
+      items: [
+        ['Profit factor', formatMetricValue(metricNumber(metrics, 'profit_factor'))],
+        ['Tail p05', formatMetricValue(metricNumber(metrics, 'tail_loss_p05'))],
+        ['2x cost return', formatMetricValue(metricNumber(metrics, 'cost_sensitivity_2x'))],
+      ],
+    },
+    {
+      title: 'Data Integrity',
+      tag: 'Data quality',
+      items: [
+        ['Leakage', startCase(String(metrics.leakage_check_status ?? 'not_reported'))],
+        ['Rows', displayValue(metricNumber(metrics, 'decision_row_count'))],
+        ['Months', displayValue(metricNumber(metrics, 'month_slice_count'))],
+      ],
+    },
+  ];
+  return (
+    <div className="scientific-evidence-grid">
+      {cards.map((card) => (
+        <section className="scientific-evidence-card" key={card.title}>
+          <div className="scientific-evidence-head">
+            <strong>{card.title}</strong>
+            <span>{card.tag}</span>
+          </div>
+          <div className="scientific-evidence-items">
+            {card.items.map(([label, value]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -1422,8 +1485,11 @@ function ModelGroupDetail({
         <section><span>Drawdown</span><strong>{formatMetricValue(latestDrawdown)}</strong></section>
         <section><span>Silhouette</span><strong>{formatMetricValue(latestSilhouette)}</strong></section>
       </div>
+      <ScientificEvidenceGrid versions={versions} />
       <div className="model-chart-grid">
         <MiniMetricLineChart title="AUROC by Promotion Version" series={versionMetricSeries(versions, 'auroc')} emptyLabel="AUROC series not published" />
+        <MiniMetricLineChart title="PR-AUC by Promotion Version" series={versionMetricSeries(versions, 'pr_auc')} emptyLabel="PR-AUC series not published" />
+        <MiniMetricLineChart title="ECE by Promotion Version" series={versionMetricSeries(versions, 'ece')} emptyLabel="ECE series not published" />
         <MiniMetricLineChart title="Excess Return by Promotion Version" series={versionMetricSeries(versions, 'excess_return_total')} emptyLabel="Return series not published" />
         <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" emptyLabel="PCA diagnostics not published" />
         <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" emptyLabel="PCoA diagnostics not published" />
