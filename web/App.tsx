@@ -1111,8 +1111,13 @@ function metricNumber(metrics: Record<string, unknown> | undefined, key: string)
 }
 
 function compactVersionLabel(version: ModelGroupPromotionVersionPayload, index: number): string {
-  const fold = String(version.fold_id ?? '').replace(/^fold_/u, '').replace('_', ' -> ');
-  return fold || `v${index + 1}`;
+  const label = String(version.version_label ?? '').trim();
+  if (label) return label;
+  const compactFold = /(?<year>20\d{2})[-_ ]?fold[-_ ]?(?<fold>\d+)/iu.exec(String(version.fold_id ?? ''));
+  if (compactFold?.groups) return `${compactFold.groups.year} fold${Number(compactFold.groups.fold)}`;
+  const rangeFold = /(?<year>20\d{2})-(?<startMonth>\d{2})_\k<year>-\d{2}/u.exec(String(version.fold_id ?? version.candidate_model_ref ?? ''));
+  if (rangeFold?.groups) return `${rangeFold.groups.year} fold${Math.floor((Number(rangeFold.groups.startMonth) - 1) / 6) + 1}`;
+  return String(version.version_id ?? '').trim() || `v${index + 1}`;
 }
 
 function versionMetricSeries(versions: ModelGroupPromotionVersionPayload[], key: string): Array<{ label: string; value: number; status?: string | null }> {
@@ -1187,28 +1192,29 @@ function MiniMetricLineChart({
     );
   }
   const width = 680;
-  const height = 210;
-  const padding = 34;
+  const height = 230;
+  const padding = 38;
+  const bottomPadding = 54;
   const values = series.map((point) => point.value);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
   const range = maxValue - minValue || 1;
   const points = series.map((point, index) => {
     const x = padding + (series.length === 1 ? 0.5 : index / (series.length - 1)) * (width - padding * 2);
-    const y = height - padding - ((point.value - minValue) / range) * (height - padding * 2);
+    const y = height - bottomPadding - ((point.value - minValue) / range) * (height - padding - bottomPadding);
     return { ...point, x, y };
   });
   return (
     <section className="model-chart-panel">
       <div className="model-chart-title">{title}</div>
       <svg className="model-line-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} />
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} />
+        <line x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
         <polyline points={points.map((point) => `${point.x},${point.y}`).join(' ')} />
         {points.map((point) => (
           <g key={`${point.label}-${point.value}`}>
             <circle cx={point.x} cy={point.y} r="5" className={`model-point-${modelIdentity({ promotion_status: point.status })}`} />
-            <text x={point.x} y={height - 10} textAnchor="middle">{point.label}</text>
+            <text x={point.x} y={height - 26} textAnchor="middle">{point.label}</text>
             <text x={point.x} y={Math.max(16, point.y - 10)} textAnchor="middle">{point.value.toFixed(3)}</text>
           </g>
         ))}

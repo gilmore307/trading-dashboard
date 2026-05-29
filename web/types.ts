@@ -400,6 +400,8 @@ export interface ModelPromotionItemPayload {
 
 export interface ModelGroupPromotionVersionPayload {
   version_id?: string | null;
+  version_label?: string | null;
+  promotion_run_id?: string | null;
   fold_id?: string | null;
   candidate_model_ref?: string | null;
   identity?: string | null;
