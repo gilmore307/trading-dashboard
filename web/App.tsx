@@ -1464,16 +1464,49 @@ function ModelLifecycleStat({
   );
 }
 
-type ScatterGroupKey = 'outcome_label' | 'decision_intended_side' | 'decision_intended_action' | 'decision_disposition';
+type ScatterGroupKey = 'outcome_label' | 'decision_action' | 'decision_intended_side' | 'decision_intended_action' | 'decision_disposition';
 
 const SCATTER_GROUP_OPTIONS: Array<{ key: ScatterGroupKey; label: string }> = [
   { key: 'outcome_label', label: 'Outcome' },
+  { key: 'decision_action', label: 'Decision' },
   { key: 'decision_intended_side', label: 'Side' },
   { key: 'decision_intended_action', label: 'Action' },
   { key: 'decision_disposition', label: 'Disposition' },
 ];
 
 const SCATTER_GROUP_COLORS = ['#34d399', '#f87171', '#38bdf8', '#fbbf24', '#a78bfa', '#fb7185', '#94a3b8'];
+
+function scatterGroupLabel(key: ScatterGroupKey): string {
+  return SCATTER_GROUP_OPTIONS.find((option) => option.key === key)?.label ?? startCase(key);
+}
+
+function scatterPartitionSignature(
+  points: Array<Record<ScatterGroupKey, string>>,
+  key: ScatterGroupKey,
+): string | null {
+  if (points.length < 2) return null;
+  const groupIds = new Map<string, number>();
+  const signature = points.map((point) => {
+    const value = String(point[key] || 'unknown');
+    if (!groupIds.has(value)) groupIds.set(value, groupIds.size);
+    return groupIds.get(value);
+  });
+  return groupIds.size > 1 ? signature.join('|') : null;
+}
+
+function equivalentScatterGroupNote(
+  points: Array<Record<ScatterGroupKey, string>>,
+  groupKey: ScatterGroupKey,
+): string | null {
+  const selectedSignature = scatterPartitionSignature(points, groupKey);
+  if (!selectedSignature) return null;
+  const equivalents = SCATTER_GROUP_OPTIONS
+    .filter((option) => option.key !== groupKey)
+    .filter((option) => scatterPartitionSignature(points, option.key) === selectedSignature)
+    .map((option) => option.label);
+  if (!equivalents.length) return null;
+  return `${scatterGroupLabel(groupKey)} uses the same row split as ${equivalents.join(' / ')} in this run; switching among them will draw the same PCA/PCoA grouping because their labels map one-to-one.`;
+}
 
 function FeatureScatterChart({
   title,
@@ -1546,6 +1579,7 @@ function FeatureScatterChart({
     const index = groupNames.indexOf(group);
     return SCATTER_GROUP_COLORS[index >= 0 ? index % SCATTER_GROUP_COLORS.length : SCATTER_GROUP_COLORS.length - 1];
   };
+  const equivalentNote = equivalentScatterGroupNote(points, groupKey);
   const ellipseGroups = groupNames.map((group) => {
     const ellipse = ellipseForPoints(points.filter((point) => String(point[groupKey] || 'unknown') === group));
     if (!ellipse) return null;
@@ -1594,6 +1628,7 @@ function FeatureScatterChart({
           </circle>
         ))}
       </svg>
+      {equivalentNote ? <div className="model-chart-note">{equivalentNote}</div> : null}
     </section>
   );
 }
