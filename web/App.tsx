@@ -1299,6 +1299,71 @@ function selectedRocCurve(version: ModelGroupPromotionVersionPayload | null): Ar
   ].sort((left, right) => left.fpr - right.fpr || left.tpr - right.tpr);
 }
 
+function temporalDiagnosticPoints(
+  version: ModelGroupPromotionVersionPayload | null,
+  metricKey: string,
+): Array<{ label: string; value: number }> {
+  const temporal = nestedRecord(version?.metrics, 'temporal_stability_diagnostics');
+  return nestedArray(temporal, 'slices')
+    .map((slice) => ({ label: String(slice.month ?? ''), value: metricNumber(slice, metricKey) }))
+    .filter((point): point is { label: string; value: number } => Boolean(point.label) && point.value !== null);
+}
+
+function cumulativePoints(points: Array<{ label: string; value: number }>): Array<{ label: string; value: number }> {
+  let cumulative = 0;
+  return points.map((point) => {
+    cumulative += point.value;
+    return { label: point.label, value: cumulative };
+  });
+}
+
+function calibrationCurvePoints(version: ModelGroupPromotionVersionPayload | null): Array<{ label: string; score: number; hitRate: number }> {
+  const calibration = nestedRecord(version?.metrics, 'calibration_diagnostics');
+  return nestedArray(calibration, 'bins')
+    .map((bin) => {
+      const score = metricNumber(bin, 'mean_score');
+      const hitRate = metricNumber(bin, 'hit_rate');
+      const lower = metricNumber(bin, 'lower');
+      const upper = metricNumber(bin, 'upper');
+      return {
+        label: `${formatMetricValue(lower, 1)}-${formatMetricValue(upper, 1)}`,
+        score,
+        hitRate,
+      };
+    })
+    .filter((point): point is { label: string; score: number; hitRate: number } => point.score !== null && point.hitRate !== null)
+    .sort((left, right) => left.score - right.score);
+}
+
+function thresholdReturnPoints(version: ModelGroupPromotionVersionPayload | null): Array<{ label: string; x: number; y: number; selectedCount: number | null }> {
+  const predictive = nestedRecord(version?.metrics, 'predictive_diagnostics');
+  return nestedArray(predictive, 'threshold_return_curve')
+    .map((point) => ({
+      label: formatMetricValue(metricNumber(point, 'threshold'), 2),
+      x: metricNumber(point, 'threshold'),
+      y: metricNumber(point, 'return_per_selected'),
+      selectedCount: metricNumber(point, 'selected_count') ?? metricNumber(point, 'count'),
+    }))
+    .filter((point): point is { label: string; x: number; y: number; selectedCount: number | null } => point.x !== null && point.y !== null)
+    .sort((left, right) => left.x - right.x);
+}
+
+function costSensitivityPoints(version: ModelGroupPromotionVersionPayload | null): Array<{ label: string; x: number; y: number }> {
+  const economic = nestedRecord(version?.metrics, 'economic_diagnostics');
+  const costs = nestedRecord(economic, 'cost_sensitivity');
+  const factorForLabel = (label: string, index: number): number => {
+    const match = /(?<factor>\d+(?:\.\d+)?)x/iu.exec(label);
+    if (match?.groups?.factor) return Number(match.groups.factor);
+    if (/zero|0/i.test(label)) return 0;
+    if (/base|normal|1x/i.test(label)) return 1;
+    return index + 1;
+  };
+  return Object.entries(costs ?? {})
+    .map(([label, value], index) => ({ label, x: factorForLabel(label, index), y: typeof value === 'number' ? value : Number(value) }))
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .sort((left, right) => left.x - right.x);
+}
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -1379,11 +1444,17 @@ function FeatureScatterChart({
       ry: Math.max(4, (ellipse.ry / yRange) * (height - padding * 2)),
     };
   }).filter((ellipse): ellipse is { outcome: string; cx: number; cy: number; rx: number; ry: number } => Boolean(ellipse));
+  const positiveCount = points.filter((point) => point.outcome === '1').length;
+  const negativeCount = points.filter((point) => point.outcome === '0').length;
   return (
     <section className="model-chart-panel">
       <div className="model-chart-title-row">
         <span className="model-chart-title">{title}</span>
-        <strong>{diagnosticExplainedVariance(version, diagnosticKey)}</strong>
+        <div className="scatter-summary">
+          <span><i className="scatter-dot-positive" />Outcome 1 · {positiveCount}</span>
+          <span><i className="scatter-dot-negative" />Outcome 0 · {negativeCount}</span>
+          <strong>{diagnosticExplainedVariance(version, diagnosticKey)}</strong>
+        </div>
       </div>
       <svg className="model-scatter-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
         <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} />
@@ -1590,6 +1661,296 @@ function RocCurveChart({
   );
 }
 
+function TemporalDiagnosticCurve({
+  title,
+  version,
+  metricKey,
+  mode,
+  emptyLabel,
+}: {
+  title: string;
+  version: ModelGroupPromotionVersionPayload | null;
+  metricKey: string;
+  mode?: 'cumulative' | 'raw';
+  emptyLabel: string;
+}) {
+  const rawPoints = temporalDiagnosticPoints(version, metricKey);
+  const points = mode === 'cumulative' ? cumulativePoints(rawPoints) : rawPoints;
+  if (!version || !points.length) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">{title}</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  const width = 680;
+  const height = 250;
+  const padding = 38;
+  const bottomPadding = 54;
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(0, ...values);
+  const maxValue = Math.max(0, ...values);
+  const range = maxValue - minValue || 1;
+  const projectX = (index: number) => padding + (points.length === 1 ? 0.5 : index / (points.length - 1)) * (width - padding * 2);
+  const projectY = (value: number) => height - bottomPadding - ((value - minValue) / range) * (height - padding - bottomPadding);
+  const projected = points.map((point, index) => ({ ...point, x: projectX(index), y: projectY(point.value) }));
+  const zeroY = projectY(0);
+  const linePoints = projected.map((point) => `${point.x},${point.y}`).join(' ');
+  const areaPoints = [
+    `${projected[0].x},${zeroY}`,
+    ...projected.map((point) => `${point.x},${point.y}`),
+    `${projected[projected.length - 1].x},${zeroY}`,
+  ].join(' ');
+  const finalValue = projected[projected.length - 1]?.value ?? null;
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">{title} · {compactVersionLabel(version, 0)}</span>
+        <strong>{formatMetricValue(finalValue)}</strong>
+      </div>
+      <svg className="model-diagnostic-curve" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <line className="curve-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
+        <line className="curve-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line className="curve-zero-line" x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} />
+        <polygon className="curve-area" points={areaPoints} />
+        <polyline className="curve-line" points={linePoints} />
+        {projected.map((point, index) => {
+          const showLabel = projected.length <= 8 || index === 0 || index === projected.length - 1 || index % Math.ceil(projected.length / 6) === 0;
+          return (
+            <g key={`${point.label}-${index}`}>
+              <circle cx={point.x} cy={point.y} r="4">
+                <title>{`${point.label}: ${point.value.toFixed(4)}`}</title>
+              </circle>
+              {showLabel ? <text x={point.x} y={height - 24} textAnchor="middle">{point.label.slice(5) || point.label}</text> : null}
+            </g>
+          );
+        })}
+      </svg>
+    </section>
+  );
+}
+
+function CalibrationReliabilityChart({
+  version,
+  emptyLabel,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+  emptyLabel: string;
+}) {
+  const points = calibrationCurvePoints(version);
+  if (!version || !points.length) {
+    return (
+      <DiagnosticLineChart
+        title={version ? `Calibration · ${compactVersionLabel(version, 0)}` : 'Calibration'}
+        series={selectedDiagnosticSeries(version, 'calibration')}
+        emptyLabel={emptyLabel}
+      />
+    );
+  }
+  const width = 680;
+  const height = 280;
+  const padding = 42;
+  const bottomPadding = 58;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding - bottomPadding;
+  const projectX = (score: number) => padding + clamp01(score) * chartWidth;
+  const projectY = (hitRate: number) => padding + (1 - clamp01(hitRate)) * chartHeight;
+  const projected = points.map((point) => ({ ...point, x: projectX(point.score), y: projectY(point.hitRate) }));
+  const linePoints = projected.map((point) => `${point.x},${point.y}`).join(' ');
+  const ece = metricNumber(version.metrics, 'ece');
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Calibration · {compactVersionLabel(version, 0)}</span>
+        <strong>{ece === null ? 'ECE not reported' : `ECE ${ece.toFixed(3)}`}</strong>
+      </div>
+      <svg className="model-calibration-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Calibration reliability curve">
+        <line className="curve-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
+        <line className="curve-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line className="calibration-perfect-line" x1={projectX(0)} y1={projectY(0)} x2={projectX(1)} y2={projectY(1)} />
+        <polyline className="calibration-line" points={linePoints} />
+        {projected.map((point) => (
+          <circle key={point.label} cx={point.x} cy={point.y} r="4.5">
+            <title>{`${point.label}: score ${point.score.toFixed(3)}, observed ${point.hitRate.toFixed(3)}`}</title>
+          </circle>
+        ))}
+        <text x={padding} y={height - 20}>Mean score</text>
+        <text className="curve-y-label" x={18} y={padding + chartHeight / 2} transform={`rotate(-90 18 ${padding + chartHeight / 2})`}>Observed hit rate</text>
+        <text x={padding} y={height - bottomPadding + 22}>0.0</text>
+        <text x={width - padding} y={height - bottomPadding + 22} textAnchor="end">1.0</text>
+        <text x={padding - 10} y={height - bottomPadding} textAnchor="end">0.0</text>
+        <text x={padding - 10} y={padding + 4} textAnchor="end">1.0</text>
+      </svg>
+    </section>
+  );
+}
+
+function ThresholdReturnCurve({
+  version,
+  emptyLabel,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+  emptyLabel: string;
+}) {
+  const points = thresholdReturnPoints(version);
+  if (!version || !points.length) {
+    return (
+      <DiagnosticLineChart
+        title={version ? `Threshold Return · ${compactVersionLabel(version, 0)}` : 'Threshold Return'}
+        series={selectedDiagnosticSeries(version, 'threshold_return')}
+        emptyLabel={emptyLabel}
+      />
+    );
+  }
+  return (
+    <NumericDiagnosticCurve
+      title={`Threshold Return · ${compactVersionLabel(version, 0)}`}
+      xLabel="Decision threshold"
+      yLabel="Return per selected"
+      points={points}
+      valueLabel={(point) => point.selectedCount === null ? point.y.toFixed(4) : `${point.y.toFixed(4)} · ${point.selectedCount} selected`}
+    />
+  );
+}
+
+function CostSensitivityCurve({
+  version,
+  emptyLabel,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+  emptyLabel: string;
+}) {
+  const points = costSensitivityPoints(version);
+  if (!version || !points.length) {
+    return (
+      <DiagnosticLineChart
+        title={version ? `Cost Sensitivity · ${compactVersionLabel(version, 0)}` : 'Cost Sensitivity'}
+        series={selectedDiagnosticSeries(version, 'cost_sensitivity')}
+        emptyLabel={emptyLabel}
+      />
+    );
+  }
+  return (
+    <NumericDiagnosticCurve
+      title={`Cost Sensitivity · ${compactVersionLabel(version, 0)}`}
+      xLabel="Cost multiple"
+      yLabel="Net return"
+      points={points}
+      valueLabel={(point) => `${point.label}: ${point.y.toFixed(4)}`}
+    />
+  );
+}
+
+function NumericDiagnosticCurve({
+  title,
+  xLabel,
+  yLabel,
+  points,
+  valueLabel,
+}: {
+  title: string;
+  xLabel: string;
+  yLabel: string;
+  points: Array<{ label: string; x: number; y: number; selectedCount?: number | null }>;
+  valueLabel: (point: { label: string; x: number; y: number; selectedCount?: number | null }) => string;
+}) {
+  const width = 680;
+  const height = 260;
+  const padding = 42;
+  const bottomPadding = 58;
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(0, ...ys);
+  const maxY = Math.max(0, ...ys);
+  const xRange = maxX - minX || 1;
+  const yRange = maxY - minY || 1;
+  const projectX = (value: number) => padding + ((value - minX) / xRange) * (width - padding * 2);
+  const projectY = (value: number) => height - bottomPadding - ((value - minY) / yRange) * (height - padding - bottomPadding);
+  const projected = points.map((point) => ({ ...point, xPx: projectX(point.x), yPx: projectY(point.y) }));
+  const zeroY = projectY(0);
+  const linePoints = projected.map((point) => `${point.xPx},${point.yPx}`).join(' ');
+  const areaPoints = [
+    `${projected[0].xPx},${zeroY}`,
+    ...projected.map((point) => `${point.xPx},${point.yPx}`),
+    `${projected[projected.length - 1].xPx},${zeroY}`,
+  ].join(' ');
+  const best = projected.reduce((current, point) => (point.y > current.y ? point : current), projected[0]);
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">{title}</span>
+        <strong>Best {best.y.toFixed(3)}</strong>
+      </div>
+      <svg className="model-diagnostic-curve" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <line className="curve-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
+        <line className="curve-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line className="curve-zero-line" x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} />
+        <polygon className="curve-area" points={areaPoints} />
+        <polyline className="curve-line" points={linePoints} />
+        {projected.map((point) => (
+          <circle key={`${point.label}-${point.x}`} cx={point.xPx} cy={point.yPx} r={point === best ? 5.5 : 4}>
+            <title>{valueLabel(point)}</title>
+          </circle>
+        ))}
+        <text x={padding} y={height - 20}>{xLabel}</text>
+        <text className="curve-y-label" x={18} y={padding + (height - padding - bottomPadding) / 2} transform={`rotate(-90 18 ${padding + (height - padding - bottomPadding) / 2})`}>{yLabel}</text>
+        <text x={padding} y={height - bottomPadding + 22}>{points[0].label}</text>
+        <text x={width - padding} y={height - bottomPadding + 22} textAnchor="end">{points[points.length - 1].label}</text>
+      </svg>
+    </section>
+  );
+}
+
+function SilhouetteDiagnosticBars({
+  version,
+  emptyLabel,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+  emptyLabel: string;
+}) {
+  const series = selectedDiagnosticSeries(version, 'silhouette')[0]?.points ?? [];
+  if (!version || !series.length) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">Silhouette</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  const width = 680;
+  const height = 190;
+  const padding = 42;
+  const centerX = width / 2;
+  const scale = (width - padding * 2) / 2;
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Silhouette · {compactVersionLabel(version, 0)}</span>
+        <strong>-1 to +1 separation</strong>
+      </div>
+      <svg className="model-silhouette-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Silhouette diagnostic bars">
+        <line x1={centerX} y1={padding - 12} x2={centerX} y2={height - 30} />
+        {series.map((point, index) => {
+          const y = padding + index * 58;
+          const value = Math.max(-1, Math.min(1, point.value));
+          const barWidth = Math.abs(value) * scale;
+          const x = value >= 0 ? centerX : centerX - barWidth;
+          return (
+            <g key={point.label}>
+              <text x={padding} y={y + 15}>{point.label}</text>
+              <rect x={x} y={y} width={barWidth} height="22" rx="5" className={value >= 0 ? 'silhouette-positive' : 'silhouette-negative'} />
+              <text x={value >= 0 ? x + barWidth + 8 : x - 8} y={y + 16} textAnchor={value >= 0 ? 'start' : 'end'}>{point.value.toFixed(3)}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </section>
+  );
+}
+
 function AdaptiveDiagnosticChart({
   title,
   globalSeries,
@@ -1604,6 +1965,49 @@ function AdaptiveDiagnosticChart({
   emptyLabel: string;
 }) {
   if (selectedVersion) {
+    if (selectedKind === 'monthly_brier') {
+      return (
+        <TemporalDiagnosticCurve
+          title="Brier"
+          version={selectedVersion}
+          metricKey="brier_score"
+          emptyLabel="No selected-model Brier stability curve published"
+        />
+      );
+    }
+    if (selectedKind === 'monthly_return') {
+      return (
+        <TemporalDiagnosticCurve
+          title="Cumulative Return"
+          version={selectedVersion}
+          metricKey="net_return_total"
+          mode="cumulative"
+          emptyLabel="No selected-model return curve published"
+        />
+      );
+    }
+    if (selectedKind === 'monthly_drawdown') {
+      return (
+        <TemporalDiagnosticCurve
+          title="Drawdown"
+          version={selectedVersion}
+          metricKey="max_drawdown"
+          emptyLabel="No selected-model drawdown curve published"
+        />
+      );
+    }
+    if (selectedKind === 'calibration') {
+      return <CalibrationReliabilityChart version={selectedVersion} emptyLabel="No selected-model calibration curve published" />;
+    }
+    if (selectedKind === 'threshold_return') {
+      return <ThresholdReturnCurve version={selectedVersion} emptyLabel="No selected-model threshold return curve published" />;
+    }
+    if (selectedKind === 'cost_sensitivity') {
+      return <CostSensitivityCurve version={selectedVersion} emptyLabel="No selected-model cost sensitivity curve published" />;
+    }
+    if (selectedKind === 'silhouette') {
+      return <SilhouetteDiagnosticBars version={selectedVersion} emptyLabel="No selected-model silhouette diagnostics published" />;
+    }
     return (
       <DiagnosticLineChart
         title={`${title} · ${compactVersionLabel(selectedVersion, 0)}`}
@@ -1761,6 +2165,7 @@ function ModelGroupDetail({
       </div>
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
+      <IdentityDistribution versions={versions} />
       <div className="model-chart-grid">
         {selectedVersion ? (
           <RocCurveChart version={selectedVersion} emptyLabel="ROC curve not published" />
@@ -1776,7 +2181,6 @@ function ModelGroupDetail({
         <AdaptiveDiagnosticChart title="Silhouette" globalSeries={versionMetricSeries(versions, 'silhouette_outcome_label')} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
         <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" emptyLabel="PCA diagnostics not published" />
         <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" emptyLabel="PCoA diagnostics not published" />
-        <IdentityDistribution versions={versions} />
       </div>
     </section>
   );

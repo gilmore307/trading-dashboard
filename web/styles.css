@@ -170,7 +170,14 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .model-scatter-chart .scatter-positive { fill: #34d399; }
 .model-scatter-chart .scatter-negative { fill: #f87171; }
 .model-scatter-chart .scatter-neutral { fill: #94a3b8; }
+.scatter-summary { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; color: #cbd5e1; font-size: 11px; font-weight: 850; }
+.scatter-summary span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.scatter-summary i { width: 8px; height: 8px; display: inline-block; border-radius: 50%; }
+.scatter-dot-positive { background: #34d399; }
+.scatter-dot-negative { background: #f87171; }
 .identity-bars { display: grid; gap: 12px; align-content: center; min-height: 210px; }
+.identity-panel { margin-bottom: 14px; }
+.identity-panel .identity-bars { grid-template-columns: repeat(4, minmax(0, 1fr)); min-height: auto; }
 .identity-row { display: grid; grid-template-columns: 82px minmax(0, 1fr) 32px; gap: 10px; align-items: center; color: #cbd5e1; font-size: 12px; font-weight: 800; }
 .identity-track { height: 14px; border-radius: 999px; overflow: hidden; background: rgba(15, 23, 42, .78); border: 1px solid rgba(148, 163, 184, .12); }
 .identity-fill { height: 100%; min-width: 2px; border-radius: inherit; }
@@ -199,9 +206,25 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .model-roc-chart .roc-line { fill: none; stroke: #f59e0b; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
 .model-roc-chart .roc-best-point { fill: #f43f5e; stroke: #ffe4e6; stroke-width: 1.4; }
 .model-roc-chart .roc-y-label { text-anchor: middle; }
+.model-diagnostic-curve, .model-calibration-chart, .model-silhouette-chart { width: 100%; min-height: 230px; overflow: visible; }
+.model-diagnostic-curve text, .model-calibration-chart text, .model-silhouette-chart text { fill: #8fa2ba; font-size: 12px; font-weight: 750; }
+.model-diagnostic-curve .curve-axis, .model-calibration-chart .curve-axis { stroke: rgba(148, 163, 184, .30); stroke-width: 1.2; }
+.model-diagnostic-curve .curve-zero-line { stroke: rgba(203, 213, 225, .44); stroke-width: 1.4; stroke-dasharray: 7 7; }
+.model-diagnostic-curve .curve-area { fill: rgba(14, 165, 233, .13); stroke: none; }
+.model-diagnostic-curve .curve-line { fill: none; stroke: #38bdf8; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.model-diagnostic-curve circle { fill: #22d3ee; stroke: #082f49; stroke-width: 1.6; }
+.model-calibration-chart .calibration-perfect-line { stroke: rgba(203, 213, 225, .58); stroke-width: 2; stroke-dasharray: 8 7; }
+.model-calibration-chart .calibration-line { fill: none; stroke: #34d399; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.model-calibration-chart circle { fill: #86efac; stroke: #052e16; stroke-width: 1.6; }
+.model-calibration-chart .curve-y-label, .model-diagnostic-curve .curve-y-label { text-anchor: middle; }
+.model-silhouette-chart line { stroke: rgba(203, 213, 225, .38); stroke-width: 1.5; stroke-dasharray: 7 7; }
+.model-silhouette-chart rect { stroke: rgba(2, 6, 23, .72); stroke-width: 1.4; }
+.model-silhouette-chart .silhouette-positive { fill: #34d399; }
+.model-silhouette-chart .silhouette-negative { fill: #f87171; }
 
 @media (max-width: 1220px) {
   .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid { grid-template-columns: 1fr; }
+  .identity-panel .identity-bars { grid-template-columns: 1fr; }
   .model-layer-tabs { position: static; max-height: none; }
   .model-layer-detail-head, .model-version-row { flex-direction: column; }
 }
