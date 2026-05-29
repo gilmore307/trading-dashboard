@@ -1327,11 +1327,10 @@ function equivalentSilhouetteNote(points: Array<{ label: string; value: number }
 }
 
 function sliceRowCountValues(version: ModelGroupPromotionVersionPayload | null, key: string): Record<string, number> {
-  const slices = nestedRecord(scorecardSection(version, 'slices'), key);
-  const rows = Array.isArray(slices) ? slices : [];
+  const rows = nestedArray(scorecardSection(version, 'slices'), key);
   return Object.fromEntries(
     rows
-      .map((row) => [String((row as Record<string, unknown>).value ?? 'unknown'), metricNumber(row as Record<string, unknown>, 'row_count')])
+      .map((row) => [String(row.value ?? 'unknown'), metricNumber(row, 'row_count')])
       .filter((entry): entry is [string, number] => Boolean(entry[0]) && entry[1] !== null),
   );
 }
