@@ -2298,7 +2298,7 @@ function ModelGroupDetail({
 }) {
   const versions = groupPromotionVersions(layerChart, promotionChart, promotions);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
-  const [scatterGroupKey, setScatterGroupKey] = useState<ScatterGroupKey>('outcome_label');
+  const [scatterGroupKey, setScatterGroupKey] = useState<ScatterGroupKey>('decision_intended_side');
   const activeRef = activeModelRef(runtimeChart);
   const activeVersion = versions.find((version) => modelIdentity(version) === 'active') ?? null;
   const selectedVersion = versions.find((version, index) => versionStableId(version, index) === selectedVersionId) ?? null;
