@@ -1263,6 +1263,46 @@ function selectedDiagnosticSeries(
   return points.length ? [{ name: 'Silhouette', points }] : [];
 }
 
+function selectedRocCurve(version: ModelGroupPromotionVersionPayload | null): Array<{ fpr: number; tpr: number; threshold: number | null }> {
+  const predictive = nestedRecord(version?.metrics, 'predictive_diagnostics');
+  const published = nestedArray(predictive, 'roc_curve')
+    .map((point) => ({
+      fpr: metricNumber(point, 'false_positive_rate'),
+      tpr: metricNumber(point, 'true_positive_rate'),
+      threshold: metricNumber(point, 'threshold'),
+    }))
+    .filter((point): point is { fpr: number; tpr: number; threshold: number | null } => point.fpr !== null && point.tpr !== null)
+    .map((point) => ({ ...point, fpr: clamp01(point.fpr), tpr: clamp01(point.tpr) }));
+  if (published.length >= 2) {
+    return [...published].sort((left, right) => left.fpr - right.fpr || left.tpr - right.tpr);
+  }
+  const fallback = nestedArray(predictive, 'confusion_by_threshold')
+    .map((point) => {
+      const falsePositive = metricNumber(point, 'false_positive') ?? 0;
+      const trueNegative = metricNumber(point, 'true_negative') ?? 0;
+      const truePositive = metricNumber(point, 'true_positive') ?? 0;
+      const falseNegative = metricNumber(point, 'false_negative') ?? 0;
+      const negatives = falsePositive + trueNegative;
+      const positives = truePositive + falseNegative;
+      return {
+        fpr: negatives ? clamp01(falsePositive / negatives) : null,
+        tpr: positives ? clamp01(truePositive / positives) : null,
+        threshold: metricNumber(point, 'threshold'),
+      };
+    })
+    .filter((point): point is { fpr: number; tpr: number; threshold: number | null } => point.fpr !== null && point.tpr !== null);
+  if (!fallback.length) return [];
+  return [
+    { fpr: 0, tpr: 0, threshold: null },
+    ...fallback,
+    { fpr: 1, tpr: 1, threshold: null },
+  ].sort((left, right) => left.fpr - right.fpr || left.tpr - right.tpr);
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
 function ModelLifecycleStat({
   label,
   value,
@@ -1491,6 +1531,65 @@ function DiagnosticLineChart({
   );
 }
 
+function RocCurveChart({
+  version,
+  emptyLabel,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+  emptyLabel: string;
+}) {
+  const points = selectedRocCurve(version);
+  if (!version || points.length < 2) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">AUROC</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  const width = 680;
+  const height = 280;
+  const padding = 42;
+  const bottomPadding = 58;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding - bottomPadding;
+  const projectX = (fpr: number) => padding + fpr * chartWidth;
+  const projectY = (tpr: number) => padding + (1 - tpr) * chartHeight;
+  const projected = points.map((point) => ({ ...point, x: projectX(point.fpr), y: projectY(point.tpr) }));
+  const bestPoint = projected.reduce((best, point) => (point.tpr - point.fpr > best.tpr - best.fpr ? point : best), projected[0]);
+  const linePoints = projected.map((point) => `${point.x},${point.y}`).join(' ');
+  const areaPoints = [
+    `${projectX(0)},${projectY(0)}`,
+    ...projected.map((point) => `${point.x},${point.y}`),
+    `${projectX(1)},${projectY(0)}`,
+  ].join(' ');
+  const auc = metricNumber(version.metrics, 'auroc');
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">AUROC · {compactVersionLabel(version, 0)}</span>
+        <strong>{auc === null ? 'AUC not reported' : `AUC ${auc.toFixed(3)}`}</strong>
+      </div>
+      <svg className="model-roc-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="ROC curve">
+        <line className="roc-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
+        <line className="roc-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line className="roc-random-line" x1={projectX(0)} y1={projectY(0)} x2={projectX(1)} y2={projectY(1)} />
+        <polygon className="roc-area" points={areaPoints} />
+        <polyline className="roc-line" points={linePoints} />
+        <circle className="roc-best-point" cx={bestPoint.x} cy={bestPoint.y} r="5">
+          <title>{`FPR ${bestPoint.fpr.toFixed(3)}, TPR ${bestPoint.tpr.toFixed(3)}${bestPoint.threshold === null ? '' : `, threshold ${bestPoint.threshold.toFixed(3)}`}`}</title>
+        </circle>
+        <text x={padding} y={height - 20}>False positive rate</text>
+        <text className="roc-y-label" x={18} y={padding + chartHeight / 2} transform={`rotate(-90 18 ${padding + chartHeight / 2})`}>True positive rate</text>
+        <text x={padding} y={height - bottomPadding + 22}>0.0</text>
+        <text x={width - padding} y={height - bottomPadding + 22} textAnchor="end">1.0</text>
+        <text x={padding - 10} y={height - bottomPadding} textAnchor="end">0.0</text>
+        <text x={padding - 10} y={padding + 4} textAnchor="end">1.0</text>
+      </svg>
+    </section>
+  );
+}
+
 function AdaptiveDiagnosticChart({
   title,
   globalSeries,
@@ -1663,7 +1762,11 @@ function ModelGroupDetail({
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <div className="model-chart-grid">
-        <AdaptiveDiagnosticChart title="AUROC" globalSeries={versionMetricSeries(versions, 'auroc')} selectedVersion={selectedVersion} selectedKind="monthly_auroc" emptyLabel="AUROC series not published" />
+        {selectedVersion ? (
+          <RocCurveChart version={selectedVersion} emptyLabel="ROC curve not published" />
+        ) : (
+          <MiniMetricBarChart title="AUROC · Global Compare" series={versionMetricSeries(versions, 'auroc')} emptyLabel="AUROC series not published" />
+        )}
         <AdaptiveDiagnosticChart title="Brier" globalSeries={versionMetricSeries(versions, 'brier_score')} selectedVersion={selectedVersion} selectedKind="monthly_brier" emptyLabel="Brier series not published" />
         <AdaptiveDiagnosticChart title="Calibration" globalSeries={versionMetricSeries(versions, 'ece')} selectedVersion={selectedVersion} selectedKind="calibration" emptyLabel="Calibration series not published" />
         <AdaptiveDiagnosticChart title="Economic Return" globalSeries={versionMetricSeries(versions, 'excess_return_total')} selectedVersion={selectedVersion} selectedKind="monthly_return" emptyLabel="Return series not published" />

@@ -191,6 +191,14 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .model-table-row.selected { border-color: rgba(52, 211, 153, .46); background: rgba(6, 78, 59, .24); }
 .model-table-row strong { color: #f8fbff; overflow-wrap: anywhere; }
 .model-table-head { background: rgba(2, 6, 23, .48); color: #7c8ea5; text-transform: uppercase; letter-spacing: .09em; font-weight: 900; }
+.model-roc-chart { width: 100%; min-height: 250px; overflow: visible; }
+.model-roc-chart text { fill: #8fa2ba; font-size: 12px; font-weight: 750; }
+.model-roc-chart .roc-axis { stroke: rgba(148, 163, 184, .34); stroke-width: 1.2; }
+.model-roc-chart .roc-random-line { stroke: rgba(203, 213, 225, .58); stroke-width: 2; stroke-dasharray: 8 7; }
+.model-roc-chart .roc-area { fill: rgba(251, 191, 36, .15); stroke: none; }
+.model-roc-chart .roc-line { fill: none; stroke: #f59e0b; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.model-roc-chart .roc-best-point { fill: #f43f5e; stroke: #ffe4e6; stroke-width: 1.4; }
+.model-roc-chart .roc-y-label { text-anchor: middle; }
 
 @media (max-width: 1220px) {
   .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid { grid-template-columns: 1fr; }
