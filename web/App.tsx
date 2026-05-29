@@ -1103,7 +1103,7 @@ function modelIdentity(item: Pick<ModelPromotionItemPayload, 'activation_status'
   return 'candidate';
 }
 
-function metricNumber(metrics: Record<string, unknown> | undefined, key: string): number | null {
+function metricNumber(metrics: Record<string, unknown> | undefined | null, key: string): number | null {
   const value = metrics?.[key];
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
@@ -1138,6 +1138,10 @@ function versionMetricSeries(versions: ModelGroupPromotionVersionPayload[], key:
   return points;
 }
 
+function versionStableId(version: ModelGroupPromotionVersionPayload, index: number): string {
+  return String(version.version_id ?? version.candidate_model_ref ?? version.promotion_run_id ?? index);
+}
+
 function identityCounts(versions: ModelGroupPromotionVersionPayload[]): Record<string, number> {
   return versions.reduce<Record<string, number>>((counts, version) => {
     const identity = modelIdentity(version);
@@ -1148,14 +1152,6 @@ function identityCounts(versions: ModelGroupPromotionVersionPayload[]): Record<s
 
 function formatMetricValue(value: number | null, digits = 3): string {
   return value === null ? 'Not reported' : value.toFixed(digits);
-}
-
-function latestVersionMetric(versions: ModelGroupPromotionVersionPayload[], key: string): number | null {
-  for (const version of [...versions].reverse()) {
-    const value = metricNumber(version.metrics, key);
-    if (value !== null) return value;
-  }
-  return null;
 }
 
 function latestVersionWithDiagnostic(versions: ModelGroupPromotionVersionPayload[], key: 'pca' | 'pcoa'): ModelGroupPromotionVersionPayload | null {
@@ -1170,6 +1166,16 @@ function latestVersionWithDiagnostic(versions: ModelGroupPromotionVersionPayload
     }
   }
   return null;
+}
+
+function nestedRecord(record: Record<string, unknown> | undefined | null, key: string): Record<string, unknown> | null {
+  const value = record?.[key];
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function nestedArray(record: Record<string, unknown> | undefined | null, key: string): Array<Record<string, unknown>> {
+  const value = record?.[key];
+  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item)) : [];
 }
 
 function featureDiagnostics(version: ModelGroupPromotionVersionPayload | null): Record<string, unknown> | null {
@@ -1194,6 +1200,67 @@ function diagnosticExplainedVariance(version: ModelGroupPromotionVersionPayload 
   const values = ratio.map((value) => typeof value === 'number' ? value : Number(value)).filter((value) => Number.isFinite(value));
   if (!values.length) return 'Variance not reported';
   return `Top axes ${(values.reduce((sum, value) => sum + value, 0) * 100).toFixed(1)}%`;
+}
+
+function ellipseForPoints(points: Array<{ x: number; y: number }>) {
+  if (points.length < 4) return null;
+  const meanX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+  const meanY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+  const varianceX = points.reduce((sum, point) => sum + (point.x - meanX) ** 2, 0) / points.length;
+  const varianceY = points.reduce((sum, point) => sum + (point.y - meanY) ** 2, 0) / points.length;
+  if (!Number.isFinite(varianceX) || !Number.isFinite(varianceY) || (varianceX === 0 && varianceY === 0)) return null;
+  return { cx: meanX, cy: meanY, rx: Math.sqrt(varianceX) * 2, ry: Math.sqrt(varianceY) * 2 };
+}
+
+function selectedDiagnosticSeries(
+  version: ModelGroupPromotionVersionPayload | null,
+  kind: 'monthly_auroc' | 'monthly_brier' | 'monthly_return' | 'monthly_drawdown' | 'calibration' | 'threshold_return' | 'cost_sensitivity' | 'silhouette',
+): Array<{ name: string; points: Array<{ label: string; value: number }> }> {
+  const metrics = version?.metrics;
+  if (!metrics) return [];
+  const temporal = nestedRecord(metrics, 'temporal_stability_diagnostics');
+  const predictive = nestedRecord(metrics, 'predictive_diagnostics');
+  const calibration = nestedRecord(metrics, 'calibration_diagnostics');
+  const economic = nestedRecord(metrics, 'economic_diagnostics');
+  if (kind.startsWith('monthly_')) {
+    const key = kind === 'monthly_auroc' ? 'auroc' : kind === 'monthly_brier' ? 'brier_score' : kind === 'monthly_return' ? 'net_return_total' : 'max_drawdown';
+    const points = nestedArray(temporal, 'slices')
+      .map((slice) => ({ label: String(slice.month ?? ''), value: metricNumber(slice, key) }))
+      .filter((point): point is { label: string; value: number } => Boolean(point.label) && point.value !== null);
+    return points.length ? [{ name: startCase(key), points }] : [];
+  }
+  if (kind === 'calibration') {
+    const bins = nestedArray(calibration, 'bins');
+    const hitRate = bins
+      .map((bin) => ({ label: `${formatMetricValue(metricNumber(bin, 'lower'), 1)}-${formatMetricValue(metricNumber(bin, 'upper'), 1)}`, value: metricNumber(bin, 'hit_rate') }))
+      .filter((point): point is { label: string; value: number } => point.value !== null);
+    const meanScore = bins
+      .map((bin) => ({ label: `${formatMetricValue(metricNumber(bin, 'lower'), 1)}-${formatMetricValue(metricNumber(bin, 'upper'), 1)}`, value: metricNumber(bin, 'mean_score') }))
+      .filter((point): point is { label: string; value: number } => point.value !== null);
+    return [
+      ...(hitRate.length ? [{ name: 'Observed hit rate', points: hitRate }] : []),
+      ...(meanScore.length ? [{ name: 'Mean score', points: meanScore }] : []),
+    ];
+  }
+  if (kind === 'threshold_return') {
+    const points = nestedArray(predictive, 'threshold_return_curve')
+      .map((point) => ({ label: formatMetricValue(metricNumber(point, 'threshold'), 1), value: metricNumber(point, 'return_per_selected') }))
+      .filter((point): point is { label: string; value: number } => point.value !== null);
+    return points.length ? [{ name: 'Return per selected', points }] : [];
+  }
+  if (kind === 'cost_sensitivity') {
+    const costs = nestedRecord(economic, 'cost_sensitivity');
+    const points = Object.entries(costs ?? {})
+      .map(([label, value]) => ({ label, value: typeof value === 'number' ? value : Number(value) }))
+      .filter((point) => Number.isFinite(point.value));
+    return points.length ? [{ name: 'Net return by cost', points }] : [];
+  }
+  const silhouette = nestedRecord(featureDiagnostics(version), 'silhouette');
+  const points = [
+    { label: 'Outcome', value: metricNumber(silhouette, 'outcome_label') },
+    { label: 'Decision', value: metricNumber(silhouette, 'decision_action') },
+  ].filter((point): point is { label: string; value: number } => point.value !== null);
+  return points.length ? [{ name: 'Silhouette', points }] : [];
 }
 
 function ModelLifecycleStat({
@@ -1261,6 +1328,17 @@ function FeatureScatterChart({
   const yRange = maxY - minY || 1;
   const projectX = (value: number) => padding + ((value - minX) / xRange) * (width - padding * 2);
   const projectY = (value: number) => height - padding - ((value - minY) / yRange) * (height - padding * 2);
+  const ellipseGroups = ['1', '0'].map((outcome) => {
+    const ellipse = ellipseForPoints(points.filter((point) => point.outcome === outcome));
+    if (!ellipse) return null;
+    return {
+      outcome,
+      cx: projectX(ellipse.cx),
+      cy: projectY(ellipse.cy),
+      rx: Math.max(4, (ellipse.rx / xRange) * (width - padding * 2)),
+      ry: Math.max(4, (ellipse.ry / yRange) * (height - padding * 2)),
+    };
+  }).filter((ellipse): ellipse is { outcome: string; cx: number; cy: number; rx: number; ry: number } => Boolean(ellipse));
   return (
     <section className="model-chart-panel">
       <div className="model-chart-title-row">
@@ -1270,6 +1348,16 @@ function FeatureScatterChart({
       <svg className="model-scatter-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
         <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} />
         <line x1={width / 2} y1={padding} x2={width / 2} y2={height - padding} />
+        {ellipseGroups.map((ellipse) => (
+          <ellipse
+            key={ellipse.outcome}
+            cx={ellipse.cx}
+            cy={ellipse.cy}
+            rx={ellipse.rx}
+            ry={ellipse.ry}
+            className={ellipse.outcome === '1' ? 'scatter-ellipse-positive' : 'scatter-ellipse-negative'}
+          />
+        ))}
         {points.map((point, index) => (
           <circle
             key={`${point.timestamp}-${index}`}
@@ -1286,7 +1374,7 @@ function FeatureScatterChart({
   );
 }
 
-function MiniMetricLineChart({
+function MiniMetricBarChart({
   title,
   series,
   emptyLabel,
@@ -1308,31 +1396,124 @@ function MiniMetricLineChart({
   const padding = 38;
   const bottomPadding = 54;
   const values = series.map((point) => point.value);
-  const minValue = Math.min(...values);
+  const minValue = Math.min(0, ...values);
   const maxValue = Math.max(...values);
   const range = maxValue - minValue || 1;
-  const points = series.map((point, index) => {
-    const x = padding + (series.length === 1 ? 0.5 : index / (series.length - 1)) * (width - padding * 2);
-    const y = height - bottomPadding - ((point.value - minValue) / range) * (height - padding - bottomPadding);
-    return { ...point, x, y };
-  });
+  const barGap = 12;
+  const barWidth = Math.max(16, ((width - padding * 2) / series.length) - barGap);
+  const projectY = (value: number) => height - bottomPadding - ((value - minValue) / range) * (height - padding - bottomPadding);
+  const zeroY = projectY(0);
   return (
     <section className="model-chart-panel">
       <div className="model-chart-title">{title}</div>
-      <svg className="model-line-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
-        <line x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+      <svg className="model-bar-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} />
         <line x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
-        <polyline points={points.map((point) => `${point.x},${point.y}`).join(' ')} />
-        {points.map((point) => (
-          <g key={`${point.label}-${point.value}`}>
-            <circle cx={point.x} cy={point.y} r="5" className={`model-point-${modelIdentity({ promotion_status: point.status })}`} />
-            <text x={point.x} y={height - 26} textAnchor="middle">{point.label}</text>
-            <text x={point.x} y={Math.max(16, point.y - 10)} textAnchor="middle">{point.value.toFixed(3)}</text>
-          </g>
-        ))}
+        {series.map((point, index) => {
+          const slot = (width - padding * 2) / series.length;
+          const x = padding + index * slot + (slot - barWidth) / 2;
+          const y = Math.min(projectY(point.value), zeroY);
+          const barHeight = Math.max(2, Math.abs(projectY(point.value) - zeroY));
+          const labelX = x + barWidth / 2;
+          const showLabel = series.length <= 8 || index === 0 || index === series.length - 1 || index % Math.ceil(series.length / 8) === 0;
+          return (
+            <g key={`${point.label}-${point.value}`}>
+              <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" className={`model-bar-${modelIdentity({ promotion_status: point.status })}`} />
+              {showLabel ? <text x={labelX} y={height - 26} textAnchor="middle">{point.label}</text> : null}
+              {showLabel ? <text x={labelX} y={Math.max(16, y - 8)} textAnchor="middle">{point.value.toFixed(3)}</text> : null}
+            </g>
+          );
+        })}
       </svg>
     </section>
   );
+}
+
+function DiagnosticLineChart({
+  title,
+  series,
+  emptyLabel,
+}: {
+  title: string;
+  series: Array<{ name: string; points: Array<{ label: string; value: number }> }>;
+  emptyLabel: string;
+}) {
+  const nonEmpty = series.filter((item) => item.points.length);
+  if (!nonEmpty.length) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">{title}</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  const width = 680;
+  const height = 230;
+  const padding = 38;
+  const bottomPadding = 54;
+  const values = nonEmpty.flatMap((item) => item.points.map((point) => point.value));
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = maxValue - minValue || 1;
+  const maxLength = Math.max(...nonEmpty.map((item) => item.points.length));
+  const project = (point: { value: number }, index: number) => {
+    const x = padding + (maxLength === 1 ? 0.5 : index / (maxLength - 1)) * (width - padding * 2);
+    const y = height - bottomPadding - ((point.value - minValue) / range) * (height - padding - bottomPadding);
+    return { x, y };
+  };
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">{title}</span>
+        <div className="chart-legend">
+          {nonEmpty.map((item, index) => <span className={`legend-${index}`} key={item.name}>{item.name}</span>)}
+        </div>
+      </div>
+      <svg className="model-line-chart diagnostic-line-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <line x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
+        {nonEmpty.map((item, seriesIndex) => {
+          const projected = item.points.map((point, index) => ({ ...point, ...project(point, index) }));
+          return (
+            <g key={item.name} className={`diagnostic-series-${seriesIndex}`}>
+              <polyline points={projected.map((point) => `${point.x},${point.y}`).join(' ')} />
+              {projected.map((point, index) => (
+                <g key={`${item.name}-${point.label}`}>
+                  <circle cx={point.x} cy={point.y} r="4" />
+                  {index === 0 || index === projected.length - 1 || projected.length <= 8 ? <text x={point.x} y={height - 26} textAnchor="middle">{point.label}</text> : null}
+                </g>
+              ))}
+            </g>
+          );
+        })}
+      </svg>
+    </section>
+  );
+}
+
+function AdaptiveDiagnosticChart({
+  title,
+  globalSeries,
+  selectedVersion,
+  selectedKind,
+  emptyLabel,
+}: {
+  title: string;
+  globalSeries: Array<{ label: string; value: number; status?: string | null }>;
+  selectedVersion: ModelGroupPromotionVersionPayload | null;
+  selectedKind: Parameters<typeof selectedDiagnosticSeries>[1];
+  emptyLabel: string;
+}) {
+  if (selectedVersion) {
+    return (
+      <DiagnosticLineChart
+        title={`${title} · ${compactVersionLabel(selectedVersion, 0)}`}
+        series={selectedDiagnosticSeries(selectedVersion, selectedKind)}
+        emptyLabel={`No selected-model curve published for ${title}`}
+      />
+    );
+  }
+  return <MiniMetricBarChart title={`${title} · Global Compare`} series={globalSeries} emptyLabel={emptyLabel} />;
 }
 
 function IdentityDistribution({ versions }: { versions: ModelGroupPromotionVersionPayload[] }) {
@@ -1358,9 +1539,24 @@ function IdentityDistribution({ versions }: { versions: ModelGroupPromotionVersi
   );
 }
 
-function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionPayload[] }) {
+function ModelVersionTable({
+  versions,
+  selectedVersionId,
+  onSelectVersion,
+}: {
+  versions: ModelGroupPromotionVersionPayload[];
+  selectedVersionId: string | null;
+  onSelectVersion: (versionId: string | null) => void;
+}) {
   return (
     <section className="model-version-table-panel">
+      <div className="model-version-table-toolbar">
+        <div>
+          <strong>Model Versions</strong>
+          <span>{selectedVersionId ? 'Selected model diagnostics' : 'Global comparison'}</span>
+        </div>
+        {selectedVersionId ? <button type="button" onClick={() => onSelectVersion(null)}>Clear selection</button> : null}
+      </div>
       <div className="model-table-row model-table-head">
         <span>Version</span>
         <span>Identity</span>
@@ -1374,8 +1570,14 @@ function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionP
       {versions.length ? versions.map((version, index) => {
         const metrics = version.metrics ?? {};
         const identity = modelIdentity(version);
+        const versionId = versionStableId(version, index);
         return (
-          <div className="model-table-row" key={String(version.version_id ?? index)}>
+          <button
+            className={selectedVersionId === versionId ? 'model-table-row selected' : 'model-table-row'}
+            key={versionId}
+            onClick={() => onSelectVersion(selectedVersionId === versionId ? null : versionId)}
+            type="button"
+          >
             <strong>{compactVersionLabel(version, index)}</strong>
             <span><StatusPill status={identity} severity={modelStatusSeverity(identity)} /></span>
             <span>{formatMetricValue(metricNumber(metrics, 'auroc'))}</span>
@@ -1384,7 +1586,7 @@ function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionP
             <span>{formatMetricValue(metricNumber(metrics, 'profit_factor'))}</span>
             <span>{startCase(String(metrics.data_integrity_status ?? 'not_reported'))}</span>
             <span>{startCase(version.decision_status ?? version.agent_review_recommendation ?? 'not_reported')}</span>
-          </div>
+          </button>
         );
       }) : (
         <div className="empty-chart compact">No model-group promotion versions published yet</div>
@@ -1393,66 +1595,38 @@ function ModelVersionTable({ versions }: { versions: ModelGroupPromotionVersionP
   );
 }
 
-function ScientificEvidenceGrid({ versions }: { versions: ModelGroupPromotionVersionPayload[] }) {
-  const latest = versions.length ? versions[versions.length - 1] : null;
-  const metrics = latest?.metrics ?? {};
-  const cards = [
-    {
-      title: 'Predictive',
-      tag: 'Gate candidate',
-      items: [
-        ['AUROC', formatMetricValue(metricNumber(metrics, 'auroc'))],
-        ['PR-AUC', formatMetricValue(metricNumber(metrics, 'pr_auc'))],
-        ['Base rate', formatMetricValue(metricNumber(metrics, 'base_rate'))],
-      ],
-    },
-    {
-      title: 'Calibration',
-      tag: 'Gate candidate',
-      items: [
-        ['Brier', formatMetricValue(metricNumber(metrics, 'brier_score'))],
-        ['ECE', formatMetricValue(metricNumber(metrics, 'ece'))],
-        ['MCE', formatMetricValue(metricNumber(metrics, 'mce'))],
-      ],
-    },
-    {
-      title: 'Economic',
-      tag: 'Gate candidate',
-      items: [
-        ['Profit factor', formatMetricValue(metricNumber(metrics, 'profit_factor'))],
-        ['Tail p05', formatMetricValue(metricNumber(metrics, 'tail_loss_p05'))],
-        ['2x cost return', formatMetricValue(metricNumber(metrics, 'cost_sensitivity_2x'))],
-      ],
-    },
-    {
-      title: 'Data Integrity',
-      tag: 'Data quality',
-      items: [
-        ['Leakage', startCase(String(metrics.leakage_check_status ?? 'not_reported'))],
-        ['Rows', displayValue(metricNumber(metrics, 'decision_row_count'))],
-        ['Months', displayValue(metricNumber(metrics, 'month_slice_count'))],
-      ],
-    },
-  ];
+function ActiveModelEvidence({
+  activeVersion,
+  activeRef,
+}: {
+  activeVersion: ModelGroupPromotionVersionPayload | null;
+  activeRef: string | null;
+}) {
+  if (!activeVersion) {
+    return (
+      <section className="active-model-evidence missing">
+        <div>
+          <span>Active Model Evidence</span>
+          <strong>No active model-group version</strong>
+          <small>{activeRef ? `Runtime active ref ${activeRef} does not match a published group version.` : 'No runtime active model pointer is published.'}</small>
+        </div>
+        <StatusPill status="no active" severity="warning" />
+      </section>
+    );
+  }
+  const identity = modelIdentity(activeVersion);
   return (
-    <div className="scientific-evidence-grid">
-      {cards.map((card) => (
-        <section className="scientific-evidence-card" key={card.title}>
-          <div className="scientific-evidence-head">
-            <strong>{card.title}</strong>
-            <span>{card.tag}</span>
-          </div>
-          <div className="scientific-evidence-items">
-            {card.items.map(([label, value]) => (
-              <div key={label}>
-                <span>{label}</span>
-                <strong>{value}</strong>
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
+    <section className="active-model-evidence">
+      <div>
+        <span>Active Model Evidence</span>
+        <strong>{compactVersionLabel(activeVersion, 0)}</strong>
+        <small>{activeVersion.candidate_model_ref ?? activeVersion.version_id ?? 'No active ref published'}</small>
+      </div>
+      <div className="active-model-meta">
+        <StatusPill status={identity} severity={modelStatusSeverity(identity)} />
+        <span>{startCase(activeVersion.decision_status ?? activeVersion.agent_review_recommendation ?? 'not_reported')}</span>
+      </div>
+    </section>
   );
 }
 
@@ -1469,41 +1643,38 @@ function ModelGroupDetail({
   runtimeChart: ExecutionRuntimeStatusChartPayload;
   promotionChart: ModelPromotionPostureChartPayload;
 }) {
-  const lifecycleLayers = layers.map((layer) => layer.lifecycle).filter(Boolean) as ModelLayerLifecyclePayload[];
   const versions = groupPromotionVersions(layerChart, promotionChart, promotions);
-  const latestAuroc = latestVersionMetric(versions, 'auroc');
-  const latestBrier = latestVersionMetric(versions, 'brier_score');
-  const latestDrawdown = latestVersionMetric(versions, 'max_drawdown');
-  const latestSilhouette = latestVersionMetric(versions, 'silhouette_outcome_label');
-  const pcaVersion = latestVersionWithDiagnostic(versions, 'pca');
-  const pcoaVersion = latestVersionWithDiagnostic(versions, 'pcoa');
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const activeRef = activeModelRef(runtimeChart);
+  const activeVersion = versions.find((version) => modelIdentity(version) === 'active') ?? null;
+  const selectedVersion = versions.find((version, index) => versionStableId(version, index) === selectedVersionId) ?? null;
+  const diagnosticVersion = selectedVersion ?? activeVersion ?? latestVersionWithDiagnostic(versions, 'pca') ?? latestVersionWithDiagnostic(versions, 'pcoa');
+  const pcaVersion = diagnosticVersion && diagnosticPoints(diagnosticVersion, 'pca').length ? diagnosticVersion : latestVersionWithDiagnostic(versions, 'pca');
+  const pcoaVersion = diagnosticVersion && diagnosticPoints(diagnosticVersion, 'pcoa').length ? diagnosticVersion : latestVersionWithDiagnostic(versions, 'pcoa');
   return (
     <section className="panel model-layer-detail-panel">
       <div className="model-layer-detail-head">
         <div>
           <div className="panel-heading">0 · Model Group Versions</div>
-          <p className="panel-subtitle">Model-group promotion is version scoped. This page compares all published group versions, their identities, and their evaluation trajectory.</p>
+          <p className="panel-subtitle">Model-group promotion is version scoped. Select a model row to switch charts from global version comparison into that model's internal diagnostic curves.</p>
         </div>
         <StatusPill status={`${versions.length} versions`} severity="info" />
       </div>
-      <div className="model-version-kpis">
-        <section><span>Latest AUROC</span><strong>{formatMetricValue(latestAuroc)}</strong></section>
-        <section><span>Latest Brier</span><strong>{formatMetricValue(latestBrier)}</strong></section>
-        <section><span>Drawdown</span><strong>{formatMetricValue(latestDrawdown)}</strong></section>
-        <section><span>Silhouette</span><strong>{formatMetricValue(latestSilhouette)}</strong></section>
-      </div>
-      <ScientificEvidenceGrid versions={versions} />
+      <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
+      <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <div className="model-chart-grid">
-        <MiniMetricLineChart title="AUROC by Promotion Version" series={versionMetricSeries(versions, 'auroc')} emptyLabel="AUROC series not published" />
-        <MiniMetricLineChart title="PR-AUC by Promotion Version" series={versionMetricSeries(versions, 'pr_auc')} emptyLabel="PR-AUC series not published" />
-        <MiniMetricLineChart title="ECE by Promotion Version" series={versionMetricSeries(versions, 'ece')} emptyLabel="ECE series not published" />
-        <MiniMetricLineChart title="Excess Return by Promotion Version" series={versionMetricSeries(versions, 'excess_return_total')} emptyLabel="Return series not published" />
+        <AdaptiveDiagnosticChart title="AUROC" globalSeries={versionMetricSeries(versions, 'auroc')} selectedVersion={selectedVersion} selectedKind="monthly_auroc" emptyLabel="AUROC series not published" />
+        <AdaptiveDiagnosticChart title="Brier" globalSeries={versionMetricSeries(versions, 'brier_score')} selectedVersion={selectedVersion} selectedKind="monthly_brier" emptyLabel="Brier series not published" />
+        <AdaptiveDiagnosticChart title="Calibration" globalSeries={versionMetricSeries(versions, 'ece')} selectedVersion={selectedVersion} selectedKind="calibration" emptyLabel="Calibration series not published" />
+        <AdaptiveDiagnosticChart title="Economic Return" globalSeries={versionMetricSeries(versions, 'excess_return_total')} selectedVersion={selectedVersion} selectedKind="monthly_return" emptyLabel="Return series not published" />
+        <AdaptiveDiagnosticChart title="Drawdown" globalSeries={versionMetricSeries(versions, 'max_drawdown')} selectedVersion={selectedVersion} selectedKind="monthly_drawdown" emptyLabel="Drawdown series not published" />
+        <AdaptiveDiagnosticChart title="Threshold Return" globalSeries={versionMetricSeries(versions, 'profit_factor')} selectedVersion={selectedVersion} selectedKind="threshold_return" emptyLabel="Profit-factor series not published" />
+        <AdaptiveDiagnosticChart title="Cost Sensitivity" globalSeries={versionMetricSeries(versions, 'cost_sensitivity_2x')} selectedVersion={selectedVersion} selectedKind="cost_sensitivity" emptyLabel="Cost sensitivity series not published" />
+        <AdaptiveDiagnosticChart title="Silhouette" globalSeries={versionMetricSeries(versions, 'silhouette_outcome_label')} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
         <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" emptyLabel="PCA diagnostics not published" />
         <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" emptyLabel="PCoA diagnostics not published" />
-        <MiniMetricLineChart title="Silhouette by Promotion Version" series={versionMetricSeries(versions, 'silhouette_outcome_label')} emptyLabel="Silhouette series not published" />
         <IdentityDistribution versions={versions} />
       </div>
-      <ModelVersionTable versions={versions} />
     </section>
   );
 }

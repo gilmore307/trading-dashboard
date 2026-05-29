@@ -122,18 +122,14 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .model-parameter-card { min-width: 0; display: grid; gap: 6px; padding: 12px; border-radius: 13px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); }
 .model-parameter-card span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
 .model-parameter-card strong { color: #f8fbff; font-size: 13px; line-height: 1.3; overflow-wrap: anywhere; }
-.model-version-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
-.model-version-kpis section { min-width: 0; padding: 14px; border-radius: 14px; background: rgba(2, 6, 23, .34); border: 1px solid rgba(148, 163, 184, .12); display: grid; gap: 8px; }
-.model-version-kpis span, .model-chart-title { color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 900; }
-.model-version-kpis strong { color: #f8fbff; font-size: 24px; line-height: 1.1; overflow-wrap: anywhere; }
-.scientific-evidence-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
-.scientific-evidence-card { min-width: 0; display: grid; gap: 12px; padding: 14px; border-radius: 16px; background: rgba(15, 23, 42, .38); border: 1px solid rgba(148, 163, 184, .12); }
-.scientific-evidence-head { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.scientific-evidence-head strong { color: #f8fbff; font-size: 14px; overflow-wrap: anywhere; }
-.scientific-evidence-head span { color: #93c5fd; font-size: 10px; text-transform: uppercase; letter-spacing: .09em; font-weight: 900; white-space: nowrap; }
-.scientific-evidence-items { display: grid; gap: 9px; }
-.scientific-evidence-items div { min-width: 0; display: flex; justify-content: space-between; gap: 10px; color: #9fb1c8; font-size: 12px; }
-.scientific-evidence-items strong { color: #e5edf8; font-size: 12px; overflow-wrap: anywhere; text-align: right; }
+.model-chart-title { color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 900; }
+.active-model-evidence { min-width: 0; display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 14px; margin-bottom: 14px; border-radius: 16px; background: rgba(8, 47, 73, .30); border: 1px solid rgba(56, 189, 248, .18); }
+.active-model-evidence.missing { background: rgba(69, 26, 3, .26); border-color: rgba(251, 191, 36, .22); }
+.active-model-evidence div { min-width: 0; display: grid; gap: 5px; }
+.active-model-evidence span:first-child { color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
+.active-model-evidence strong { color: #f8fbff; font-size: 16px; overflow-wrap: anywhere; }
+.active-model-evidence small { color: #9fb1c8; font-size: 12px; overflow-wrap: anywhere; }
+.active-model-meta { justify-items: end; color: #cbd5e1; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .model-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 .model-chart-panel { min-width: 0; padding: 14px; border-radius: 16px; background: rgba(2, 6, 23, .30); border: 1px solid rgba(148, 163, 184, .11); display: grid; gap: 12px; }
 .model-chart-title-row { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -147,9 +143,30 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .model-line-chart .model-point-retired { fill: #fbbf24; }
 .model-line-chart .model-point-candidate { fill: #a78bfa; }
 .model-line-chart text { fill: #8fa2ba; font-size: 12px; font-weight: 750; }
+.model-bar-chart { width: 100%; min-height: 210px; display: block; overflow: visible; }
+.model-bar-chart line { stroke: rgba(148, 163, 184, .22); stroke-width: 1; }
+.model-bar-chart rect { fill: #60a5fa; }
+.model-bar-chart .model-bar-active { fill: #34d399; }
+.model-bar-chart .model-bar-shadow { fill: #38bdf8; }
+.model-bar-chart .model-bar-retired { fill: #fbbf24; }
+.model-bar-chart .model-bar-candidate { fill: #a78bfa; }
+.model-bar-chart text { fill: #8fa2ba; font-size: 12px; font-weight: 750; }
+.diagnostic-line-chart .diagnostic-series-0 polyline { stroke: #67e8f9; }
+.diagnostic-line-chart .diagnostic-series-1 polyline { stroke: #fbbf24; }
+.diagnostic-line-chart .diagnostic-series-2 polyline { stroke: #a78bfa; }
+.diagnostic-line-chart .diagnostic-series-0 circle { fill: #67e8f9; }
+.diagnostic-line-chart .diagnostic-series-1 circle { fill: #fbbf24; }
+.diagnostic-line-chart .diagnostic-series-2 circle { fill: #a78bfa; }
+.chart-legend { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; color: #cbd5e1; font-size: 11px; font-weight: 850; }
+.chart-legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; background: #67e8f9; }
+.chart-legend .legend-1::before { background: #fbbf24; }
+.chart-legend .legend-2::before { background: #a78bfa; }
 .model-scatter-chart { width: 100%; min-height: 230px; display: block; }
 .model-scatter-chart line { stroke: rgba(148, 163, 184, .16); stroke-width: 1; }
 .model-scatter-chart circle { stroke: rgba(2, 6, 23, .72); stroke-width: 1.5; opacity: .86; }
+.model-scatter-chart ellipse { fill: transparent; stroke-width: 2; stroke-dasharray: 6 5; opacity: .74; }
+.model-scatter-chart .scatter-ellipse-positive { stroke: #34d399; }
+.model-scatter-chart .scatter-ellipse-negative { stroke: #f87171; }
 .model-scatter-chart .scatter-positive { fill: #34d399; }
 .model-scatter-chart .scatter-negative { fill: #f87171; }
 .model-scatter-chart .scatter-neutral { fill: #94a3b8; }
@@ -161,13 +178,22 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .identity-shadow { background: #38bdf8; }
 .identity-candidate { background: #a78bfa; }
 .identity-retired { background: #fbbf24; }
-.model-version-table-panel { min-width: 0; overflow-x: auto; display: grid; gap: 8px; }
-.model-table-row { display: grid; grid-template-columns: minmax(150px, .9fr) 112px repeat(5, minmax(92px, .55fr)) minmax(130px, .8fr); gap: 10px; align-items: center; min-width: 1080px; padding: 11px 12px; border-radius: 13px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); color: #cbd5e1; font-size: 12px; }
+.model-version-table-panel { min-width: 0; overflow-x: auto; display: grid; gap: 8px; margin-bottom: 14px; }
+.model-version-table-toolbar { min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.model-version-table-toolbar div { min-width: 0; display: grid; gap: 3px; }
+.model-version-table-toolbar strong { color: #f8fbff; font-size: 14px; }
+.model-version-table-toolbar span { color: #8fa2ba; font-size: 12px; }
+.model-version-table-toolbar button { border: 1px solid rgba(148, 163, 184, .20); background: rgba(15, 23, 42, .52); color: #cbd5e1; border-radius: 10px; padding: 8px 10px; font-weight: 850; cursor: pointer; }
+.model-version-table-toolbar button:hover { border-color: rgba(125, 211, 252, .45); color: #e0f2fe; }
+.model-table-row { display: grid; grid-template-columns: minmax(150px, .9fr) 112px repeat(5, minmax(92px, .55fr)) minmax(130px, .8fr); gap: 10px; align-items: center; min-width: 1080px; padding: 11px 12px; border-radius: 13px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); color: #cbd5e1; font-size: 12px; text-align: left; font: inherit; }
+button.model-table-row { cursor: pointer; }
+button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); background: rgba(15, 23, 42, .62); }
+.model-table-row.selected { border-color: rgba(52, 211, 153, .46); background: rgba(6, 78, 59, .24); }
 .model-table-row strong { color: #f8fbff; overflow-wrap: anywhere; }
 .model-table-head { background: rgba(2, 6, 23, .48); color: #7c8ea5; text-transform: uppercase; letter-spacing: .09em; font-weight: 900; }
 
 @media (max-width: 1220px) {
-  .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid, .model-version-kpis, .scientific-evidence-grid { grid-template-columns: 1fr; }
+  .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid { grid-template-columns: 1fr; }
   .model-layer-tabs { position: static; max-height: none; }
   .model-layer-detail-head, .model-version-row { flex-direction: column; }
 }
