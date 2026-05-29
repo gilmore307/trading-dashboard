@@ -248,8 +248,8 @@ Dashboard presentation:
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
 - group page charts are organized as four scorecards: Ranking / Calibration, Selection Quality, Economic Quality, and Slices;
 - AUROC/ROC remains ranking evidence, while score-decile return, threshold utility, good/bad fills, missed winners, excess return, drawdown, cost sensitivity, long/short/action slices, PCA, and PCoA carry the owner-facing model-performance interpretation when published;
-- group page exposes a version-level optimization parameter matrix. When the selected version does not publish candidate config or hyperparameter evidence, the matrix shows required parameters and explicitly marks values as not published instead of inventing settings;
-- layer pages show chart/table-first component evidence dossiers: model claim, required evidence, validity status, evidence-status distribution, evidence matrix, model specification, and optimization targets;
+- layer pages show chart/table-first component evidence dossiers: model claim, required evidence, validity status, evidence-status distribution, evidence matrix, model specification, and optimization parameters;
+- each layer page exposes that layer's version-level optimization parameter table. When the selected active/baseline version does not publish candidate config or hyperparameter evidence, the table shows required parameters and explicitly marks values as not published instead of inventing settings;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
 Canonical layer map:

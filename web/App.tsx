@@ -1000,6 +1000,7 @@ type ModelLayerView = {
   lifecycle: ModelLayerLifecyclePayload | null;
   evaluation: ModelLayerEvaluationPayload | null;
   promotions: ModelPromotionItemPayload[];
+  groupVersion: ModelGroupPromotionVersionPayload | null;
 };
 
 function normalizeModelRef(value: unknown): string {
@@ -2591,51 +2592,43 @@ function compactConfigValue(value: unknown): string {
   }
 }
 
-function VersionOptimizationParameters({
-  version,
-  layers,
-}: {
-  version: ModelGroupPromotionVersionPayload | null;
-  layers: ModelLayerView[];
-}) {
+function LayerOptimizationParameters({ view }: { view: ModelLayerView }) {
+  const version = view.groupVersion;
   if (!version) {
     return (
       <section className="model-chart-panel version-parameters-panel">
-        <div className="model-chart-title">Version Optimization Parameters</div>
-        <div className="empty-chart compact">Select a model version to inspect the parameter matrix</div>
+        <div className="model-chart-title">Optimization Parameters</div>
+        <div className="empty-chart compact">No model-group version is available for this layer yet</div>
       </section>
     );
   }
   const config = versionCandidateConfig(version);
   const configMissing = !config || version.blocking_issues?.some((issue) => issue.toLowerCase().includes('candidate config evidence'));
-  const rows = layers.flatMap((view) => view.definition.optimizationTargets.map((parameter) => ({
-    layer: view.definition,
+  const rows = view.definition.optimizationTargets.map((parameter) => ({
     parameter,
     value: nestedConfigValue(config, view.definition, parameter.label),
-  })));
+  }));
   return (
     <section className="model-chart-panel version-parameters-panel">
       <div className="model-chart-title-row">
-        <span className="model-chart-title">Version Optimization Parameters · {compactVersionLabel(version, 0)}</span>
+        <span className="model-chart-title">Optimization Parameters · {compactVersionLabel(version, 0)}</span>
         <StatusPill status={configMissing ? 'config evidence missing' : 'config evidence available'} severity={configMissing ? 'medium' : 'low'} />
       </div>
-      <div className="version-parameter-table" role="table" aria-label="Selected version optimization parameters">
-        <div className="version-parameter-row version-parameter-head" role="row">
-          <span>Layer</span>
+      <div className="layer-parameter-table" role="table" aria-label="Layer optimization parameters">
+        <div className="layer-parameter-row layer-parameter-head" role="row">
           <span>Parameter</span>
           <span>Published Value</span>
           <span>Optimization Target</span>
         </div>
         {rows.map((row) => (
-          <div className="version-parameter-row" role="row" key={`${row.layer.layer}-${row.parameter.label}`}>
-            <strong>{row.layer.layer} · {row.layer.label}</strong>
-            <span>{row.parameter.label}</span>
+          <div className="layer-parameter-row" role="row" key={row.parameter.label}>
+            <strong>{row.parameter.label}</strong>
             <span>{compactConfigValue(row.value)}</span>
             <small>{row.parameter.value}</small>
           </div>
         ))}
       </div>
-      {configMissing ? <div className="model-chart-note">This version does not publish candidate config evidence yet, so the table shows required optimization parameters and leaves current values as Not published.</div> : null}
+      {configMissing ? <div className="model-chart-note">This version does not publish candidate config evidence yet, so this layer shows required optimization parameters and leaves current values as Not published.</div> : null}
     </section>
   );
 }
@@ -2672,7 +2665,6 @@ function ModelGroupDetail({
       </div>
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
-      <VersionOptimizationParameters version={selectedVersion ?? activeVersion ?? versions[0] ?? null} layers={layers} />
       <ExcludedPromotionEvidencePanel exclusions={exclusions} />
       <IdentityDistribution versions={versions} />
       <EvaluationDisagreementPanel version={selectedVersion} />
@@ -2867,6 +2859,7 @@ function ModelLayerDetail({
         <StatusPill status={status} severity={evidenceStatusSeverity(status)} />
       </div>
       <ModelEvidenceDossier view={view} />
+      <LayerOptimizationParameters view={view} />
       <section className="model-detail-section wide-detail">
         <span>Model Specification</span>
         <LayerSpecTable view={view} />
@@ -2896,6 +2889,8 @@ function ModelLayerOverview({
   const allTasks = chart.task_timeline ?? [];
   const periodTasks = chart.current_month ? allTasks.filter((task) => task.month === chart.current_month) : [];
   const tasks = periodTasks.length ? periodTasks : allTasks;
+  const groupVersions = groupPromotionVersions(layerChart, promotionChart);
+  const layerGroupVersion = groupVersions.find((version) => modelIdentity(version) === 'active') ?? groupVersions.at(-1) ?? null;
   const lifecycleByLayer = new Map<number, ModelLayerLifecyclePayload>();
   (layerChart.layers ?? []).forEach((layer) => {
     const layerNumber = lifecycleLayerNumber(layer);
@@ -2916,6 +2911,7 @@ function ModelLayerOverview({
     lifecycle: lifecycleByLayer.get(definition.layer) ?? null,
     evaluation: evaluationByLayer.get(definition.layer) ?? null,
     promotions: promotionsByLayer.get(definition.layer) ?? [],
+    groupVersion: layerGroupVersion,
   }));
   const selectedView = layers.find((layer) => layer.definition.layer === selectedLayer) ?? layers[0];
   return (
