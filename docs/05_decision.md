@@ -348,7 +348,7 @@ As future website pages, adapters, or read-model slices consume additional origi
 - Derived dashboard JSON should be described as sanitized/cache presentation, not as a new source file.
 - Future website development must keep source-output visibility synchronized with the actual raw/source artifacts feeding each visible dashboard surface.
 
-## D015 - Tasks is a task list; model progress belongs under Models
+## D015 - Tasks is operational; Models is evaluation-first
 
 Date: 2026-05-13
 Status: Accepted
@@ -359,12 +359,12 @@ Chentong clarified that the Tasks page should answer what work is being performe
 
 ### Decision
 
-The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model asset presentation: tab `0` is the model-group pipeline and owns evaluation, promotion, active/shadow/retired posture, and promotion rate; tabs `1`-`10` show the individual component models' family, objective, input/output boundary, candidate ref, and key parameters. Task states, task blockers, and workflow progress stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
+The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model evaluation presentation: tab `0` is the model-group pipeline and owns version comparison, promotion identity, and performance diagnostics; tabs `1`-`10` show individual component models through chart/table-first evidence dossiers covering model claim, required evidence, validity status, model specification, and optimization targets. Task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
 
 ### Consequences
 
 - Tasks is list-first and operational-stage-first.
-- Models consumes `model_layer_readiness_summary`, `model_layer_evaluation_summary`, `model_promotion_posture_summary`, and `execution_realtime_trading_runtime_status` as model asset evidence. Layer subtabs lead with model claim, evidence, and validity decision; `historical_task_progress_summary` remains the Tasks source and must not drive model-page status wording.
+- Models consumes `model_layer_evaluation_summary`, `model_layer_readiness_summary`, and `model_promotion_posture_summary` as model-evaluation evidence. `execution_realtime_trading_runtime_status` may identify a group active pointer, but layer subtabs must not surface runtime or task-state panels. `historical_task_progress_summary` remains the Tasks source and must not drive model-page status wording.
 - Dashboard remains read-only and consumes storage-hosted summaries rather than workflow checkpoint internals directly.
 
 ## D016 - Task list defaults to current work and exposes filters

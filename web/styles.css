@@ -117,17 +117,25 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .model-evidence-dossier { display: grid; gap: 12px; margin-bottom: 12px; padding: 14px; border-radius: 16px; background: rgba(8, 47, 73, .20); border: 1px solid rgba(125, 211, 252, .18); }
 .evidence-dossier-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
 .evidence-dossier-head div { display: grid; gap: 5px; min-width: 0; }
-.evidence-dossier-head span, .evidence-claim-grid span, .evidence-section-card span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
+.evidence-dossier-head span, .evidence-claim-grid span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
 .evidence-dossier-head strong { color: #f8fbff; font-size: 20px; line-height: 1.15; overflow-wrap: anywhere; }
 .evidence-claim-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
 .evidence-claim-grid section { min-width: 0; display: grid; gap: 6px; padding: 12px; border-radius: 13px; background: rgba(2, 6, 23, .32); border: 1px solid rgba(148, 163, 184, .10); }
 .evidence-claim-grid strong { color: #f8fbff; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
 .evidence-claim-grid small { color: #8fa2ba; line-height: 1.4; overflow-wrap: anywhere; }
-.evidence-section-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.evidence-section-card { min-width: 0; display: grid; align-content: start; gap: 8px; padding: 12px; border-radius: 13px; background: rgba(15, 23, 42, .44); border: 1px solid rgba(148, 163, 184, .11); }
-.evidence-section-card div { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-.evidence-section-card strong { color: #f8fbff; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
-.evidence-section-card small { color: #8fa2ba; line-height: 1.4; overflow-wrap: anywhere; }
+.evidence-status-bars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.evidence-status-row { min-width: 0; display: grid; grid-template-columns: 132px minmax(0, 1fr) 36px; gap: 9px; align-items: center; padding: 10px 11px; border-radius: 13px; background: rgba(15, 23, 42, .44); border: 1px solid rgba(148, 163, 184, .11); }
+.evidence-status-row span { color: #cbd5e1; font-size: 12px; font-weight: 850; overflow-wrap: anywhere; }
+.evidence-status-row div { height: 9px; border-radius: 999px; overflow: hidden; background: rgba(148, 163, 184, .13); }
+.evidence-status-row i { display: block; height: 100%; border-radius: inherit; }
+.evidence-status-row strong { color: #f8fbff; font-size: 13px; text-align: right; }
+.evidence-metric-table, .layer-spec-table { min-width: 0; display: grid; gap: 1px; overflow: hidden; border: 1px solid rgba(148, 163, 184, .13); border-radius: 14px; background: rgba(148, 163, 184, .10); }
+.evidence-metric-row { min-width: 0; display: grid; grid-template-columns: minmax(150px, .8fr) 150px minmax(180px, 1.15fr) minmax(220px, 1.35fr); gap: 12px; align-items: center; padding: 11px 12px; background: rgba(15, 23, 42, .58); }
+.evidence-metric-head { background: rgba(8, 47, 73, .52); }
+.evidence-metric-row span, .layer-spec-row span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
+.evidence-metric-row strong, .layer-spec-row strong { min-width: 0; color: #f8fbff; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.evidence-metric-row small { min-width: 0; color: #8fa2ba; line-height: 1.4; overflow-wrap: anywhere; }
+.layer-spec-row { min-width: 0; display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 14px; align-items: center; padding: 12px 13px; background: rgba(15, 23, 42, .50); }
 .model-version-list { display: grid; gap: 8px; }
 .model-version-row { min-width: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 11px 12px; border-radius: 13px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); }
 .model-version-row div { min-width: 0; display: grid; gap: 4px; }
@@ -290,7 +298,8 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .exclusion-reasons span { border: 1px solid rgba(251, 191, 36, .28); border-radius: 999px; padding: 7px 10px; color: #fde68a; background: rgba(120, 53, 15, .22); font-size: 12px; font-weight: 850; }
 
 @media (max-width: 1220px) {
-  .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid, .layer-status-grid, .layer-io-grid, .layer-evidence-grid, .evidence-claim-grid, .evidence-section-grid { grid-template-columns: 1fr; }
+  .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid, .layer-status-grid, .layer-io-grid, .layer-evidence-grid, .evidence-claim-grid, .evidence-status-bars { grid-template-columns: 1fr; }
+  .evidence-metric-row, .layer-spec-row { grid-template-columns: 1fr; }
   .identity-panel .identity-bars { grid-template-columns: 1fr; }
   .decision-variable-stats, .variable-coverage-grid, .variable-coverage-grid.compact { grid-template-columns: 1fr; }
   .model-scorecard-head { display: grid; }

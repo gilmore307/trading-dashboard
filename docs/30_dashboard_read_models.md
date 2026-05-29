@@ -135,7 +135,7 @@ The alert page is an owner-actionable issue queue, not a log viewer.
 
 Purpose: support the Historical Modeling subtab under Tasks.
 
-Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks view. Tasks consumes the timeline as an operational work list. Models consumes dedicated model summaries and the execution runtime pointer for model asset posture.
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks view. Tasks consumes the timeline as an operational work list. Models consumes dedicated model summaries for evaluation; task progress does not drive model-page wording.
 
 Owner-facing fields:
 
@@ -248,8 +248,8 @@ Dashboard presentation:
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
 - group page charts are organized as four scorecards: Ranking / Calibration, Selection Quality, Economic Quality, and Slices;
 - AUROC/ROC remains ranking evidence, while score-decile return, threshold utility, good/bad fills, missed winners, excess return, drawdown, cost sensitivity, long/short/action slices, PCA, and PCoA carry the owner-facing model-performance interpretation when published;
-- layer pages show component model definition, candidate ref, input/output boundary, score boundary, training window, and key parameters;
-- task states, task blockers, and workflow progress stay under Tasks/Diagnostics and are not model-page status labels.
+- layer pages show chart/table-first component evidence dossiers: model claim, required evidence, validity status, evidence-status distribution, evidence matrix, model specification, and optimization targets;
+- candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
 Canonical layer map:
 
@@ -284,7 +284,7 @@ Dashboard presentation:
 
 - layer pages lead with claim, evidence, and validity decision;
 - missing per-layer statistical artifacts are displayed as `insufficient_evidence`;
-- task progress, receipts, blockers, and safety flags are subordinate operational debug evidence, not model-validity proof;
+- task progress, receipts, blockers, and safety flags stay on Tasks/Diagnostics, not on layer evaluation pages;
 - group-level AUROC/return/PCA/slice metrics must not be relabeled as layer-level metrics.
 
 ### `model_promotion_posture_summary`
