@@ -1073,23 +1073,12 @@ function groupPromotionRecord(layers: ModelLayerLifecyclePayload[], promotions: 
   return maybeRecord(layers.find((layer) => layer.promotion)?.promotion) || maybeRecord(promotions[0]);
 }
 
-function groupPromotionVersions(layerChart: ModelLayerReadinessChartPayload, promotionChart: ModelPromotionPostureChartPayload, promotions: ModelPromotionItemPayload[]): ModelGroupPromotionVersionPayload[] {
+function groupPromotionVersions(layerChart: ModelLayerReadinessChartPayload, promotionChart: ModelPromotionPostureChartPayload): ModelGroupPromotionVersionPayload[] {
   const fromPromotion = promotionChart.group_versions ?? [];
   const fromLayer = Array.isArray(layerChart.group_versions) ? layerChart.group_versions as ModelGroupPromotionVersionPayload[] : [];
   if (fromPromotion.length) return fromPromotion;
   if (fromLayer.length) return fromLayer;
-  return promotions.map((item) => ({
-    version_id: item.version_id ?? item.model_ref ?? item.model_id,
-    fold_id: String(item.version_id ?? '').split(':')[0] || null,
-    candidate_model_ref: item.model_ref ?? null,
-    identity: modelIdentity(item),
-    decision_status: item.promotion_status ?? null,
-    agent_review_recommendation: item.latest_agent_decision_status ?? null,
-    updated_at_utc: item.latest_updated_at_utc ?? item.updated_at_utc,
-    metrics: {},
-    blocking_issues: item.blockers ?? [],
-    summary: item.summary ?? null,
-  }));
+  return [];
 }
 
 function groupPromotionExclusions(promotionChart: ModelPromotionPostureChartPayload): Array<Record<string, unknown>> {
@@ -2541,18 +2530,16 @@ function ActiveModelEvidence({
 
 function ModelGroupDetail({
   layers,
-  promotions,
   layerChart,
   runtimeChart,
   promotionChart,
 }: {
   layers: ModelLayerView[];
-  promotions: ModelPromotionItemPayload[];
   layerChart: ModelLayerReadinessChartPayload;
   runtimeChart: ExecutionRuntimeStatusChartPayload;
   promotionChart: ModelPromotionPostureChartPayload;
 }) {
-  const versions = groupPromotionVersions(layerChart, promotionChart, promotions);
+  const versions = groupPromotionVersions(layerChart, promotionChart);
   const exclusions = groupPromotionExclusions(promotionChart);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [scatterGroupKey, setScatterGroupKey] = useState<ScatterGroupKey>('decision_intended_side');
@@ -2700,7 +2687,6 @@ function ModelLayerOverview({
     lifecycle: lifecycleByLayer.get(definition.layer) ?? null,
     promotions: promotionsByLayer.get(definition.layer) ?? [],
   }));
-  const promotions = promotionItems(promotionChart);
   const selectedView = layers.find((layer) => layer.definition.layer === selectedLayer) ?? layers[0];
   return (
     <>
@@ -2738,7 +2724,6 @@ function ModelLayerOverview({
         {selectedLayer === 0 ? (
           <ModelGroupDetail
             layers={layers}
-            promotions={promotions}
             layerChart={layerChart}
             runtimeChart={runtimeChart}
             promotionChart={promotionChart}
