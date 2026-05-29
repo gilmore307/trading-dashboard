@@ -126,7 +126,7 @@ The dashboard primary navigation will focus on owner-facing summary and explanat
 1. Status
 2. Alerts and Exceptions
 3. Tasks, with Historical Modeling and Realtime Trading subtabs
-4. Models, with one subtab for each of the ten model layers
+4. Models, with a model-group subtab plus one subtab for each of the ten model layers
 5. Realtime Trading Signals
 6. Trading Performance Summary
 7. Registry Dictionary
@@ -359,12 +359,12 @@ Chentong clarified that the Tasks page should answer what work is being performe
 
 ### Decision
 
-The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model lifecycle presentation: one subpage per model layer, with registered versions, active live pointer, shadow/retiring/eliminated posture, evaluation status, promotion status, blockers, and training/workflow evidence. The generic `Task Progress Summary` card is removed from page content.
+The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model asset presentation: tab `0` is the model-group pipeline and owns evaluation, promotion, active/shadow/retired posture, and promotion rate; tabs `1`-`10` show the individual component models' family, objective, input/output boundary, candidate ref, and key parameters. Task states, task blockers, and workflow progress stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
 
 ### Consequences
 
 - Tasks is list-first and operational-stage-first.
-- Models consumes `model_layer_readiness_summary`, `model_promotion_posture_summary`, and `execution_realtime_trading_runtime_status`; `historical_task_progress_summary` is secondary training evidence only.
+- Models consumes `model_layer_readiness_summary`, `model_promotion_posture_summary`, and `execution_realtime_trading_runtime_status` as model asset evidence. `historical_task_progress_summary` remains the Tasks source and must not drive model-page status wording.
 - Dashboard remains read-only and consumes storage-hosted summaries rather than workflow checkpoint internals directly.
 
 ## D016 - Task list defaults to current work and exposes filters

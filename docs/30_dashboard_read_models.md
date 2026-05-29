@@ -135,7 +135,7 @@ The alert page is an owner-actionable issue queue, not a log viewer.
 
 Purpose: support the Historical Modeling subtab under Tasks.
 
-Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks/Models views. Tasks consumes the timeline as an operational work list. Models may show this timeline as training/workflow evidence, but lifecycle truth comes from the dedicated model summaries and execution runtime pointer.
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks view. Tasks consumes the timeline as an operational work list. Models consumes dedicated model summaries and the execution runtime pointer for model asset posture.
 
 Owner-facing fields:
 
@@ -228,29 +228,26 @@ Hidden by default:
 
 ### `model_layer_readiness_summary`
 
-Purpose: support the Models page and ten layer subpages.
+Purpose: support the Models page model-group tab and ten layer subpages.
 
 Owner-facing fields per layer:
 
 - layer id and name;
-- model status;
 - latest version or run id summary;
 - update timestamp;
 - key parameter/config summary;
 - performance metric summary;
 - known limitations;
-- blocker summary;
-- promotion posture;
 - profile refs for visible metrics and status fields.
+
+Group-level fields own active/shadow/retiring/eliminated model refs when those refs are decided for the full model group rather than for an isolated layer.
 
 Dashboard presentation:
 
-- one selectable page per model layer;
-- registered version count and version rows;
-- active live, shadow, retiring, and eliminated posture;
-- evaluation and promotion status;
-- blockers and known limitations;
-- training/workflow evidence from `historical_task_progress_summary` only as secondary evidence.
+- one selectable model-group page plus one selectable page per model layer;
+- group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
+- layer pages show component model definition, candidate ref, input/output boundary, score boundary, training window, and key parameters;
+- task states, task blockers, and workflow progress stay under Tasks/Diagnostics and are not model-page status labels.
 
 Canonical layer map:
 

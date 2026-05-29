@@ -113,10 +113,11 @@ Those internals may be reachable only through an advanced diagnostic drawer when
 
 ### 4. Models
 
-Purpose: answer “Which model versions exist, which ones are active live or shadow, which are retiring or eliminated, and what evaluation/promotion evidence supports that posture?”
+Purpose: answer “What model group is eligible for live/shadow use, what evaluation and promotion evidence supports that posture, and what does each layer model actually do?”
 
-Layer subpages:
+Subpages:
 
+- 0 — Model Group Pipeline
 - Layer 1 — Market Regime
 - Layer 2 — Sector Context
 - Layer 3 — Target State Vector
@@ -128,29 +129,38 @@ Layer subpages:
 - Layer 9 — Trading Guidance / Option Expression
 - Layer 10 — Event Risk Governor / Event Intelligence Overlay
 
-Visible content should include:
+The model-group page owns:
 
-- model status and promotion posture;
-- latest version / update time;
-- active live, shadow, retiring, and eliminated role;
+- group evaluation metrics such as AUROC when published at group scope;
+- promotion status, promotion rate, and promotion blockers;
+- active live pointer;
+- shadow, retiring, and eliminated candidate counts;
+- group candidate refs and update times.
+
+Layer pages own:
+
+- model family and objective;
+- input scope and output surface;
+- score boundary and training window;
+- latest candidate ref and update time;
 - key parameters or configuration summaries;
-- training/evaluation history;
-- performance metrics;
-- current known limitations or blockers.
+- layer role in the pipeline.
 
 Preferred visuals:
 
 - metric cards;
-- performance trend charts;
+- model-parameter grids;
+- group performance trend charts;
 - confusion/quality summaries where applicable;
-- promotion-readiness checklist;
-- version timeline.
+- group promotion-readiness checklist;
+- group candidate timeline.
 
 Hidden by default:
 
 - feature rows;
 - intermediate model artifacts;
 - raw evaluation files;
+- task statuses and task blockers;
 - internal request/control-plane records;
 - implementation logs.
 
