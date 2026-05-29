@@ -113,9 +113,9 @@ Those internals may be reachable only through an advanced diagnostic drawer when
 
 ### 4. Models
 
-Purpose: answer “What do the ten models currently look like, how recently were they updated, and how well are they performing?”
+Purpose: answer “Which model versions exist, which ones are active live or shadow, which are retiring or eliminated, and what evaluation/promotion evidence supports that posture?”
 
-Subtabs:
+Layer subpages:
 
 - Layer 1 — Market Regime
 - Layer 2 — Sector Context
@@ -132,6 +132,7 @@ Visible content should include:
 
 - model status and promotion posture;
 - latest version / update time;
+- active live, shadow, retiring, and eliminated role;
 - key parameters or configuration summaries;
 - training/evaluation history;
 - performance metrics;

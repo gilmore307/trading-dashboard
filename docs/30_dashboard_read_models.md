@@ -56,7 +56,7 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 
 ## Dashboard Read-Model Contracts
 
-The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, and `execution_realtime_trading_runtime_status`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
+The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_layer_readiness_summary`, and `model_promotion_posture_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
 
 ### `current_system_status_summary`
 
@@ -135,7 +135,7 @@ The alert page is an owner-actionable issue queue, not a log viewer.
 
 Purpose: support the Historical Modeling subtab under Tasks.
 
-Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks/Models views. Tasks consumes the timeline as an operational work list; Models reuses the same evidence to render the current ten-layer model stack.
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks/Models views. Tasks consumes the timeline as an operational work list. Models may show this timeline as training/workflow evidence, but lifecycle truth comes from the dedicated model summaries and execution runtime pointer.
 
 Owner-facing fields:
 
@@ -228,7 +228,7 @@ Hidden by default:
 
 ### `model_layer_readiness_summary`
 
-Purpose: support the Models page and ten layer subtabs.
+Purpose: support the Models page and ten layer subpages.
 
 Owner-facing fields per layer:
 
@@ -242,6 +242,15 @@ Owner-facing fields per layer:
 - blocker summary;
 - promotion posture;
 - profile refs for visible metrics and status fields.
+
+Dashboard presentation:
+
+- one selectable page per model layer;
+- registered version count and version rows;
+- active live, shadow, retiring, and eliminated posture;
+- evaluation and promotion status;
+- blockers and known limitations;
+- training/workflow evidence from `historical_task_progress_summary` only as secondary evidence.
 
 Canonical layer map:
 

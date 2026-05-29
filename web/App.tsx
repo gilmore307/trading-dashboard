@@ -9,8 +9,14 @@ import type {
   CurrentSystemServicePayload,
   CurrentSystemStatusChartPayload,
   DashboardReadModel,
+  ExecutionRuntimeStatusChartPayload,
   HistoricalTaskProgressChartPayload,
   HistoricalTaskTimelineItemPayload,
+  ModelLayerLifecyclePayload,
+  ModelLayerReadinessChartPayload,
+  ModelPromotionItemPayload,
+  ModelPromotionPostureChartPayload,
+  ModelVersionSummaryPayload,
   RealtimeSignalChartPayload,
   TemporalExplorerChartPayload,
   TemporalExplorerEventPayload,
@@ -22,6 +28,9 @@ const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
 const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
 const TEMPORAL_EXPLORER_SUMMARY = 'temporal_explorer_summary';
+const MODEL_LAYER_READINESS = 'model_layer_readiness_summary';
+const MODEL_PROMOTION_POSTURE = 'model_promotion_posture_summary';
+const EXECUTION_RUNTIME_STATUS = 'execution_realtime_trading_runtime_status';
 
 const SOURCE_LABELS: Record<string, string> = {
   'trading-storage': 'System Monitor',
@@ -96,6 +105,18 @@ function isRealtimeSignalChart(payload: DashboardReadModel['chart_payload']): pa
 }
 
 function isTemporalExplorerChart(payload: DashboardReadModel['chart_payload']): payload is TemporalExplorerChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+function isModelLayerReadinessChart(payload: DashboardReadModel['chart_payload']): payload is ModelLayerReadinessChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+function isModelPromotionPostureChart(payload: DashboardReadModel['chart_payload']): payload is ModelPromotionPostureChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+function isExecutionRuntimeChart(payload: DashboardReadModel['chart_payload']): payload is ExecutionRuntimeStatusChartPayload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
 
@@ -884,95 +905,383 @@ function modelSplitTasks(tasks: HistoricalTaskTimelineItemPayload[]): Historical
   return tasks.filter((task) => task.stage_type === 'model_generation');
 }
 
-function ModelLayerCard({ definition, tasks }: { definition: ModelLayerDefinition; tasks: HistoricalTaskTimelineItemPayload[] }) {
-  const state = modelLayerState(tasks);
-  const progress = modelLayerProgress(tasks);
-  const currentTask = modelLayerCurrentTask(tasks);
-  const splitTasks = modelSplitTasks(tasks);
-  const blockerCount = tasks.reduce((sum, task) => sum + (task.blocker_count ?? task.detail?.blockers?.length ?? 0), 0);
-  const receiptCount = tasks.reduce((sum, task) => sum + (task.receipt_count ?? task.detail?.receipt_refs?.length ?? 0), 0);
-  const updatedAt = latestTaskUpdate(tasks);
-  const target = currentTask ? taskTargetMetaLabel(currentTask) : null;
+type ModelLayerView = {
+  definition: ModelLayerDefinition;
+  tasks: HistoricalTaskTimelineItemPayload[];
+  lifecycle: ModelLayerLifecyclePayload | null;
+  promotions: ModelPromotionItemPayload[];
+};
+
+function normalizeModelRef(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value !== 'object' || value === null) return '';
+  const record = value as Record<string, unknown>;
+  for (const key of ['model_ref', 'version_id', 'model_version', 'run_id', 'artifact_ref', 'id', 'path', 'ref']) {
+    const candidate = record[key];
+    if (candidate !== undefined && candidate !== null && String(candidate).trim()) return String(candidate);
+  }
+  return '';
+}
+
+function lifecycleLayerNumber(layer: ModelLayerLifecyclePayload): number | null {
+  if (typeof layer.layer === 'number') return layer.layer;
+  const raw = String(layer.layer_id ?? layer.layer_key ?? layer.model_id ?? layer.model_key ?? '');
+  const match = /(?:layer|model)_(\d{1,2})/u.exec(raw);
+  return match ? Number(match[1]) : null;
+}
+
+function promotionLayerNumber(item: ModelPromotionItemPayload): number | null {
+  if (typeof item.layer === 'number') return item.layer;
+  const raw = String(item.layer_id ?? item.layer_key ?? item.model_id ?? item.model_key ?? item.model_ref ?? '');
+  const match = /(?:layer|model)_(\d{1,2})/u.exec(raw);
+  return match ? Number(match[1]) : null;
+}
+
+function modelStatusSeverity(status?: string | null): string {
+  const normalized = String(status ?? '').toLowerCase();
+  if (['active', 'live', 'approved', 'promoted', 'shadow', 'eligible', 'succeeded', 'completed', 'ready'].includes(normalized)) return 'low';
+  if (['running', 'candidate', 'review_required', 'in_review', 'pending', 'not_started', 'missing'].includes(normalized)) return 'info';
+  if (['retiring', 'superseded', 'deferred', 'blocked'].includes(normalized)) return 'medium';
+  if (['failed', 'rejected', 'revoked', 'eliminated'].includes(normalized)) return 'high';
+  return 'info';
+}
+
+function layerLifecycleStatus(view: ModelLayerView): string {
   return (
-    <article className={`model-layer-card model-layer-${state}`}>
-      <div className="model-layer-index">
-        <span>{definition.layer}</span>
-        <small>Layer</small>
-      </div>
-      <div className="model-layer-main">
-        <div className="model-layer-head">
-          <div>
-            <strong>{definition.label}</strong>
-            <small>{definition.modelId}</small>
-          </div>
-          <StatusPill status={state} severity={taskStateSeverity(state)} />
-        </div>
-        <p>{definition.description}</p>
-        <div className="model-layer-progress">
-          <div>
-            <span>{formatPercent(progress.percent)} · {progress.ready}/{progress.expected} {progress.unitLabel}</span>
-            <small>{currentTask ? `${currentTask.task_label} · ${startCase(currentTask.status)}` : definition.detail}</small>
-          </div>
-          <ProgressBar value={progress.percent} />
-        </div>
-        <div className="model-layer-meta">
-          <span>{monthLabel(currentTask?.month)}</span>
-          {target ? <span>{target}</span> : null}
-          <span>{receiptCount} receipts</span>
-          <span>{blockerCount} blockers</span>
-          {updatedAt ? <span>Updated {formatTimestamp(updatedAt)}</span> : null}
-        </div>
-        <div className="model-layer-detail">{definition.detail}</div>
-        {splitTasks.length ? (
-          <div className="model-split-strip" aria-label={`${definition.label} model-generation splits`}>
-            {splitTasks.map((task) => {
-              const splitName = task.task_id.split('.').at(-1) ?? task.stage_type ?? 'split';
-              const splitProgress = taskProgressView(task);
-              return (
-                <div className="model-split-chip" key={taskRowKey(task)}>
-                  <span>{startCase(splitName)}</span>
-                  <strong>{startCase(task.status)}</strong>
-                  <small>{splitProgress.label}</small>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-    </article>
+    view.lifecycle?.lifecycle_status ??
+    view.lifecycle?.status ??
+    view.promotions[0]?.promotion_status ??
+    modelLayerState(view.tasks)
   );
 }
 
-function ModelLayerOverview({ chart }: { chart: HistoricalTaskProgressChartPayload }) {
+function modelVersionLabel(version: ModelVersionSummaryPayload): string {
+  return (
+    version.version_id ??
+    version.model_version ??
+    version.run_id ??
+    version.artifact_ref ??
+    normalizeModelRef(version)
+  ) ||
+    'unnamed version'
+}
+
+function modelVersionRole(version: ModelVersionSummaryPayload): string {
+  return version.role ?? version.lifecycle_status ?? version.promotion_status ?? version.evaluation_status ?? 'registered';
+}
+
+function lifecycleVersionRefs(view: ModelLayerView, role: 'active' | 'shadow' | 'retiring' | 'eliminated'): string[] {
+  const lifecycle = view.lifecycle;
+  if (!lifecycle) return [];
+  if (role === 'active') {
+    const ref = lifecycle.active_version_ref ?? lifecycle.current_version_ref ?? null;
+    return ref ? [ref] : [];
+  }
+  if (role === 'shadow') return lifecycle.shadow_version_refs ?? [];
+  if (role === 'retiring') return lifecycle.retiring_version_refs ?? [];
+  return lifecycle.eliminated_version_refs ?? [];
+}
+
+function promotionItems(chart: ModelPromotionPostureChartPayload): ModelPromotionItemPayload[] {
+  return chart.models ?? chart.promotions ?? chart.items ?? [];
+}
+
+function recordStatus(record: Record<string, unknown> | null | undefined, fallback = 'not_reported'): string {
+  if (!record) return fallback;
+  for (const key of ['status', 'evaluation_status', 'promotion_status', 'activation_status', 'latest_agent_decision_status']) {
+    const value = record[key];
+    if (value !== undefined && value !== null && String(value).trim()) return String(value);
+  }
+  return fallback;
+}
+
+function recordSummary(record: Record<string, unknown> | null | undefined): string {
+  if (!record) return 'No dedicated evidence has been published yet.';
+  for (const key of ['summary', 'reason', 'detail', 'message']) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  const metrics = maybeRecord(record.metrics);
+  const metricText = Object.entries(metrics).slice(0, 4).map(([key, value]) => `${startCase(key)} ${displayValue(value)}`).join(' · ');
+  return metricText || 'Evidence record is present.';
+}
+
+function activeModelRef(runtimeChart: ExecutionRuntimeStatusChartPayload): string | null {
+  const pointer = runtimeChart.active_model_pointer;
+  if (!pointer) return null;
+  return normalizeModelRef(pointer.selected_active_model_ref) || normalizeModelRef(pointer.new_active_config_ref) || null;
+}
+
+function modelRefMatchesLayer(ref: string | null, definition: ModelLayerDefinition): boolean {
+  if (!ref) return false;
+  const normalized = ref.toLowerCase();
+  return normalized.includes(definition.modelId) || normalized.includes(`layer_${String(definition.layer).padStart(2, '0')}`) || normalized.includes(`model_${String(definition.layer).padStart(2, '0')}`);
+}
+
+function ModelLifecycleStat({
+  label,
+  value,
+  status,
+  hint,
+}: {
+  label: string;
+  value: string | number;
+  status?: string | null;
+  hint?: string | null;
+}) {
+  return (
+    <section className="model-lifecycle-stat">
+      <div>
+        <span>{label}</span>
+        <strong>{displayValue(value)}</strong>
+        {hint ? <small>{hint}</small> : null}
+      </div>
+      {status ? <StatusPill status={status} severity={modelStatusSeverity(status)} /> : null}
+    </section>
+  );
+}
+
+function ModelVersionList({ versions }: { versions: ModelVersionSummaryPayload[] }) {
+  if (!versions.length) {
+    return <div className="empty-chart compact">No registered model versions in the dedicated lifecycle summary yet.</div>;
+  }
+  return (
+    <div className="model-version-list">
+      {versions.map((version, index) => {
+        const status = modelVersionRole(version);
+        return (
+          <article className="model-version-row" key={`${modelVersionLabel(version)}-${index}`}>
+            <div>
+              <strong>{modelVersionLabel(version)}</strong>
+              <small>{version.summary ?? `Role ${startCase(status)}`}</small>
+            </div>
+            <StatusPill status={status} severity={modelStatusSeverity(status)} />
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function ModelTrainingEvidence({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
+  const splitTasks = modelSplitTasks(tasks);
+  if (!tasks.length) return <div className="empty-chart compact">No training task evidence is visible for this layer yet.</div>;
+  return (
+    <div className="model-training-evidence">
+      {splitTasks.length ? (
+        <div className="model-split-strip" aria-label="Model-generation split evidence">
+          {splitTasks.map((task) => {
+            const splitName = task.task_id.split('.').at(-1) ?? task.stage_type ?? 'split';
+            const splitProgress = taskProgressView(task);
+            return (
+              <div className="model-split-chip" key={taskRowKey(task)}>
+                <span>{startCase(splitName)}</span>
+                <strong>{startCase(task.status)}</strong>
+                <small>{splitProgress.label}</small>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+      {tasks.slice(-4).map((task) => {
+        const progress = taskProgressView(task);
+        return (
+          <article className="model-evidence-row" key={taskRowKey(task)}>
+            <div>
+              <strong>{task.task_label}</strong>
+              <small>{monthLabel(task.month)} · {startCase(task.stage_type)} · {progress.label}</small>
+            </div>
+            <StatusPill status={task.status} severity={taskStateSeverity(task.task_state)} />
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function ModelLayerDetail({
+  view,
+  runtimeChart,
+  evaluationTask,
+  promotionTask,
+}: {
+  view: ModelLayerView;
+  runtimeChart: ExecutionRuntimeStatusChartPayload;
+  evaluationTask: HistoricalTaskTimelineItemPayload | null;
+  promotionTask: HistoricalTaskTimelineItemPayload | null;
+}) {
+  const lifecycle = view.lifecycle;
+  const versions = lifecycle?.versions ?? [];
+  const activeRef = activeModelRef(runtimeChart);
+  const runtimeActiveForLayer = modelRefMatchesLayer(activeRef, view.definition);
+  const activeRefs = lifecycleVersionRefs(view, 'active');
+  const shadowRefs = lifecycleVersionRefs(view, 'shadow');
+  const retiringRefs = lifecycleVersionRefs(view, 'retiring');
+  const eliminatedRefs = lifecycleVersionRefs(view, 'eliminated');
+  const progress = modelLayerProgress(view.tasks);
+  const currentTask = modelLayerCurrentTask(view.tasks);
+  const promotion = lifecycle?.promotion ?? view.promotions[0] ?? null;
+  const evaluation = lifecycle?.evaluation ?? (evaluationTask ? { status: evaluationTask.status, summary: evaluationTask.reason ?? evaluationTask.task_label } : null);
+  const blockerCount = view.tasks.reduce((sum, task) => sum + (task.blocker_count ?? task.detail?.blockers?.length ?? 0), 0) + (lifecycle?.blockers?.length ?? 0) + view.promotions.reduce((sum, item) => sum + (item.blockers?.length ?? 0), 0);
+  return (
+    <section className="panel model-layer-detail-panel">
+      <div className="model-layer-detail-head">
+        <div>
+          <div className="panel-heading">Layer {view.definition.layer} · {view.definition.label}</div>
+          <p className="panel-subtitle">{lifecycle?.summary ?? view.definition.description}</p>
+        </div>
+        <StatusPill status={layerLifecycleStatus(view)} severity={modelStatusSeverity(layerLifecycleStatus(view))} />
+      </div>
+      <div className="metric-grid four model-lifecycle-grid">
+        <ModelLifecycleStat
+          label="Registered versions"
+          value={versions.length}
+          status={versions.length ? 'registered' : 'missing'}
+          hint={versions.length ? 'From model lifecycle summary' : 'Waiting for producer evidence'}
+        />
+        <ModelLifecycleStat
+          label="Active live"
+          value={runtimeActiveForLayer ? activeRef ?? 'active' : activeRefs[0] ?? 'None'}
+          status={runtimeActiveForLayer || activeRefs.length ? 'active' : 'not_active'}
+          hint={runtimeActiveForLayer ? 'Execution runtime pointer' : 'Lifecycle summary'}
+        />
+        <ModelLifecycleStat
+          label="Shadow"
+          value={shadowRefs.length}
+          status={shadowRefs.length ? 'shadow' : 'none'}
+          hint={shadowRefs.slice(0, 2).join(' · ') || 'No shadow version reported'}
+        />
+        <ModelLifecycleStat
+          label="Retiring / eliminated"
+          value={`${retiringRefs.length}/${eliminatedRefs.length}`}
+          status={retiringRefs.length || eliminatedRefs.length ? 'retiring' : 'none'}
+          hint="retiring / eliminated"
+        />
+      </div>
+      <div className="model-detail-grid">
+        <section className="model-detail-section">
+          <span>Evaluation</span>
+          <strong>{startCase(recordStatus(evaluation, evaluationTask?.status ?? 'not_reported'))}</strong>
+          <small>{recordSummary(evaluation)}</small>
+        </section>
+        <section className="model-detail-section">
+          <span>Promotion</span>
+          <strong>{startCase(recordStatus(promotion, promotionTask?.status ?? 'not_reported'))}</strong>
+          <small>{recordSummary(promotion)}</small>
+        </section>
+        <section className="model-detail-section">
+          <span>Training evidence</span>
+          <strong>{formatPercent(progress.percent)} · {progress.ready}/{progress.expected} {progress.unitLabel}</strong>
+          <small>{currentTask ? `${currentTask.task_label} · ${startCase(currentTask.status)}` : view.definition.detail}</small>
+          <ProgressBar value={progress.percent} />
+        </section>
+        <section className="model-detail-section">
+          <span>Blockers</span>
+          <strong>{blockerCount}</strong>
+          <small>{lifecycle?.blockers?.slice(0, 2).join(' · ') || view.promotions.flatMap((item) => item.blockers ?? []).slice(0, 2).join(' · ') || 'No blockers attached to this layer.'}</small>
+        </section>
+      </div>
+      <section className="model-detail-section wide-detail">
+        <span>Versions</span>
+        <ModelVersionList versions={versions} />
+      </section>
+      <section className="model-detail-section wide-detail">
+        <span>Training / workflow evidence</span>
+        <ModelTrainingEvidence tasks={view.tasks} />
+      </section>
+    </section>
+  );
+}
+
+function ModelLayerOverview({
+  chart,
+  layerChart,
+  promotionChart,
+  runtimeChart,
+}: {
+  chart: HistoricalTaskProgressChartPayload;
+  layerChart: ModelLayerReadinessChartPayload;
+  promotionChart: ModelPromotionPostureChartPayload;
+  runtimeChart: ExecutionRuntimeStatusChartPayload;
+}) {
+  const [selectedLayer, setSelectedLayer] = useState(1);
   const allTasks = chart.task_timeline ?? [];
   const periodTasks = chart.current_month ? allTasks.filter((task) => task.month === chart.current_month) : [];
   const tasks = periodTasks.length ? periodTasks : allTasks;
+  const lifecycleByLayer = new Map<number, ModelLayerLifecyclePayload>();
+  (layerChart.layers ?? []).forEach((layer) => {
+    const layerNumber = lifecycleLayerNumber(layer);
+    if (layerNumber !== null) lifecycleByLayer.set(layerNumber, layer);
+  });
+  const promotionsByLayer = new Map<number, ModelPromotionItemPayload[]>();
+  promotionItems(promotionChart).forEach((item) => {
+    const layerNumber = promotionLayerNumber(item);
+    if (layerNumber !== null) promotionsByLayer.set(layerNumber, [...(promotionsByLayer.get(layerNumber) ?? []), item]);
+  });
   const layers = MODEL_LAYER_DEFINITIONS.map((definition) => ({
     definition,
     tasks: modelLayerTasks(tasks, definition.layer),
+    lifecycle: lifecycleByLayer.get(definition.layer) ?? null,
+    promotions: promotionsByLayer.get(definition.layer) ?? [],
   }));
-  const currentLayer = layers.find(({ tasks: layerTasks }) => layerTasks.some((task) => task.task_state === 'current'));
-  const completedLayers = layers.filter(({ tasks: layerTasks }) => modelLayerState(layerTasks) === 'completed').length;
+  const selectedView = layers.find((layer) => layer.definition.layer === selectedLayer) ?? layers[0];
+  const currentLayer = layers.find((layer) => layer.tasks.some((task) => task.task_state === 'current')) ?? layers.find((layer) => Number(layerChart.current_layer) === layer.definition.layer);
+  const completedLayers = layers.filter((layer) => modelLayerState(layer.tasks) === 'completed' || ['active', 'shadow', 'approved', 'promoted'].includes(String(layerLifecycleStatus(layer)).toLowerCase())).length;
+  const versionCount = layers.reduce((sum, layer) => sum + (layer.lifecycle?.versions?.length ?? 0), 0);
+  const activeRef = activeModelRef(runtimeChart);
+  const evaluationTask = tasks.find((task) => task.task_id === 'model_group.evaluation') ?? null;
+  const promotionTask = tasks.find((task) => task.task_id === 'model_group.promotion') ?? null;
   return (
     <>
       <section className="metric-grid four model-layer-summary">
-        <MetricCard label="Layer stack" value={`${completedLayers}/10`} hint="Completed model layers" />
-        <MetricCard label="Current layer" value={currentLayer ? `Layer ${currentLayer.definition.layer}` : 'None'} hint={currentLayer?.definition.label ?? 'No current model layer'} />
-        <MetricCard label="Active period" value={chart.current_month ?? 'Unknown'} />
-        <MetricCard label="Workflow" value={startCase(chart.terminal_complete ? 'complete' : chart.lock_status)} hint={chart.next_expected_system_action ?? undefined} />
+        <MetricCard label="Lifecycle coverage" value={`${completedLayers}/10`} hint="Layers with completed, active, shadow, or promoted evidence" />
+        <MetricCard label="Registered versions" value={versionCount} hint={versionCount ? 'Dedicated lifecycle summary' : 'No lifecycle producer output yet'} />
+        <MetricCard label="Live active model" value={activeRef ? 'Present' : 'None'} hint={activeRef ?? runtimeChart.next_gate ?? 'Execution runtime has no active model pointer'} />
+        <MetricCard label="Current fold" value={chart.current_month ?? 'Unknown'} hint={currentLayer ? `Current layer ${currentLayer.definition.layer}` : chart.next_expected_system_action ?? undefined} />
+      </section>
+      <section className="model-workspace">
+        <nav className="panel model-layer-tabs" aria-label="Model layer pages">
+          <div className="panel-heading">Model Pages</div>
+          {layers.map((view) => {
+            const status = layerLifecycleStatus(view);
+            const progress = modelLayerProgress(view.tasks);
+            return (
+              <button
+                className={selectedLayer === view.definition.layer ? 'selected' : ''}
+                key={view.definition.layer}
+                onClick={() => setSelectedLayer(view.definition.layer)}
+                type="button"
+              >
+                <span>{view.definition.layer}</span>
+                <div>
+                  <strong>{view.definition.label}</strong>
+                  <small>{view.lifecycle?.versions?.length ?? 0} versions · {formatPercent(progress.percent)}</small>
+                </div>
+                <StatusPill status={status} severity={modelStatusSeverity(status)} />
+              </button>
+            );
+          })}
+        </nav>
+        <ModelLayerDetail
+          view={selectedView}
+          runtimeChart={runtimeChart}
+          evaluationTask={evaluationTask}
+          promotionTask={promotionTask}
+        />
       </section>
       <section className="panel model-layer-panel">
         <div className="task-list-header">
           <div>
-            <div className="panel-heading">Model Layers</div>
-            <p className="panel-subtitle">Layer 1-9 show training and split status for the current fold. Layer 10 shows post-replay failure attribution before evaluation and promotion.</p>
+            <div className="panel-heading">Lifecycle Evidence Scope</div>
+            <p className="panel-subtitle">Models uses dedicated lifecycle, promotion, and execution-runtime summaries when present. Historical task progress is shown only as training evidence.</p>
           </div>
-          <StatusPill status={chart.terminal_complete ? 'complete' : 'running'} severity={chart.terminal_complete ? 'low' : 'info'} />
+          <StatusPill status={layerChart.layers?.length ? 'lifecycle' : 'fallback'} severity={layerChart.layers?.length ? 'low' : 'info'} />
         </div>
-        <div className="model-layer-list">
-          {layers.map(({ definition, tasks: layerTasks }) => (
-            <ModelLayerCard definition={definition} tasks={layerTasks} key={definition.layer} />
-          ))}
+        <div className="model-read-model-grid">
+          <ModelLifecycleStat label="Layer summary" value={layerChart.layers?.length ?? 0} status={layerChart.layers?.length ? 'ready' : 'not_published'} hint={layerChart.layers?.length ? MODEL_LAYER_READINESS : 'No latest.json yet'} />
+          <ModelLifecycleStat label="Promotion rows" value={promotionItems(promotionChart).length} status={promotionItems(promotionChart).length ? 'ready' : 'not_published'} hint={promotionItems(promotionChart).length ? MODEL_PROMOTION_POSTURE : 'No latest.json yet'} />
+          <ModelLifecycleStat label="Runtime status" value={startCase(runtimeChart.runtime_status)} status={runtimeChart.runtime_status ?? 'unknown'} hint={runtimeChart.next_gate ?? undefined} />
         </div>
       </section>
     </>
@@ -1844,6 +2153,7 @@ function contractForView(view: ViewId): string {
   if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
   if (view === 'timewheel') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
+  if (view === 'models') return MODEL_LAYER_READINESS;
   return HISTORICAL_TASK_PROGRESS;
 }
 
@@ -1852,6 +2162,9 @@ function App() {
   const [historicalModel, setHistoricalModel] = useState<DashboardReadModel | null>(null);
   const [realtimeModel, setRealtimeModel] = useState<DashboardReadModel | null>(null);
   const [temporalExplorerModel, setTemporalExplorerModel] = useState<DashboardReadModel | null>(null);
+  const [modelLayerModel, setModelLayerModel] = useState<DashboardReadModel | null>(null);
+  const [modelPromotionModel, setModelPromotionModel] = useState<DashboardReadModel | null>(null);
+  const [executionRuntimeModel, setExecutionRuntimeModel] = useState<DashboardReadModel | null>(null);
   const [readModelErrors, setReadModelErrors] = useState<Record<string, string>>({});
   const [loadingContracts, setLoadingContracts] = useState<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<ViewId>('status');
@@ -1866,6 +2179,9 @@ function App() {
     if (payload.contract_type === HISTORICAL_TASK_PROGRESS) setHistoricalModel(payload);
     if (payload.contract_type === REALTIME_SIGNAL_SUMMARY) setRealtimeModel(payload);
     if (payload.contract_type === TEMPORAL_EXPLORER_SUMMARY) setTemporalExplorerModel(payload);
+    if (payload.contract_type === MODEL_LAYER_READINESS) setModelLayerModel(payload);
+    if (payload.contract_type === MODEL_PROMOTION_POSTURE) setModelPromotionModel(payload);
+    if (payload.contract_type === EXECUTION_RUNTIME_STATUS) setExecutionRuntimeModel(payload);
     setReadModelErrors((previous) => {
       const next = { ...previous };
       delete next[payload.contract_type];
@@ -1893,14 +2209,31 @@ function App() {
       });
   }, [applyReadModel]);
 
+  const loadOptionalReadModel = useCallback((contractType: string, signal?: AbortSignal) => (
+    fetchLatestReadModel(contractType, signal)
+      .then(applyReadModel)
+      .catch((problem: Error) => {
+        if (problem.name === 'AbortError' || signal?.aborted) return;
+        setReadModelErrors((previous) => {
+          const next = { ...previous };
+          delete next[contractType];
+          return next;
+        });
+      })
+  ), [applyReadModel]);
+
   useEffect(() => {
     const controller = new AbortController();
     void loadReadModel(CURRENT_SYSTEM_STATUS, controller.signal);
     void loadReadModel(TEMPORAL_EXPLORER_SUMMARY, controller.signal);
     void loadReadModel(HISTORICAL_TASK_PROGRESS, controller.signal);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY, controller.signal);
+    void loadReadModel(EXECUTION_RUNTIME_STATUS, controller.signal);
+    void loadOptionalReadModel(MODEL_LAYER_READINESS, controller.signal);
+    void loadOptionalReadModel(MODEL_PROMOTION_POSTURE, controller.signal);
     const liveContracts = new Set<string>();
-    const contracts = [CURRENT_SYSTEM_STATUS, TEMPORAL_EXPLORER_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY];
+    const contracts = [CURRENT_SYSTEM_STATUS, TEMPORAL_EXPLORER_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY, EXECUTION_RUNTIME_STATUS];
+    const optionalContracts = [MODEL_LAYER_READINESS, MODEL_PROMOTION_POSTURE];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         liveContracts.add(contractType);
@@ -1918,17 +2251,26 @@ function App() {
         }
       },
     }));
+    const optionalSockets = optionalContracts.map((contractType) => openLatestReadModelSocket(contractType, {
+      onSnapshot: applyReadModel,
+      onStatus: setStreamStatus,
+      onError: () => undefined,
+    }));
     const fallbackIntervalId = window.setInterval(() => {
       sockets.forEach((socket, index) => {
         if (socket.readyState !== WebSocket.OPEN || contracts[index] === HISTORICAL_TASK_PROGRESS) void loadReadModel(contracts[index]);
+      });
+      optionalSockets.forEach((socket, index) => {
+        if (socket.readyState !== WebSocket.OPEN) void loadOptionalReadModel(optionalContracts[index]);
       });
     }, 10_000);
     return () => {
       controller.abort();
       sockets.forEach((socket) => socket.close());
+      optionalSockets.forEach((socket) => socket.close());
       window.clearInterval(fallbackIntervalId);
     };
-  }, [applyReadModel, loadReadModel]);
+  }, [applyReadModel, loadOptionalReadModel, loadReadModel]);
 
   const activeContractType = contractForView(activeView);
   const activeReadModel = activeView === 'status' || activeView === 'data'
@@ -1937,6 +2279,8 @@ function App() {
       ? temporalExplorerModel
     : activeView === 'realtime'
       ? realtimeModel
+    : activeView === 'models'
+      ? modelLayerModel ?? historicalModel
       : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
   const activeError = readModelErrors[activeContractType] ?? null;
@@ -1957,6 +2301,18 @@ function App() {
     if (!temporalExplorerModel || !isTemporalExplorerChart(temporalExplorerModel.chart_payload)) return {} as TemporalExplorerChartPayload;
     return temporalExplorerModel.chart_payload;
   }, [temporalExplorerModel]);
+  const modelLayerChart = useMemo(() => {
+    if (!modelLayerModel || !isModelLayerReadinessChart(modelLayerModel.chart_payload)) return {} as ModelLayerReadinessChartPayload;
+    return modelLayerModel.chart_payload;
+  }, [modelLayerModel]);
+  const modelPromotionChart = useMemo(() => {
+    if (!modelPromotionModel || !isModelPromotionPostureChart(modelPromotionModel.chart_payload)) return {} as ModelPromotionPostureChartPayload;
+    return modelPromotionModel.chart_payload;
+  }, [modelPromotionModel]);
+  const executionRuntimeChart = useMemo(() => {
+    if (!executionRuntimeModel || !isExecutionRuntimeChart(executionRuntimeModel.chart_payload)) return {} as ExecutionRuntimeStatusChartPayload;
+    return executionRuntimeModel.chart_payload;
+  }, [executionRuntimeModel]);
 
   useEffect(() => {
     const viewport = temporalExplorerChart.viewport ?? {};
@@ -2348,7 +2704,14 @@ function App() {
       return <TaskTimelineList tasks={chart.task_timeline ?? []} />;
     }
     if (activeView === 'models') {
-      return <ModelLayerOverview chart={chart} />;
+      return (
+        <ModelLayerOverview
+          chart={chart}
+          layerChart={modelLayerChart}
+          promotionChart={modelPromotionChart}
+          runtimeChart={executionRuntimeChart}
+        />
+      );
     }
     if (activeView === 'registry') return <PlaceholderView title="Definitions" />;
     if (activeView === 'realtime') return renderRealtimeSignalsView();
@@ -2384,6 +2747,9 @@ function App() {
     void loadReadModel(HISTORICAL_TASK_PROGRESS);
     void loadReadModel(TEMPORAL_EXPLORER_SUMMARY);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY);
+    void loadReadModel(EXECUTION_RUNTIME_STATUS);
+    void loadOptionalReadModel(MODEL_LAYER_READINESS);
+    void loadOptionalReadModel(MODEL_PROMOTION_POSTURE);
   };
 
   return (

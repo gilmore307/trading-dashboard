@@ -325,6 +325,99 @@ export interface HistoricalTaskProgressChartPayload {
   agent_error_summary?: AgentErrorSummaryPayload[];
 }
 
+export interface ModelVersionSummaryPayload {
+  version_id?: string | null;
+  model_version?: string | null;
+  run_id?: string | null;
+  artifact_ref?: string | null;
+  role?: string | null;
+  lifecycle_status?: string | null;
+  promotion_status?: string | null;
+  evaluation_status?: string | null;
+  created_at_utc?: string | null;
+  updated_at_utc?: string | null;
+  metrics?: Record<string, unknown>;
+  blockers?: string[];
+  summary?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ModelLayerLifecyclePayload {
+  layer?: number | null;
+  layer_id?: string | null;
+  layer_key?: string | null;
+  model_id?: string | null;
+  model_key?: string | null;
+  name?: string | null;
+  model_name?: string | null;
+  status?: string | null;
+  lifecycle_status?: string | null;
+  current_version_ref?: string | null;
+  latest_version_ref?: string | null;
+  active_version_ref?: string | null;
+  shadow_version_refs?: string[];
+  retiring_version_refs?: string[];
+  eliminated_version_refs?: string[];
+  versions?: ModelVersionSummaryPayload[];
+  evaluation?: Record<string, unknown> | null;
+  promotion?: Record<string, unknown> | null;
+  blockers?: string[];
+  latest_updated_at_utc?: string | null;
+  updated_at_utc?: string | null;
+  summary?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ModelLayerReadinessChartPayload {
+  layers?: ModelLayerLifecyclePayload[];
+  current_layer?: number | null;
+  active_model_ref?: string | null;
+  shadow_model_refs?: string[];
+  retiring_model_refs?: string[];
+  eliminated_model_refs?: string[];
+  [key: string]: unknown;
+}
+
+export interface ModelPromotionItemPayload {
+  layer?: number | null;
+  layer_id?: string | null;
+  layer_key?: string | null;
+  model_id?: string | null;
+  model_key?: string | null;
+  model_ref?: string | null;
+  version_id?: string | null;
+  promotion_status?: string | null;
+  activation_status?: string | null;
+  evaluation_status?: string | null;
+  latest_agent_decision_status?: string | null;
+  missing_evidence_categories?: string[];
+  blockers?: string[];
+  latest_updated_at_utc?: string | null;
+  updated_at_utc?: string | null;
+  summary?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ModelPromotionPostureChartPayload {
+  models?: ModelPromotionItemPayload[];
+  promotions?: ModelPromotionItemPayload[];
+  items?: ModelPromotionItemPayload[];
+  [key: string]: unknown;
+}
+
+export interface ExecutionRuntimeStatusChartPayload {
+  active_model_pointer?: {
+    active_model_pointer_status?: string | null;
+    selected_active_model_ref?: unknown;
+    new_active_config_ref?: unknown;
+    active_model_config_present?: boolean;
+    [key: string]: unknown;
+  };
+  runtime_status?: string | null;
+  next_gate?: string | null;
+  [key: string]: unknown;
+}
+
 export interface RealtimeSignalCardPayload {
   label?: string;
   value?: string | number | boolean | null;
