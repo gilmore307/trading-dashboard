@@ -1495,10 +1495,6 @@ const SCATTER_GROUP_OPTIONS: Array<{ key: ScatterGroupKey; label: string }> = [
 
 const SCATTER_GROUP_COLORS = ['#34d399', '#f87171', '#38bdf8', '#fbbf24', '#a78bfa', '#fb7185', '#94a3b8'];
 
-function scatterGroupLabel(key: ScatterGroupKey): string {
-  return SCATTER_GROUP_OPTIONS.find((option) => option.key === key)?.label ?? startCase(key);
-}
-
 function scatterPartitionSignature(
   points: Array<Record<ScatterGroupKey, string>>,
   key: ScatterGroupKey,
@@ -1513,18 +1509,31 @@ function scatterPartitionSignature(
   return groupIds.size > 1 ? signature.join('|') : null;
 }
 
-function equivalentScatterGroupNote(
+function visibleScatterGroupOptions(
+  points: Array<Record<ScatterGroupKey, string>>,
+): Array<{ key: ScatterGroupKey; label: string }> {
+  const seenSignatures = new Set<string>();
+  const options: Array<{ key: ScatterGroupKey; label: string }> = [];
+  for (const option of SCATTER_GROUP_OPTIONS) {
+    const signature = scatterPartitionSignature(points, option.key);
+    if (signature && seenSignatures.has(signature)) continue;
+    if (signature) seenSignatures.add(signature);
+    options.push(option);
+  }
+  return options;
+}
+
+function resolvedScatterGroupKey(
   points: Array<Record<ScatterGroupKey, string>>,
   groupKey: ScatterGroupKey,
-): string | null {
+  options: Array<{ key: ScatterGroupKey; label: string }>,
+): ScatterGroupKey {
+  if (options.some((option) => option.key === groupKey)) return groupKey;
   const selectedSignature = scatterPartitionSignature(points, groupKey);
-  if (!selectedSignature) return null;
-  const equivalents = SCATTER_GROUP_OPTIONS
-    .filter((option) => option.key !== groupKey)
-    .filter((option) => scatterPartitionSignature(points, option.key) === selectedSignature)
-    .map((option) => option.label);
-  if (!equivalents.length) return null;
-  return `${scatterGroupLabel(groupKey)} uses the same row split as ${equivalents.join(' / ')} in this run; switching among them will draw the same PCA/PCoA grouping because their labels map one-to-one.`;
+  const equivalent = selectedSignature
+    ? options.find((option) => scatterPartitionSignature(points, option.key) === selectedSignature)
+    : null;
+  return equivalent?.key ?? options[0]?.key ?? groupKey;
 }
 
 function FeatureScatterChart({
@@ -1586,8 +1595,10 @@ function FeatureScatterChart({
   const yRange = maxY - minY || 1;
   const projectX = (value: number) => padding + ((value - minX) / xRange) * (width - padding * 2);
   const projectY = (value: number) => height - padding - ((value - minY) / yRange) * (height - padding * 2);
+  const visibleGroupOptions = visibleScatterGroupOptions(points);
+  const effectiveGroupKey = resolvedScatterGroupKey(points, groupKey, visibleGroupOptions);
   const groupCounts = points.reduce<Record<string, number>>((counts, point) => {
-    const value = String(point[groupKey] || 'unknown');
+    const value = String(point[effectiveGroupKey] || 'unknown');
     counts[value] = (counts[value] ?? 0) + 1;
     return counts;
   }, {});
@@ -1598,9 +1609,8 @@ function FeatureScatterChart({
     const index = groupNames.indexOf(group);
     return SCATTER_GROUP_COLORS[index >= 0 ? index % SCATTER_GROUP_COLORS.length : SCATTER_GROUP_COLORS.length - 1];
   };
-  const equivalentNote = equivalentScatterGroupNote(points, groupKey);
   const ellipseGroups = groupNames.map((group) => {
-    const ellipse = ellipseForPoints(points.filter((point) => String(point[groupKey] || 'unknown') === group));
+    const ellipse = ellipseForPoints(points.filter((point) => String(point[effectiveGroupKey] || 'unknown') === group));
     if (!ellipse) return null;
     return {
       group,
@@ -1615,8 +1625,8 @@ function FeatureScatterChart({
       <div className="model-chart-title-row">
         <span className="model-chart-title">{title}</span>
         <div className="scatter-summary">
-          <select value={groupKey} onChange={(event) => onGroupKeyChange(event.target.value as ScatterGroupKey)} aria-label={`${title} grouping`}>
-            {SCATTER_GROUP_OPTIONS.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
+          <select value={effectiveGroupKey} onChange={(event) => onGroupKeyChange(event.target.value as ScatterGroupKey)} aria-label={`${title} grouping`}>
+            {visibleGroupOptions.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
           </select>
           {groupNames.slice(0, 4).map((group) => <span key={group}><i style={{ background: colorForGroup(group) }} />{startCase(group)} · {groupCounts[group]}</span>)}
           <strong>{diagnosticExplainedVariance(version, diagnosticKey)}</strong>
@@ -1641,13 +1651,12 @@ function FeatureScatterChart({
             cx={projectX(point.x)}
             cy={projectY(point.y)}
             r="4"
-            style={{ fill: colorForGroup(String(point[groupKey] || 'unknown')) }}
+            style={{ fill: colorForGroup(String(point[effectiveGroupKey] || 'unknown')) }}
           >
             <title>{`${point.target || 'target'} ${point.decision_intended_side}/${point.decision_intended_action} ${point.decision_disposition} ${point.timestamp || ''}`}</title>
           </circle>
         ))}
       </svg>
-      {equivalentNote ? <div className="model-chart-note">{equivalentNote}</div> : null}
     </section>
   );
 }
