@@ -1317,6 +1317,17 @@ function selectedDiagnosticSeries(
   return points.length ? [{ name: 'Silhouette', points }] : [];
 }
 
+function uniqueSilhouettePoints(points: Array<{ label: string; value: number }>): Array<{ label: string; value: number }> {
+  const seenDecisionSeparations = new Set<string>();
+  return points.filter((point) => {
+    if (point.label === 'Outcome') return true;
+    const key = point.value.toFixed(6);
+    if (seenDecisionSeparations.has(key)) return false;
+    seenDecisionSeparations.add(key);
+    return true;
+  });
+}
+
 function equivalentSilhouetteNote(points: Array<{ label: string; value: number }>): string | null {
   const groups = new Map<string, string[]>();
   for (const point of points) {
@@ -2136,7 +2147,7 @@ function SilhouetteDiagnosticBars({
   version: ModelGroupPromotionVersionPayload | null;
   emptyLabel: string;
 }) {
-  const series = selectedDiagnosticSeries(version, 'silhouette')[0]?.points ?? [];
+  const series = uniqueSilhouettePoints(selectedDiagnosticSeries(version, 'silhouette')[0]?.points ?? []);
   if (!version || !series.length) {
     return (
       <section className="model-chart-panel">
