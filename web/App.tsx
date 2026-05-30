@@ -2559,15 +2559,6 @@ type ReplayVersionEntry = {
   index: number;
 };
 
-type ReplayFrame = 6 | 12 | 24 | 'all';
-
-const REPLAY_FRAMES: Array<{ label: string; value: ReplayFrame }> = [
-  { label: '6M', value: 6 },
-  { label: '12M', value: 12 },
-  { label: '24M', value: 24 },
-  { label: 'All', value: 'all' },
-];
-
 function replaySeriesForVersions(
   entries: ReplayVersionEntry[],
   metricKey: string,
@@ -2599,16 +2590,14 @@ function ReplayOverlayChart({
   series,
   yLabel,
   emptyLabel,
-  frame,
 }: {
   title: string;
   series: ReplaySeries[];
   yLabel: string;
   emptyLabel: string;
-  frame: ReplayFrame;
 }) {
   const months = replayMonths(series);
-  const windowSize = frame === 'all' ? Math.max(months.length, 1) : Math.min(frame, Math.max(months.length, 1));
+  const windowSize = Math.max(months.length, 1);
   const maxStart = Math.max(0, months.length - windowSize);
   const canPan = maxStart > 0;
   const [start, setStart] = useState(0);
@@ -2620,7 +2609,7 @@ function ReplayOverlayChart({
     setStart(maxStart);
     setHoverIndex(null);
     setDrag(null);
-  }, [frame, maxStart, monthKey]);
+  }, [maxStart, monthKey]);
 
   if (!series.length || !months.length) {
     return (
@@ -2730,37 +2719,8 @@ function ReplayOverlayChart({
         <text className="curve-y-label" x={20} y={padding + chartHeight / 2} transform={`rotate(-90 20 ${padding + chartHeight / 2})`}>{yLabel}</text>
       </svg>
       <div className="replay-chart-footer">
-        <span>{canPan ? 'Drag chart to pan' : 'Full frame visible'}</span>
-        <span>{REPLAY_FRAMES.find((item) => item.value === frame)?.label ?? 'Frame'} frame · {months.length} monthly slices</span>
-      </div>
-    </section>
-  );
-}
-
-function ReplayFrameControl({
-  frame,
-  onChange,
-}: {
-  frame: ReplayFrame;
-  onChange: (frame: ReplayFrame) => void;
-}) {
-  return (
-    <section className="panel replay-toolbar">
-      <div>
-        <div className="model-chart-title">Replay Frame</div>
-        <strong>{REPLAY_FRAMES.find((item) => item.value === frame)?.label ?? 'Frame'}</strong>
-      </div>
-      <div className="replay-frame-control" role="group" aria-label="Replay chart frame">
-        {REPLAY_FRAMES.map((item) => (
-          <button
-            className={frame === item.value ? 'selected' : ''}
-            key={item.label}
-            type="button"
-            onClick={() => onChange(item.value)}
-          >
-            {item.label}
-          </button>
-        ))}
+        <span>All frame visible</span>
+        <span>{months.length} monthly slices</span>
       </div>
     </section>
   );
@@ -2889,7 +2849,6 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const defaultIds = versionIds.slice(0, 1);
   const versionKey = versionIds.join('|');
-  const [frame, setFrame] = useState<ReplayFrame>(12);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
   useEffect(() => {
     setSelectedIds((current) => {
@@ -2904,10 +2863,9 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
   const selectedVersion = selectedEntries[0]?.version ?? null;
   return (
     <section className="replay-view">
-      <ReplayFrameControl frame={frame} onChange={setFrame} />
       <ReplayVersionSummarySelector versions={versions} selectedIds={selectedIds} onChange={setSelectedIds} />
-      <ReplayOverlayChart title="Cumulative Return Overlay" series={returnSeries} yLabel="Cumulative return" frame={frame} emptyLabel="No replay return slices published" />
-      <ReplayOverlayChart title="Drawdown Overlay" series={drawdownSeries} yLabel="Max drawdown" frame={frame} emptyLabel="No replay drawdown slices published" />
+      <ReplayOverlayChart title="Cumulative Return Overlay" series={returnSeries} yLabel="Cumulative return" emptyLabel="No replay return slices published" />
+      <ReplayOverlayChart title="Drawdown Overlay" series={drawdownSeries} yLabel="Max drawdown" emptyLabel="No replay drawdown slices published" />
       <div className="replay-chart-grid">
         <ScoreDecileReturnCurve version={selectedVersion} emptyLabel="Select a replay version with score decile return evidence" />
         <ThresholdReturnCurve version={selectedVersion} emptyLabel="Select a replay version with threshold return evidence" />
