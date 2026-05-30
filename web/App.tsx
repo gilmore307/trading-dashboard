@@ -2559,6 +2559,43 @@ type ReplayVersionEntry = {
   index: number;
 };
 
+type ReplayMonthRow = {
+  key: string;
+  month: string;
+  netReturn: number;
+  cumulative: number;
+  drawdown: number | null;
+  rowCount: number | null;
+  auroc: number | null;
+  brierScore: number | null;
+};
+
+type ReplayDecisionDetailRow = {
+  row_index?: number;
+  timestamp?: string | null;
+  target_ref?: string | null;
+  instrument_ref?: string | null;
+  action?: string | null;
+  disposition?: string | null;
+  fill_status?: string | null;
+  score?: number | null;
+  outcome_label?: string | null;
+  realized_return?: number | null;
+  baseline_return?: number | null;
+  cost?: number | null;
+  net_return?: number | null;
+  reason_codes?: string[];
+};
+
+type ReplayDecisionDetailPayload = {
+  version_id?: string;
+  version_label?: string;
+  month?: string;
+  total_month_rows?: number;
+  returned_rows?: number;
+  rows?: ReplayDecisionDetailRow[];
+};
+
 function replaySeriesForVersions(
   entries: ReplayVersionEntry[],
   metricKey: string,
@@ -2758,35 +2795,52 @@ function ReplayVersionSummarySelector({
   versions,
   selectedIds,
   onChange,
+  onOpenMonthly,
 }: {
   versions: ModelGroupPromotionVersionPayload[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  onOpenMonthly: (id: string) => void;
 }) {
   if (!versions.length) return null;
+  const canOpenMonthly = selectedIds.length === 1;
   return (
     <section className="panel replay-table-panel">
       <div className="panel-heading">Replay Model Selector</div>
       <div className="replay-table replay-summary-table">
         <div className="replay-table-row replay-table-head">
-          <span>Model</span><span>Role</span><span>Total Return</span><span>Excess</span><span>Max DD</span><span>Rows</span><span>Accepted</span><span>Filled</span><span>Good / Bad</span><span>Avoided</span><span>Missed</span><span>Months</span>
+          <span>Model</span><span>Role</span><span>Performance</span><span>Excess</span><span>Max DD</span><span>Rows</span><span>Accepted</span><span>Filled</span><span>Good / Bad</span><span>Avoided</span><span>Missed</span><span>Focus</span>
         </div>
         {versions.map((version, index) => {
           const row = replayVersionOutcomeSummary(version, index);
           const selected = selectedIds.includes(row.id);
           return (
-            <button
+            <div
               className={selected ? 'replay-table-row selected' : 'replay-table-row'}
               key={row.id}
-              type="button"
-              onClick={() => {
-                const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
-                onChange(next.length ? next : [row.id]);
-              }}
             >
-              <strong><i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{row.label}</strong>
+              <button
+                className="replay-row-main"
+                type="button"
+                onClick={() => {
+                  const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
+                  onChange(next.length ? next : [row.id]);
+                }}
+              >
+                <i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{row.label}
+              </button>
               <span><StatusPill status={row.identity} severity={modelStatusSeverity(row.identity)} /></span>
-              <span>{formatMetricValue(row.netReturn, 4)}</span>
+              <span className="replay-performance-cell">
+                <strong>{formatMetricValue(row.netReturn, 4)}</strong>
+                <button
+                  className="replay-inline-action"
+                  disabled={!canOpenMonthly || !selected}
+                  type="button"
+                  onClick={() => onOpenMonthly(row.id)}
+                >
+                  Monthly
+                </button>
+              </span>
               <span>{formatMetricValue(row.excessReturn, 4)}</span>
               <span>{formatMetricValue(row.maxDrawdown, 4)}</span>
               <span>{row.decisionRows === null ? 'Not reported' : row.decisionRows.toFixed(0)}</span>
@@ -2795,8 +2849,8 @@ function ReplayVersionSummarySelector({
               <span>{row.takenGood.toFixed(0)} / {row.takenBad.toFixed(0)}</span>
               <span>{row.avoidedBad.toFixed(0)}</span>
               <span>{row.missedGood.toFixed(0)}</span>
-              <span>{row.months}</span>
-            </button>
+              <button className="replay-inline-action" type="button" onClick={() => onChange([row.id])}>Focus</button>
+            </div>
           );
         })}
       </div>
@@ -2804,40 +2858,164 @@ function ReplayVersionSummarySelector({
   );
 }
 
-function ReplayMonthlyTable({ entries }: { entries: ReplayVersionEntry[] }) {
-  const rows = entries.flatMap(({ version, index }) => {
-    let cumulative = 0;
-    const drawdowns = new Map(temporalDiagnosticPoints(version, 'max_drawdown').map((point) => [point.label, point.value]));
-    return temporalDiagnosticPoints(version, 'net_return_total')
-      .sort((left, right) => left.label.localeCompare(right.label))
-      .map((point) => {
-        cumulative += point.value;
-        return {
-          key: `${versionStableId(version, index)}-${point.label}`,
-          version: compactVersionLabel(version, index),
-          month: point.label,
-          netReturn: point.value,
-          cumulative,
-          drawdown: drawdowns.get(point.label) ?? null,
-        };
+function replayMonthlyRows(version: ModelGroupPromotionVersionPayload, index: number): ReplayMonthRow[] {
+  let cumulative = 0;
+  const temporal = nestedRecord(version.metrics, 'temporal_stability_diagnostics');
+  return nestedArray(temporal, 'slices')
+    .map((slice) => ({
+      month: String(slice.month ?? ''),
+      netReturn: metricNumber(slice, 'net_return_total'),
+      drawdown: metricNumber(slice, 'max_drawdown'),
+      rowCount: metricNumber(slice, 'row_count'),
+      auroc: metricNumber(slice, 'auroc'),
+      brierScore: metricNumber(slice, 'brier_score'),
+    }))
+    .filter((row): row is Omit<ReplayMonthRow, 'key' | 'cumulative'> => Boolean(row.month) && row.netReturn !== null)
+    .sort((left, right) => left.month.localeCompare(right.month))
+    .map((row) => {
+      cumulative += row.netReturn;
+      return {
+        key: `${versionStableId(version, index)}-${row.month}`,
+        ...row,
+        cumulative,
+      };
+    });
+}
+
+function ReplayDecisionDetailTable({
+  versionId,
+  month,
+  activeRow,
+}: {
+  versionId: string;
+  month: string | null;
+  activeRow: ReplayMonthRow | null;
+}) {
+  const [payload, setPayload] = useState<ReplayDecisionDetailPayload | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!month) {
+      setPayload(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    fetch(`/api/replay-decisions?version=${encodeURIComponent(versionId)}&month=${encodeURIComponent(month)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null) as (ReplayDecisionDetailPayload & { error?: string }) | null;
+        if (!response.ok) throw new Error(body?.error ?? 'Replay decision rows unavailable');
+        setPayload(body);
+      })
+      .catch((caught: unknown) => {
+        if ((caught as { name?: string })?.name !== 'AbortError') setError(caught instanceof Error ? caught.message : 'Replay decision rows unavailable');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
-  });
+    return () => controller.abort();
+  }, [versionId, month]);
+  const rows = payload?.rows ?? [];
   return (
-    <section className="panel replay-table-panel">
-      <div className="panel-heading">Monthly Replay</div>
-      <div className="replay-table replay-monthly-table">
-        <div className="replay-table-row replay-table-head">
-          <span>Month</span><span>Version</span><span>Net Return</span><span>Cumulative</span><span>Max Drawdown</span>
+    <section className="replay-trade-detail-panel">
+      <div className="panel-heading">Replay Decision Details · {month ?? 'No month'}</div>
+      {activeRow ? (
+        <div className="replay-detail-kpis">
+          <span>Net {formatMetricValue(activeRow.netReturn, 4)}</span>
+          <span>Rows {activeRow.rowCount === null ? 'Not reported' : activeRow.rowCount.toFixed(0)}</span>
+          <span>Drawdown {formatMetricValue(activeRow.drawdown, 4)}</span>
+          {payload ? <span>Loaded {payload.returned_rows ?? rows.length}/{payload.total_month_rows ?? rows.length}</span> : null}
         </div>
-        {rows.length ? rows.map((row) => (
-          <div className="replay-table-row" key={row.key}>
-            <strong>{row.month}</strong>
-            <span>{row.version}</span>
-            <span>{formatMetricValue(row.netReturn, 4)}</span>
-            <span>{formatMetricValue(row.cumulative, 4)}</span>
-            <span>{formatMetricValue(row.drawdown, 4)}</span>
+      ) : null}
+      {loading ? <div className="empty-chart compact">Loading replay decision rows</div> : null}
+      {error ? <div className="empty-chart compact">{error}</div> : null}
+      {!loading && !error && rows.length ? (
+        <div className="replay-decision-table-wrap">
+          <div className="replay-table replay-decision-table">
+            <div className="replay-table-row replay-table-head">
+              <span>Time</span><span>Target</span><span>Instrument</span><span>Action</span><span>Disposition</span><span>Fill</span><span>Score</span><span>Net</span><span>Realized</span><span>Cost</span><span>Reasons</span>
+            </div>
+            {rows.map((row, index) => (
+              <div className="replay-table-row" key={`${row.timestamp ?? 'row'}-${index}`}>
+                <strong>{row.timestamp ?? 'No timestamp'}</strong>
+                <span>{row.target_ref ?? 'Unknown'}</span>
+                <span>{row.instrument_ref ?? 'Unknown'}</span>
+                <span>{startCase(row.action ?? 'unknown')}</span>
+                <span>{startCase(row.disposition ?? 'unknown')}</span>
+                <span>{startCase(row.fill_status ?? 'unknown')}</span>
+                <span>{formatMetricValue(row.score ?? null, 4)}</span>
+                <span>{formatMetricValue(row.net_return ?? null, 4)}</span>
+                <span>{formatMetricValue(row.realized_return ?? null, 4)}</span>
+                <span>{formatMetricValue(row.cost ?? null, 4)}</span>
+                <span>{row.reason_codes?.length ? row.reason_codes.map(startCase).join(', ') : 'None'}</span>
+              </div>
+            ))}
           </div>
-        )) : <div className="empty-chart compact">No monthly replay slices published</div>}
+        </div>
+      ) : null}
+      {!loading && !error && !rows.length ? (
+        <div className="empty-chart compact">No replay decision rows are published for this evaluated month.</div>
+      ) : null}
+    </section>
+  );
+}
+
+function ReplayMonthlyWindow({
+  entry,
+  selectedMonth,
+  onSelectMonth,
+  onClose,
+}: {
+  entry: ReplayVersionEntry;
+  selectedMonth: string | null;
+  onSelectMonth: (month: string) => void;
+  onClose: () => void;
+}) {
+  const rows = replayMonthlyRows(entry.version, entry.index);
+  const label = compactVersionLabel(entry.version, entry.index);
+  const versionId = versionStableId(entry.version, entry.index);
+  const activeMonth = selectedMonth ?? rows[0]?.month ?? null;
+  const activeRow = rows.find((row) => row.month === activeMonth) ?? null;
+  return (
+    <section className="replay-detail-window" aria-label="Model Monthly Replay">
+      <div className="replay-detail-surface">
+        <div className="replay-detail-head">
+          <div>
+            <span>Historical Replay Detail</span>
+            <strong>{label}</strong>
+            <small>{rows[0]?.month ?? 'No slices'} to {rows[rows.length - 1]?.month ?? 'No slices'} · {rows.length} evaluated months</small>
+          </div>
+          <button type="button" onClick={onClose}>Close</button>
+        </div>
+
+        <div className="replay-detail-grid">
+          <div className="replay-table replay-monthly-table">
+            <div className="replay-table-row replay-table-head">
+              <span>Month</span><span>Net Return</span><span>Cumulative</span><span>Max DD</span><span>Rows</span><span>AUROC</span><span>Brier</span>
+            </div>
+            {rows.length ? rows.map((row) => (
+              <button
+                className={row.month === activeMonth ? 'replay-table-row selected' : 'replay-table-row'}
+                key={row.key}
+                type="button"
+                onClick={() => onSelectMonth(row.month)}
+              >
+                <strong>{row.month}</strong>
+                <span>{formatMetricValue(row.netReturn, 4)}</span>
+                <span>{formatMetricValue(row.cumulative, 4)}</span>
+                <span>{formatMetricValue(row.drawdown, 4)}</span>
+                <span>{row.rowCount === null ? 'Not reported' : row.rowCount.toFixed(0)}</span>
+                <span>{formatMetricValue(row.auroc, 4)}</span>
+                <span>{formatMetricValue(row.brierScore, 4)}</span>
+              </button>
+            )) : <div className="empty-chart compact">No monthly replay slices published</div>}
+          </div>
+
+          <ReplayDecisionDetailTable versionId={versionId} month={activeMonth} activeRow={activeRow} />
+        </div>
       </div>
     </section>
   );
@@ -2847,9 +3025,11 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
-  const defaultIds = versionIds.slice(0, 1);
+  const defaultIds = versionIds;
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
+  const [monthlyVersionId, setMonthlyVersionId] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
@@ -2861,9 +3041,18 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
   const returnSeries = replaySeriesForVersions(selectedEntries, 'net_return_total', 'cumulative');
   const drawdownSeries = replaySeriesForVersions(selectedEntries, 'max_drawdown', 'raw');
   const selectedVersion = selectedEntries[0]?.version ?? null;
+  const monthlyEntry = entries.find(({ version, index }) => versionStableId(version, index) === monthlyVersionId) ?? null;
   return (
     <section className="replay-view">
-      <ReplayVersionSummarySelector versions={versions} selectedIds={selectedIds} onChange={setSelectedIds} />
+      <ReplayVersionSummarySelector
+        versions={versions}
+        selectedIds={selectedIds}
+        onChange={setSelectedIds}
+        onOpenMonthly={(id) => {
+          setMonthlyVersionId(id);
+          setSelectedMonth(null);
+        }}
+      />
       <ReplayOverlayChart title="Cumulative Return Overlay" series={returnSeries} yLabel="Cumulative return" emptyLabel="No replay return slices published" />
       <ReplayOverlayChart title="Drawdown Overlay" series={drawdownSeries} yLabel="Max drawdown" emptyLabel="No replay drawdown slices published" />
       <div className="replay-chart-grid">
@@ -2872,7 +3061,17 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
         <CostSensitivityCurve version={selectedVersion} emptyLabel="Select a replay version with cost sensitivity evidence" />
         <SliceDistributionPanel version={selectedVersion} />
       </div>
-      <ReplayMonthlyTable entries={selectedEntries} />
+      {monthlyEntry ? (
+        <ReplayMonthlyWindow
+          entry={monthlyEntry}
+          selectedMonth={selectedMonth}
+          onSelectMonth={setSelectedMonth}
+          onClose={() => {
+            setMonthlyVersionId(null);
+            setSelectedMonth(null);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

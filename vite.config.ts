@@ -10,6 +10,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 const DEFAULT_STORAGE_ROOT = '/root/projects/trading-storage/storage';
 const SAFE_CONTRACT_RE = /^[a-z][a-z0-9_]*$/;
 const SAFE_TABLE_ID_RE = /^[a-z][a-z0-9_]*$/;
+const SAFE_MONTH_RE = /^\d{4}-\d{2}$/;
 const DASHBOARD_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const REGISTERED_READ_MODELS = new Set([
   'current_system_status_summary',
@@ -100,6 +101,106 @@ function readLatestPayload(contractType: string): { payload: Record<string, unkn
   const latestPath = latestReadModelPath(contractType);
   const payload = JSON.parse(fs.readFileSync(latestPath, 'utf8'));
   return { payload: validateReadModelPayload(payload, canonicalType), contractType: canonicalType, latestPath };
+}
+
+function recordValue(record: unknown, key: string): unknown {
+  return record && typeof record === 'object' && !Array.isArray(record) ? (record as Record<string, unknown>)[key] : undefined;
+}
+
+function nestedValue(record: unknown, ...keys: string[]): unknown {
+  return keys.reduce<unknown>((current, key) => recordValue(current, key), record);
+}
+
+function safeStoragePath(value: unknown): string {
+  const rawPath = String(value ?? '');
+  if (!rawPath) throw new Error('missing replay artifact path');
+  const resolved = path.resolve(rawPath);
+  const root = path.resolve(storageRoot());
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new Error('replay artifact path is outside dashboard storage root');
+  }
+  return resolved;
+}
+
+function numberOrNull(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function stringOrNull(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  return String(value);
+}
+
+function versionStableId(record: Record<string, unknown>, index: number): string {
+  return String(record.version_id ?? record.candidate_model_ref ?? record.promotion_run_id ?? index);
+}
+
+function replayDecisionReasonCodes(row: Record<string, unknown>): string[] {
+  const candidates = [
+    row.reason_codes,
+    row.decision_reason_codes,
+    nestedValue(row, 'model_layer_diagnostics', 'model_08_underlying_action', 'reason_codes'),
+  ];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate.map((item) => String(item)).filter(Boolean).slice(0, 8);
+  }
+  return [];
+}
+
+function sanitizeReplayDecisionRow(row: Record<string, unknown>, index: number): Record<string, unknown> {
+  const realized = numberOrNull(row.net_return) ?? numberOrNull(row.realized_return) ?? numberOrNull(row.candidate_return);
+  const cost = numberOrNull(row.cost) ?? numberOrNull(row.trading_cost) ?? 0;
+  return {
+    row_index: index,
+    timestamp: stringOrNull(row.timestamp ?? row.decision_timestamp),
+    target_ref: stringOrNull(row.target_ref ?? row.target_symbol),
+    instrument_ref: stringOrNull(row.instrument_ref),
+    action: stringOrNull(row.decision_action ?? row.action),
+    disposition: stringOrNull(row.decision_disposition ?? row.decision_status ?? row.status),
+    fill_status: stringOrNull(row.fill_status ?? row.replay_fill_status),
+    score: numberOrNull(row.prediction_score ?? row.predicted_score ?? row.probability ?? row.confidence_score ?? row.alpha_score ?? row.rank_score),
+    outcome_label: stringOrNull(row.outcome_label ?? row.label ?? row.realized_label),
+    realized_return: realized,
+    baseline_return: numberOrNull(row.baseline_return ?? row.replay_return ?? row.incumbent_return),
+    cost,
+    net_return: realized === null ? null : realized - cost,
+    reason_codes: replayDecisionReasonCodes(row),
+  };
+}
+
+function replayDecisionRows(versionId: string, month: string): Record<string, unknown> {
+  const snapshot = readLatestPayload('model_promotion_posture_summary');
+  const chartPayload = snapshot.payload.chart_payload as Record<string, unknown>;
+  const versions = Array.isArray(chartPayload.group_versions) ? chartPayload.group_versions.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item)) : [];
+  const version = versions.find((item, index) => versionStableId(item, index) === versionId);
+  if (!version) throw new Error('unknown replay model version');
+  const refs = recordValue(version, 'refs');
+  const settlementPath = safeStoragePath(recordValue(refs, 'settlement_ref'));
+  const settlement = JSON.parse(fs.readFileSync(settlementPath, 'utf8')) as Record<string, unknown>;
+  const receiptPath = safeStoragePath(settlement.replay_result_ref);
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8')) as Record<string, unknown>;
+  const decisionRowsPath = safeStoragePath(receipt.decision_rows_ref);
+  const rows: Record<string, unknown>[] = [];
+  let totalMonthRows = 0;
+  for (const line of fs.readFileSync(decisionRowsPath, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const row = JSON.parse(line) as Record<string, unknown>;
+    const timestamp = String(row.timestamp ?? row.decision_timestamp ?? '');
+    if (timestamp.slice(0, 7) !== month) continue;
+    if (String(row.entry_threshold_calibration_role ?? 'test') === 'validation') continue;
+    totalMonthRows += 1;
+    if (rows.length < 500) rows.push(sanitizeReplayDecisionRow(row, totalMonthRows));
+  }
+  return {
+    version_id: versionId,
+    version_label: version.version_label ?? versionId,
+    month,
+    total_month_rows: totalMonthRows,
+    returned_rows: rows.length,
+    rows,
+  };
 }
 
 function sendReadModelSnapshot(socket: WebSocket, contractType: string): void {
@@ -277,16 +378,37 @@ function attachDashboardReadModelApi(server: ViteDevServer | PreviewServer): voi
   });
 }
 
+function attachDashboardReplayDecisionApi(server: ViteDevServer | PreviewServer): void {
+  server.middlewares.use('/api/replay-decisions', (req, res) => {
+    const parsedUrl = new URL(req.url ?? '/', 'http://localhost');
+    void (async () => {
+      try {
+        const version = parsedUrl.searchParams.get('version') ?? '';
+        const month = parsedUrl.searchParams.get('month') ?? '';
+        if (!version || version.length > 400 || !SAFE_MONTH_RE.test(month)) {
+          sendJson(res, 400, { error: 'invalid replay decision query' });
+          return;
+        }
+        sendJson(res, 200, replayDecisionRows(version, month));
+      } catch (error) {
+        sendJson(res, 404, { error: error instanceof Error ? error.message : 'replay decision rows unavailable' });
+      }
+    })();
+  });
+}
+
 function dashboardReadModelApi(): Plugin {
   return {
     name: 'dashboard-read-model-api',
     configureServer(server) {
       attachDashboardReadModelApi(server);
       attachDashboardDataTableApi(server);
+      attachDashboardReplayDecisionApi(server);
     },
     configurePreviewServer(server) {
       attachDashboardReadModelApi(server);
       attachDashboardDataTableApi(server);
+      attachDashboardReplayDecisionApi(server);
     },
   };
 }
