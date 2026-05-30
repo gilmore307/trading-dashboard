@@ -2988,7 +2988,7 @@ function ReplayMonthlyWindow({
         <div className="replay-detail-grid">
           <div className="replay-table replay-monthly-table">
             <div className="replay-table-row replay-table-head">
-              <span>Month</span><span>Net Return</span><span>Cumulative</span><span>Max DD</span><span>Rows</span><span>AUROC</span><span>Brier</span>
+              <span>Month</span><span>Net Return</span><span>Cumulative</span><span>Max DD</span><span>Rows</span>
             </div>
             {rows.length ? rows.map((row) => (
               <button
@@ -3002,8 +3002,6 @@ function ReplayMonthlyWindow({
                 <span>{formatMetricValue(row.cumulative, 4)}</span>
                 <span>{formatMetricValue(row.drawdown, 4)}</span>
                 <span>{row.rowCount === null ? 'Not reported' : row.rowCount.toFixed(0)}</span>
-                <span>{formatMetricValue(row.auroc, 4)}</span>
-                <span>{formatMetricValue(row.brierScore, 4)}</span>
               </button>
             )) : <div className="empty-chart compact">No monthly replay slices published</div>}
           </div>

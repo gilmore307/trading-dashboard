@@ -337,7 +337,8 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .replay-inline-action { border: 1px solid rgba(125, 211, 252, .28); border-radius: 999px; padding: 6px 9px; color: #bae6fd; background: rgba(14, 165, 233, .12); font: inherit; font-size: 11px; font-weight: 900; cursor: pointer; }
 .replay-inline-action:hover:not(:disabled) { border-color: rgba(125, 211, 252, .62); background: rgba(14, 165, 233, .22); }
 .replay-inline-action:disabled { opacity: .35; cursor: not-allowed; }
-.replay-monthly-table .replay-table-row { grid-template-columns: minmax(92px, .7fr) repeat(6, minmax(92px, .7fr)); }
+.replay-monthly-table { min-width: 520px; }
+.replay-monthly-table .replay-table-row { grid-template-columns: minmax(88px, .75fr) repeat(4, minmax(84px, .7fr)); }
 .replay-monthly-table button.replay-table-row { width: 100%; font-family: inherit; text-align: left; cursor: pointer; }
 .replay-monthly-table button.replay-table-row:hover, .replay-monthly-table button.replay-table-row.selected { border-color: rgba(125, 211, 252, .45); background: rgba(14, 165, 233, .13); }
 .replay-table-row strong { color: #f8fbff; overflow-wrap: anywhere; }
@@ -351,7 +352,7 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .replay-detail-head small { color: #8fa2ba; font-weight: 800; }
 .replay-detail-head button { border: 1px solid rgba(148, 163, 184, .22); border-radius: 999px; padding: 8px 12px; color: #e2e8f0; background: rgba(15, 23, 42, .74); font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
 .replay-detail-head button:hover { border-color: rgba(125, 211, 252, .48); color: #bae6fd; }
-.replay-detail-grid { min-height: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr); gap: 12px; overflow: hidden; }
+.replay-detail-grid { min-height: 0; display: grid; grid-template-columns: minmax(420px, .44fr) minmax(0, 1.56fr); gap: 12px; overflow: hidden; }
 .replay-detail-grid > .replay-table { min-width: 0; align-content: start; overflow: auto; }
 .replay-trade-detail-panel { min-width: 0; display: grid; align-content: start; gap: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(148, 163, 184, .12); background: rgba(2, 6, 23, .34); overflow: auto; }
 .replay-detail-kpis { display: flex; flex-wrap: wrap; gap: 8px; }
