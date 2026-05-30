@@ -324,7 +324,15 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .replay-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .replay-table-panel { min-width: 0; overflow-x: auto; }
 .replay-table { display: grid; gap: 6px; min-width: 900px; }
+.dashboard-table-controls { display: grid; grid-template-columns: minmax(220px, .42fr) auto; gap: 12px; align-items: end; margin-bottom: 10px; }
+.dashboard-table-controls label { display: grid; gap: 6px; color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .11em; font-weight: 850; }
+.dashboard-table-controls input { width: 100%; border: 1px solid rgba(148, 163, 184, .18); border-radius: 12px; padding: 9px 11px; color: #e7edf7; background: rgba(2, 6, 23, .68); font: inherit; font-size: 12px; font-weight: 750; outline: none; }
+.dashboard-table-controls input:focus { border-color: rgba(125, 211, 252, .62); box-shadow: 0 0 0 3px rgba(14, 165, 233, .12); }
+.dashboard-table-controls small { justify-self: end; color: #8fa2ba; font-size: 12px; font-weight: 850; }
 .replay-table-row { display: grid; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); color: #cbd5e1; font-size: 12px; font-weight: 800; }
+.table-sort-button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; border: 0; padding: 0; color: #7dd3fc; background: transparent; text-align: left; font: inherit; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
+.table-sort-button:hover { color: #bae6fd; }
+.table-sort-button small { color: #7dd3fc; font-size: 10px; font-weight: 900; letter-spacing: 0; }
 .replay-summary-table { min-width: 1260px; }
 .replay-summary-table .replay-table-row { grid-template-columns: minmax(170px, 1.2fr) minmax(92px, .72fr) repeat(10, minmax(76px, .62fr)); }
 .replay-summary-table .replay-table-row.selected { border-color: rgba(125, 211, 252, .45); background: rgba(14, 165, 233, .13); }
@@ -375,6 +383,8 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
   .layer-task-side { justify-items: start; text-align: left; }
   .replay-detail-window { inset: 8px; }
   .replay-detail-grid { grid-template-columns: 1fr; overflow: auto; }
+  .dashboard-table-controls { grid-template-columns: 1fr; }
+  .dashboard-table-controls small { justify-self: start; }
 }
 
 /* Interactive website slice */

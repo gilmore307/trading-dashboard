@@ -2434,6 +2434,27 @@ function ModelVersionTable({
   selectedVersionId: string | null;
   onSelectVersion: (versionId: string | null) => void;
 }) {
+  const [filter, setFilter] = useState('');
+  const [sort, setSort] = useState<SortState<'label' | 'identity' | 'auroc' | 'prAuc' | 'ece' | 'profit' | 'integrity' | 'decision'>>({ key: 'auroc', direction: 'desc' });
+  const query = filter.trim().toLowerCase();
+  const rows: ModelVersionTableRow[] = versions.map((version, index) => {
+    const metrics = version.metrics ?? {};
+    return {
+      index,
+      id: versionStableId(version, index),
+      label: compactVersionLabel(version, index),
+      identity: modelIdentity(version),
+      auroc: metricNumber(metrics, 'auroc'),
+      prAuc: metricNumber(metrics, 'pr_auc'),
+      ece: metricNumber(metrics, 'ece'),
+      profit: metricNumber(metrics, 'profit_factor'),
+      integrity: startCase(String(metrics.data_integrity_status ?? 'not_reported')),
+      decision: startCase(version.decision_status ?? version.agent_review_recommendation ?? 'not_reported'),
+    };
+  });
+  const displayedRows = rows
+    .filter((row) => !query || searchText(row.label, row.identity, row.auroc, row.prAuc, row.ece, row.profit, row.integrity, row.decision).includes(query))
+    .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.index - right.index);
   return (
     <section className="model-version-table-panel">
       <div className="model-version-table-toolbar">
@@ -2443,38 +2464,40 @@ function ModelVersionTable({
         </div>
         {selectedVersionId ? <button type="button" onClick={() => onSelectVersion(null)}>Clear selection</button> : null}
       </div>
-      <div className="model-table-row model-table-head">
-        <span>Version</span>
-        <span>Identity</span>
-        <span>AUROC</span>
-        <span>PR-AUC</span>
-        <span>ECE</span>
-        <span>Profit</span>
-        <span>Integrity</span>
-        <span>Decision</span>
+      <div className="dashboard-table-controls">
+        <label>
+          <span>Filter</span>
+          <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter model versions..." />
+        </label>
+        <small>Showing {displayedRows.length} of {versions.length}</small>
       </div>
-      {versions.length ? versions.map((version, index) => {
-        const metrics = version.metrics ?? {};
-        const identity = modelIdentity(version);
-        const versionId = versionStableId(version, index);
-        return (
-          <button
-            className={selectedVersionId === versionId ? 'model-table-row selected' : 'model-table-row'}
-            key={versionId}
-            onClick={() => onSelectVersion(selectedVersionId === versionId ? null : versionId)}
-            type="button"
-          >
-            <strong>{compactVersionLabel(version, index)}</strong>
-            <span><StatusPill status={identity} severity={modelStatusSeverity(identity)} /></span>
-            <span>{formatMetricValue(metricNumber(metrics, 'auroc'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'pr_auc'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'ece'))}</span>
-            <span>{formatMetricValue(metricNumber(metrics, 'profit_factor'))}</span>
-            <span>{startCase(String(metrics.data_integrity_status ?? 'not_reported'))}</span>
-            <span>{startCase(version.decision_status ?? version.agent_review_recommendation ?? 'not_reported')}</span>
-          </button>
-        );
-      }) : (
+      <div className="model-table-row model-table-head">
+        <SortableHeader label="Version" column="label" sort={sort} onSort={setSort} />
+        <SortableHeader label="Identity" column="identity" sort={sort} onSort={setSort} />
+        <SortableHeader label="AUROC" column="auroc" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="PR-AUC" column="prAuc" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="ECE" column="ece" sort={sort} onSort={setSort} />
+        <SortableHeader label="Profit" column="profit" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Integrity" column="integrity" sort={sort} onSort={setSort} />
+        <SortableHeader label="Decision" column="decision" sort={sort} onSort={setSort} />
+      </div>
+      {versions.length ? (displayedRows.length ? displayedRows.map((row) => (
+        <button
+          className={selectedVersionId === row.id ? 'model-table-row selected' : 'model-table-row'}
+          key={row.id}
+          onClick={() => onSelectVersion(selectedVersionId === row.id ? null : row.id)}
+          type="button"
+        >
+          <strong>{row.label}</strong>
+          <span><StatusPill status={row.identity} severity={modelStatusSeverity(row.identity)} /></span>
+          <span>{formatMetricValue(row.auroc)}</span>
+          <span>{formatMetricValue(row.prAuc)}</span>
+          <span>{formatMetricValue(row.ece)}</span>
+          <span>{formatMetricValue(row.profit)}</span>
+          <span>{row.integrity}</span>
+          <span>{row.decision}</span>
+        </button>
+      )) : <div className="empty-chart compact">No model versions match the current filter.</div>) : (
         <div className="empty-chart compact">No valid scoped model-group promotion evidence published yet</div>
       )}
     </section>
@@ -2595,6 +2618,78 @@ type ReplayDecisionDetailPayload = {
   returned_rows?: number;
   rows?: ReplayDecisionDetailRow[];
 };
+
+type SortDirection = 'asc' | 'desc';
+
+type SortState<Key extends string> = {
+  key: Key;
+  direction: SortDirection;
+};
+
+type ReplayVersionSummary = ReturnType<typeof replayVersionOutcomeSummary> & {
+  index: number;
+};
+
+type ModelVersionTableRow = {
+  index: number;
+  id: string;
+  label: string;
+  identity: string;
+  auroc: number | null;
+  prAuc: number | null;
+  ece: number | null;
+  profit: number | null;
+  integrity: string;
+  decision: string;
+};
+
+function toggleSort<Key extends string>(
+  sort: SortState<Key>,
+  key: Key,
+  defaultDirection: SortDirection = 'asc',
+): SortState<Key> {
+  if (sort.key !== key) return { key, direction: defaultDirection };
+  return { key, direction: sort.direction === 'asc' ? 'desc' : 'asc' };
+}
+
+function compareSortValues(left: string | number | null | undefined, right: string | number | null | undefined, direction: SortDirection): number {
+  const multiplier = direction === 'asc' ? 1 : -1;
+  if (left === null || left === undefined) return right === null || right === undefined ? 0 : 1;
+  if (right === null || right === undefined) return -1;
+  const result = typeof left === 'number' && typeof right === 'number'
+    ? left - right
+    : String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' });
+  return result * multiplier;
+}
+
+function searchText(...values: unknown[]): string {
+  return values.flatMap((value) => Array.isArray(value) ? value : [value]).map((value) => String(value ?? '')).join(' ').toLowerCase();
+}
+
+function SortableHeader<Key extends string>({
+  label,
+  column,
+  sort,
+  onSort,
+  defaultDirection = 'asc',
+}: {
+  label: string;
+  column: Key;
+  sort: SortState<Key>;
+  onSort: (sort: SortState<Key>) => void;
+  defaultDirection?: SortDirection;
+}) {
+  return (
+    <button
+      className="table-sort-button"
+      type="button"
+      onClick={() => onSort(toggleSort(sort, column, defaultDirection))}
+    >
+      <span>{label}</span>
+      <small>{sort.key === column ? (sort.direction === 'asc' ? '▲' : '▼') : '↕'}</small>
+    </button>
+  );
+}
 
 function replaySeriesForVersions(
   entries: ReplayVersionEntry[],
@@ -2803,16 +2898,40 @@ function ReplayVersionSummarySelector({
   onChange: (ids: string[]) => void;
   onOpenMonthly: (id: string) => void;
 }) {
+  const [filter, setFilter] = useState('');
+  const [sort, setSort] = useState<SortState<'label' | 'identity' | 'netReturn' | 'excessReturn' | 'maxDrawdown' | 'decisionRows' | 'accepted' | 'filled' | 'takenGood' | 'avoidedBad' | 'missedGood'>>({ key: 'netReturn', direction: 'desc' });
   if (!versions.length) return null;
+  const query = filter.trim().toLowerCase();
+  const rows: ReplayVersionSummary[] = versions
+    .map((version, index) => ({ ...replayVersionOutcomeSummary(version, index), index }))
+    .filter((row) => !query || searchText(row.label, row.identity, row.netReturn, row.excessReturn, row.maxDrawdown, row.decisionRows, row.accepted, row.filled, row.takenGood, row.takenBad, row.avoidedBad, row.missedGood).includes(query))
+    .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.index - right.index);
   return (
     <section className="panel replay-table-panel">
       <div className="panel-heading">Replay Model Selector</div>
+      <div className="dashboard-table-controls">
+        <label>
+          <span>Filter</span>
+          <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter models…" />
+        </label>
+        <small>Showing {rows.length} of {versions.length}</small>
+      </div>
       <div className="replay-table replay-summary-table">
         <div className="replay-table-row replay-table-head">
-          <span>Model</span><span>Role</span><span>Performance</span><span>Excess</span><span>Max DD</span><span>Rows</span><span>Accepted</span><span>Filled</span><span>Good / Bad</span><span>Avoided</span><span>Missed</span><span>Action</span>
+          <SortableHeader label="Model" column="label" sort={sort} onSort={setSort} />
+          <SortableHeader label="Role" column="identity" sort={sort} onSort={setSort} />
+          <SortableHeader label="Performance" column="netReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Excess" column="excessReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Max DD" column="maxDrawdown" sort={sort} onSort={setSort} />
+          <SortableHeader label="Rows" column="decisionRows" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Accepted" column="accepted" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Filled" column="filled" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Good / Bad" column="takenGood" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Avoided" column="avoidedBad" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Missed" column="missedGood" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <span>Action</span>
         </div>
-        {versions.map((version, index) => {
-          const row = replayVersionOutcomeSummary(version, index);
+        {rows.length ? rows.map((row) => {
           const selected = selectedIds.includes(row.id);
           return (
             <div
@@ -2827,7 +2946,7 @@ function ReplayVersionSummarySelector({
                   onChange(next.length ? next : [row.id]);
                 }}
               >
-                <i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{row.label}
+                <i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}
               </button>
               <span><StatusPill status={row.identity} severity={modelStatusSeverity(row.identity)} /></span>
               <span>{formatMetricValue(row.netReturn, 4)}</span>
@@ -2846,7 +2965,7 @@ function ReplayVersionSummarySelector({
               )}
             </div>
           );
-        })}
+        }) : <div className="empty-chart compact">No replay models match the current filter.</div>}
       </div>
     </section>
   );
@@ -2888,6 +3007,8 @@ function ReplayDecisionDetailTable({
   const [payload, setPayload] = useState<ReplayDecisionDetailPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState('');
+  const [sort, setSort] = useState<SortState<'timestamp' | 'target_ref' | 'instrument_ref' | 'action' | 'disposition' | 'fill_status' | 'score' | 'net_return' | 'realized_return' | 'cost' | 'reason_codes'>>({ key: 'timestamp', direction: 'asc' });
   useEffect(() => {
     if (!month) {
       setPayload(null);
@@ -2913,6 +3034,14 @@ function ReplayDecisionDetailTable({
     return () => controller.abort();
   }, [versionId, month]);
   const rows = payload?.rows ?? [];
+  const query = filter.trim().toLowerCase();
+  const displayedRows = rows
+    .filter((row) => !query || searchText(row.timestamp, row.target_ref, row.instrument_ref, row.action, row.disposition, row.fill_status, row.score, row.net_return, row.realized_return, row.cost, row.reason_codes).includes(query))
+    .sort((left, right) => {
+      const leftValue = sort.key === 'reason_codes' ? (left.reason_codes ?? []).join(', ') : left[sort.key];
+      const rightValue = sort.key === 'reason_codes' ? (right.reason_codes ?? []).join(', ') : right[sort.key];
+      return compareSortValues(leftValue, rightValue, sort.direction);
+    });
   return (
     <section className="replay-trade-detail-panel">
       <div className="panel-heading">Replay Decision Details · {month ?? 'No month'}</div>
@@ -2927,12 +3056,30 @@ function ReplayDecisionDetailTable({
       {loading ? <div className="empty-chart compact">Loading replay decision rows</div> : null}
       {error ? <div className="empty-chart compact">{error}</div> : null}
       {!loading && !error && rows.length ? (
+        <>
+        <div className="dashboard-table-controls">
+          <label>
+            <span>Filter</span>
+            <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter decisions…" />
+          </label>
+          <small>Showing {displayedRows.length} of {rows.length}</small>
+        </div>
         <div className="replay-decision-table-wrap">
           <div className="replay-table replay-decision-table">
             <div className="replay-table-row replay-table-head">
-              <span>Time</span><span>Target</span><span>Instrument</span><span>Action</span><span>Disposition</span><span>Fill</span><span>Score</span><span>Net</span><span>Realized</span><span>Cost</span><span>Reasons</span>
+              <SortableHeader label="Time" column="timestamp" sort={sort} onSort={setSort} />
+              <SortableHeader label="Target" column="target_ref" sort={sort} onSort={setSort} />
+              <SortableHeader label="Instrument" column="instrument_ref" sort={sort} onSort={setSort} />
+              <SortableHeader label="Action" column="action" sort={sort} onSort={setSort} />
+              <SortableHeader label="Disposition" column="disposition" sort={sort} onSort={setSort} />
+              <SortableHeader label="Fill" column="fill_status" sort={sort} onSort={setSort} />
+              <SortableHeader label="Score" column="score" sort={sort} onSort={setSort} defaultDirection="desc" />
+              <SortableHeader label="Net" column="net_return" sort={sort} onSort={setSort} defaultDirection="desc" />
+              <SortableHeader label="Realized" column="realized_return" sort={sort} onSort={setSort} defaultDirection="desc" />
+              <SortableHeader label="Cost" column="cost" sort={sort} onSort={setSort} defaultDirection="desc" />
+              <SortableHeader label="Reasons" column="reason_codes" sort={sort} onSort={setSort} />
             </div>
-            {rows.map((row, index) => (
+            {displayedRows.length ? displayedRows.map((row, index) => (
               <div className="replay-table-row" key={`${row.timestamp ?? 'row'}-${index}`}>
                 <strong>{row.timestamp ?? 'No timestamp'}</strong>
                 <span>{row.target_ref ?? 'Unknown'}</span>
@@ -2946,9 +3093,10 @@ function ReplayDecisionDetailTable({
                 <span>{formatMetricValue(row.cost ?? null, 4)}</span>
                 <span>{row.reason_codes?.length ? row.reason_codes.map(startCase).join(', ') : 'None'}</span>
               </div>
-            ))}
+            )) : <div className="empty-chart compact">No replay decisions match the current filter.</div>}
           </div>
         </div>
+        </>
       ) : null}
       {!loading && !error && !rows.length ? (
         <div className="empty-chart compact">No replay decision rows are published for this evaluated month.</div>
@@ -2968,11 +3116,17 @@ function ReplayMonthlyWindow({
   onSelectMonth: (month: string) => void;
   onClose: () => void;
 }) {
+  const [filter, setFilter] = useState('');
+  const [sort, setSort] = useState<SortState<'month' | 'netReturn' | 'cumulative' | 'drawdown' | 'rowCount'>>({ key: 'month', direction: 'asc' });
   const rows = replayMonthlyRows(entry.version, entry.index);
   const label = compactVersionLabel(entry.version, entry.index);
   const versionId = versionStableId(entry.version, entry.index);
   const activeMonth = selectedMonth ?? rows[0]?.month ?? null;
   const activeRow = rows.find((row) => row.month === activeMonth) ?? null;
+  const query = filter.trim().toLowerCase();
+  const displayedRows = rows
+    .filter((row) => !query || searchText(row.month, row.netReturn, row.cumulative, row.drawdown, row.rowCount).includes(query))
+    .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction));
   return (
     <section className="replay-detail-window" aria-label="Model Monthly Replay">
       <div className="replay-detail-surface">
@@ -2987,10 +3141,21 @@ function ReplayMonthlyWindow({
 
         <div className="replay-detail-grid">
           <div className="replay-table replay-monthly-table">
-            <div className="replay-table-row replay-table-head">
-              <span>Month</span><span>Net Return</span><span>Cumulative</span><span>Max DD</span><span>Rows</span>
+            <div className="dashboard-table-controls">
+              <label>
+                <span>Filter</span>
+                <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter months…" />
+              </label>
+              <small>Showing {displayedRows.length} of {rows.length}</small>
             </div>
-            {rows.length ? rows.map((row) => (
+            <div className="replay-table-row replay-table-head">
+              <SortableHeader label="Month" column="month" sort={sort} onSort={setSort} />
+              <SortableHeader label="Net Return" column="netReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
+              <SortableHeader label="Cumulative" column="cumulative" sort={sort} onSort={setSort} defaultDirection="desc" />
+              <SortableHeader label="Max DD" column="drawdown" sort={sort} onSort={setSort} />
+              <SortableHeader label="Rows" column="rowCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+            </div>
+            {displayedRows.length ? displayedRows.map((row) => (
               <button
                 className={row.month === activeMonth ? 'replay-table-row selected' : 'replay-table-row'}
                 key={row.key}
@@ -3003,7 +3168,7 @@ function ReplayMonthlyWindow({
                 <span>{formatMetricValue(row.drawdown, 4)}</span>
                 <span>{row.rowCount === null ? 'Not reported' : row.rowCount.toFixed(0)}</span>
               </button>
-            )) : <div className="empty-chart compact">No monthly replay slices published</div>}
+            )) : <div className="empty-chart compact">No monthly replay slices match the current filter.</div>}
           </div>
 
           <ReplayDecisionDetailTable versionId={versionId} month={activeMonth} activeRow={activeRow} />
