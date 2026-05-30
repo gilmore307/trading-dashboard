@@ -2765,6 +2765,7 @@ function ReplayOverlayChart({
 
 function replayVersionOutcomeSummary(version: ModelGroupPromotionVersionPayload, index: number) {
   const metrics = version.metrics ?? {};
+  const economicQuality = scorecardSection(version, 'economic_quality');
   const diagnostics = decisionVariableDiagnostics(version);
   const disposition = coverageValues(diagnostics, 'decision_disposition');
   const fillStatus = coverageValues(diagnostics, 'replay_fill_status');
@@ -2776,9 +2777,9 @@ function replayVersionOutcomeSummary(version: ModelGroupPromotionVersionPayload,
     id: versionStableId(version, index),
     label: compactVersionLabel(version, index),
     identity: modelIdentity(version),
-    netReturn: metricNumber(metrics, 'net_return_total'),
-    excessReturn: metricNumber(metrics, 'excess_return_total'),
-    maxDrawdown: metricNumber(metrics, 'max_drawdown'),
+    netReturn: metricNumber(metrics, 'net_return_total') ?? metricNumber(economicQuality, 'net_return_total') ?? metricNumber(economicQuality, 'cost_adjusted_return_total'),
+    excessReturn: metricNumber(metrics, 'excess_return_total') ?? metricNumber(economicQuality, 'excess_return_total'),
+    maxDrawdown: metricNumber(metrics, 'max_drawdown') ?? metricNumber(economicQuality, 'max_drawdown'),
     decisionRows: metricNumber(metrics, 'decision_row_count'),
     months: temporalDiagnosticPoints(version, 'net_return_total').length,
     accepted,
@@ -2803,13 +2804,12 @@ function ReplayVersionSummarySelector({
   onOpenMonthly: (id: string) => void;
 }) {
   if (!versions.length) return null;
-  const canOpenMonthly = selectedIds.length === 1;
   return (
     <section className="panel replay-table-panel">
       <div className="panel-heading">Replay Model Selector</div>
       <div className="replay-table replay-summary-table">
         <div className="replay-table-row replay-table-head">
-          <span>Model</span><span>Role</span><span>Performance</span><span>Excess</span><span>Max DD</span><span>Rows</span><span>Accepted</span><span>Filled</span><span>Good / Bad</span><span>Avoided</span><span>Missed</span><span>Focus</span>
+          <span>Model</span><span>Role</span><span>Performance</span><span>Excess</span><span>Max DD</span><span>Rows</span><span>Accepted</span><span>Filled</span><span>Good / Bad</span><span>Avoided</span><span>Missed</span><span>Action</span>
         </div>
         {versions.map((version, index) => {
           const row = replayVersionOutcomeSummary(version, index);
@@ -2830,17 +2830,7 @@ function ReplayVersionSummarySelector({
                 <i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{row.label}
               </button>
               <span><StatusPill status={row.identity} severity={modelStatusSeverity(row.identity)} /></span>
-              <span className="replay-performance-cell">
-                <strong>{formatMetricValue(row.netReturn, 4)}</strong>
-                <button
-                  className="replay-inline-action"
-                  disabled={!canOpenMonthly || !selected}
-                  type="button"
-                  onClick={() => onOpenMonthly(row.id)}
-                >
-                  Monthly
-                </button>
-              </span>
+              <span>{formatMetricValue(row.netReturn, 4)}</span>
               <span>{formatMetricValue(row.excessReturn, 4)}</span>
               <span>{formatMetricValue(row.maxDrawdown, 4)}</span>
               <span>{row.decisionRows === null ? 'Not reported' : row.decisionRows.toFixed(0)}</span>
@@ -2849,7 +2839,11 @@ function ReplayVersionSummarySelector({
               <span>{row.takenGood.toFixed(0)} / {row.takenBad.toFixed(0)}</span>
               <span>{row.avoidedBad.toFixed(0)}</span>
               <span>{row.missedGood.toFixed(0)}</span>
-              <button className="replay-inline-action" type="button" onClick={() => onChange([row.id])}>Focus</button>
+              {selectedIds.length === 1 && selected ? (
+                <button className="replay-inline-action" type="button" onClick={() => onOpenMonthly(row.id)}>Monthly</button>
+              ) : (
+                <button className="replay-inline-action" type="button" onClick={() => onChange([row.id])}>Focus</button>
+              )}
             </div>
           );
         })}
