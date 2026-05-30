@@ -119,6 +119,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .evidence-dossier-head div { display: grid; gap: 5px; min-width: 0; }
 .evidence-dossier-head span, .evidence-claim-grid span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
 .evidence-dossier-head strong { color: #f8fbff; font-size: 20px; line-height: 1.15; overflow-wrap: anywhere; }
+.evidence-dossier-head small { color: #8fa2ba; font-size: 12px; font-weight: 750; overflow-wrap: anywhere; }
 .evidence-claim-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
 .evidence-claim-grid section { min-width: 0; display: grid; gap: 6px; padding: 12px; border-radius: 13px; background: rgba(2, 6, 23, .32); border: 1px solid rgba(148, 163, 184, .10); }
 .evidence-claim-grid strong { color: #f8fbff; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }

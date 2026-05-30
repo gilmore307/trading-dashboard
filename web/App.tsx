@@ -3485,12 +3485,14 @@ function ModelEvidenceDossier({ view }: { view: ModelLayerView }) {
   const sections = evaluation?.sections ?? [];
   const evidenceStatus = evaluation?.evidence_status ?? 'insufficient_evidence';
   const validityStatus = evaluation?.validity_status ?? 'insufficient_evidence';
+  const evaluationRef = String(evaluation?.version_id ?? evaluation?.model_id ?? view.definition.modelId);
   return (
     <section className="model-evidence-dossier">
       <div className="evidence-dossier-head">
         <div>
-          <span>Model Evidence Dossier</span>
+          <span>Layer Evaluation Result</span>
           <strong>{startCase(String(evidenceStatus))}</strong>
+          <small>{evaluationRef}</small>
         </div>
         <StatusPill status={String(validityStatus)} severity={evidenceStatusSeverity(validityStatus)} />
       </div>
@@ -3506,8 +3508,8 @@ function ModelEvidenceDossier({ view }: { view: ModelLayerView }) {
           <small>{String(validity.reason ?? 'No layer-specific evaluation decision artifact has been published.')}</small>
         </section>
         <section>
-          <span>Group Context</span>
-          <strong>{groupContext.available ? 'Reference available' : 'No group reference'}</strong>
+          <span>Evaluation Context</span>
+          <strong>{groupContext.available ? 'Group reference only' : 'Layer-only evidence'}</strong>
           <small>{String(groupContext.note ?? 'Group-level metrics are context only and are not layer-specific evidence.')}</small>
         </section>
       </div>
@@ -3560,7 +3562,7 @@ function ModelLayerDetail({
       <div className="model-layer-detail-head">
         <div>
           <div className="panel-heading">Layer {view.definition.layer} · {view.definition.label}</div>
-          <p className="panel-subtitle">{view.definition.description} This tab is a model-evaluation surface: charts and tables only, with missing analysis shown explicitly.</p>
+          <p className="panel-subtitle">{view.definition.description} This subtab shows this layer's own evaluation result from model_layer_evaluation_summary; group-level metrics remain context only.</p>
         </div>
         <StatusPill status={status} severity={evidenceStatusSeverity(status)} />
       </div>
@@ -3647,7 +3649,7 @@ function ModelLayerOverview({
                 <span>{view.definition.layer}</span>
                 <div>
                   <strong>{view.definition.label}</strong>
-                  <small>{view.definition.family}</small>
+                  <small>{view.definition.family} · {startCase(String(view.evaluation?.validity_status ?? view.evaluation?.evidence_status ?? 'not published'))}</small>
                 </div>
               </button>
             );
