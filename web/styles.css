@@ -225,7 +225,8 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .model-scatter-chart .scatter-positive { fill: #34d399; }
 .model-scatter-chart .scatter-negative { fill: #f87171; }
 .model-scatter-chart .scatter-neutral { fill: #94a3b8; }
-.scatter-summary { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; color: #cbd5e1; font-size: 11px; font-weight: 850; }
+.scatter-chart-head { min-width: 0; display: grid; gap: 8px; }
+.scatter-summary { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #cbd5e1; font-size: 11px; font-weight: 850; }
 .scatter-summary span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .scatter-summary i { width: 8px; height: 8px; display: inline-block; border-radius: 50%; }
 .scatter-summary select { max-width: 142px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 10px; padding: 6px 8px; color: #d8e6f7; background: rgba(2, 6, 23, .70); font: inherit; font-size: 11px; font-weight: 850; outline: none; }

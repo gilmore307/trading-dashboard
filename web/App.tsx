@@ -1622,7 +1622,7 @@ function FeatureScatterChart({
   }).filter((ellipse): ellipse is { group: string; cx: number; cy: number; rx: number; ry: number } => Boolean(ellipse));
   return (
     <section className="model-chart-panel">
-      <div className="model-chart-title-row">
+      <div className="scatter-chart-head">
         <span className="model-chart-title">{title}</span>
         <div className="scatter-summary">
           <select value={effectiveGroupKey} onChange={(event) => onGroupKeyChange(event.target.value as ScatterGroupKey)} aria-label={`${title} grouping`}>
