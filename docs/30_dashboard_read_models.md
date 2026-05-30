@@ -278,6 +278,7 @@ Owner-facing fields per layer:
 
 - layer claim, target definition, input scope, and output contract;
 - evidence status and validity status;
+- valid layer-local metric families and primary/guardrail/avoid tests;
 - evaluation sections for population, predictive evidence, statistical reliability, calibration/distribution, signal diagnostics, robustness, integrity, and downstream contribution;
 - explicit missing-evidence reasons and required artifact fields;
 - group-level context only when clearly labeled as reference, not as layer-specific evidence.
@@ -285,6 +286,7 @@ Owner-facing fields per layer:
 Dashboard presentation:
 
 - layer pages lead with claim, evidence, and validity decision;
+- layer pages show each layer's allowed metric tests before evidence sections, with missing values shown as insufficient evidence rather than fabricated metrics;
 - missing per-layer statistical artifacts are displayed as `insufficient_evidence`;
 - task progress, receipts, blockers, and safety flags stay on Tasks/Diagnostics, not on layer evaluation pages;
 - group-level AUROC/return/PCA/slice metrics must not be relabeled as layer-level metrics.

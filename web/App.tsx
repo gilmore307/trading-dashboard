@@ -15,6 +15,7 @@ import type {
   ModelLayerLifecyclePayload,
   ModelLayerEvaluationChartPayload,
   ModelLayerEvaluationPayload,
+  ModelLayerMetricTestPayload,
   ModelLayerEvaluationSectionPayload,
   ModelLayerReadinessChartPayload,
   ModelGroupPromotionVersionPayload,
@@ -3477,12 +3478,45 @@ function EvidenceMetricTable({ sections }: { sections: ModelLayerEvaluationSecti
   );
 }
 
+function metricRoleSeverity(role?: string | null): string {
+  if (role === 'avoid') return 'medium';
+  if (role === 'guardrail') return 'info';
+  return 'low';
+}
+
+function LayerMetricTestTable({ tests }: { tests: ModelLayerMetricTestPayload[] }) {
+  if (!tests.length) return <div className="empty-chart compact">No layer-local metric test contract published</div>;
+  const roleRank: Record<string, number> = { primary: 0, guardrail: 1, avoid: 2 };
+  const sorted = [...tests].sort((left, right) => (roleRank[String(left.role ?? '')] ?? 9) - (roleRank[String(right.role ?? '')] ?? 9) || String(left.label ?? '').localeCompare(String(right.label ?? '')));
+  return (
+    <div className="layer-metric-test-table" role="table" aria-label="Layer-local metric tests">
+      <div className="layer-metric-test-row layer-metric-test-head" role="row">
+        <span>Test</span>
+        <span>Family</span>
+        <span>Role</span>
+        <span>Evidence Rule</span>
+        <span>Current</span>
+      </div>
+      {sorted.map((test) => (
+        <div className="layer-metric-test-row" role="row" key={String(test.metric_id ?? test.label)}>
+          <strong>{String(test.label ?? test.metric_id ?? 'Metric test')}</strong>
+          <small>{startCase(String(test.metric_family ?? 'unknown'))}</small>
+          <span><StatusPill status={String(test.role ?? 'primary')} severity={metricRoleSeverity(test.role)} /></span>
+          <small>{String(test.eligibility ?? test.note ?? 'No eligibility rule published.')}</small>
+          <small>{test.metric_value == null ? startCase(String(test.status ?? 'insufficient_evidence')) : formatMetricValue(Number(test.metric_value), 3)}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ModelEvidenceDossier({ view }: { view: ModelLayerView }) {
   const evaluation = view.evaluation;
   const claim = maybeRecord(evaluation?.claim);
   const validity = maybeRecord(evaluation?.validity_decision);
   const groupContext = maybeRecord(evaluation?.group_context);
   const sections = evaluation?.sections ?? [];
+  const metricTests = evaluation?.metric_tests ?? [];
   const evidenceStatus = evaluation?.evidence_status ?? 'insufficient_evidence';
   const validityStatus = evaluation?.validity_status ?? 'insufficient_evidence';
   const evaluationRef = String(evaluation?.version_id ?? evaluation?.model_id ?? view.definition.modelId);
@@ -3513,6 +3547,7 @@ function ModelEvidenceDossier({ view }: { view: ModelLayerView }) {
           <small>{String(groupContext.note ?? 'Group-level metrics are context only and are not layer-specific evidence.')}</small>
         </section>
       </div>
+      <LayerMetricTestTable tests={metricTests} />
       <EvidenceStatusBars sections={sections} />
       <EvidenceMetricTable sections={sections} />
     </section>

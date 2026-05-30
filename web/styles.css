@@ -136,6 +136,12 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .evidence-metric-row span, .layer-spec-row span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
 .evidence-metric-row strong, .layer-spec-row strong { min-width: 0; color: #f8fbff; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
 .evidence-metric-row small { min-width: 0; color: #8fa2ba; line-height: 1.4; overflow-wrap: anywhere; }
+.layer-metric-test-table { min-width: 0; display: grid; gap: 1px; overflow: hidden; border: 1px solid rgba(148, 163, 184, .13); border-radius: 14px; background: rgba(148, 163, 184, .10); }
+.layer-metric-test-row { min-width: 0; display: grid; grid-template-columns: minmax(150px, .85fr) minmax(118px, .6fr) 112px minmax(220px, 1.25fr) minmax(130px, .62fr); gap: 12px; align-items: center; padding: 11px 12px; background: rgba(15, 23, 42, .58); }
+.layer-metric-test-head { background: rgba(8, 47, 73, .52); }
+.layer-metric-test-row span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
+.layer-metric-test-row strong { min-width: 0; color: #f8fbff; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.layer-metric-test-row small { min-width: 0; color: #8fa2ba; line-height: 1.4; overflow-wrap: anywhere; }
 .layer-spec-row { min-width: 0; display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 14px; align-items: center; padding: 12px 13px; background: rgba(15, 23, 42, .50); }
 .model-version-list { display: grid; gap: 8px; }
 .model-version-row { min-width: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 11px 12px; border-radius: 13px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); }
@@ -375,7 +381,7 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 
 @media (max-width: 1220px) {
   .model-workspace, .model-detail-grid, .model-parameter-grid, .model-chart-grid, .replay-chart-grid, .layer-status-grid, .layer-io-grid, .layer-evidence-grid, .evidence-claim-grid, .evidence-status-bars { grid-template-columns: 1fr; }
-  .evidence-metric-row, .layer-spec-row { grid-template-columns: 1fr; }
+  .evidence-metric-row, .layer-metric-test-row, .layer-spec-row { grid-template-columns: 1fr; }
   .identity-panel .identity-bars { grid-template-columns: 1fr; }
   .decision-variable-stats, .variable-coverage-grid, .variable-coverage-grid.compact { grid-template-columns: 1fr; }
   .model-scorecard-head { display: grid; }

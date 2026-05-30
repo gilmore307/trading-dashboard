@@ -387,6 +387,18 @@ export interface ModelLayerEvaluationSectionPayload {
   [key: string]: unknown;
 }
 
+export interface ModelLayerMetricTestPayload {
+  metric_id?: string | null;
+  label?: string | null;
+  metric_family?: string | null;
+  role?: 'primary' | 'guardrail' | 'avoid' | string | null;
+  eligibility?: string | null;
+  note?: string | null;
+  status?: string | null;
+  metric_value?: number | null;
+  [key: string]: unknown;
+}
+
 export interface ModelLayerEvaluationPayload {
   layer?: number | null;
   layer_id?: string | null;
@@ -397,6 +409,8 @@ export interface ModelLayerEvaluationPayload {
   validity_status?: string | null;
   validity_decision?: Record<string, unknown>;
   claim?: Record<string, unknown>;
+  metric_families?: string[];
+  metric_tests?: ModelLayerMetricTestPayload[];
   sections?: ModelLayerEvaluationSectionPayload[];
   group_context?: Record<string, unknown>;
   operational_refs?: Record<string, unknown>;
