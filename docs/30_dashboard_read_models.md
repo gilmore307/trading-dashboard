@@ -309,7 +309,8 @@ Replay presentation:
 
 - Replay initially consumes `model_promotion_posture_summary.group_versions` for historical replay economics because that is where current version-level replay diagnostics are published;
 - full-width return and drawdown overlay charts can compare multiple versions on one axis, switch between fixed frames and full-history view, expose hover values at the current month, and allow horizontal drag/pan for long ranges;
-- replay trade-outcome and monthly tables summarize the same selected versions;
+- replay version selection is a table-first surface: version identity, total return, excess return, drawdown, row counts, accepted/fill counts, good/bad outcome counts, missed winners, and month coverage are shown in one selector table;
+- full Monthly Replay detail expands for the selected replay versions below the charts instead of appearing as a global always-on table;
 - future storage work should split large replay payloads into a dedicated replay read model when promotion posture is no longer the narrow canonical home.
 
 ### `registry_dictionary_profile`

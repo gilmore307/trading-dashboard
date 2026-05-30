@@ -2766,7 +2766,35 @@ function ReplayFrameControl({
   );
 }
 
-function ReplayVersionSelector({
+function replayVersionOutcomeSummary(version: ModelGroupPromotionVersionPayload, index: number) {
+  const metrics = version.metrics ?? {};
+  const diagnostics = decisionVariableDiagnostics(version);
+  const disposition = coverageValues(diagnostics, 'decision_disposition');
+  const fillStatus = coverageValues(diagnostics, 'replay_fill_status');
+  const actionClass = coverageValues(diagnostics, 'eval_action_class');
+  const accepted = disposition.accepted ?? metricNumber(nestedRecord(modelScorecards(version), 'selection_quality'), 'accepted_count') ?? 0;
+  const filled = fillStatus.filled ?? metricNumber(metrics, 'turnover_proxy_count') ?? 0;
+  const notFilled = fillStatus.not_filled ?? 0;
+  return {
+    id: versionStableId(version, index),
+    label: compactVersionLabel(version, index),
+    identity: modelIdentity(version),
+    netReturn: metricNumber(metrics, 'net_return_total'),
+    excessReturn: metricNumber(metrics, 'excess_return_total'),
+    maxDrawdown: metricNumber(metrics, 'max_drawdown'),
+    decisionRows: metricNumber(metrics, 'decision_row_count'),
+    months: temporalDiagnosticPoints(version, 'net_return_total').length,
+    accepted,
+    filled,
+    fillDenominator: filled + notFilled,
+    takenGood: actionClass.taken_good ?? 0,
+    takenBad: actionClass.taken_bad ?? 0,
+    avoidedBad: actionClass.avoided_bad ?? 0,
+    missedGood: actionClass.missed_good ?? 0,
+  };
+}
+
+function ReplayVersionSummarySelector({
   versions,
   selectedIds,
   onChange,
@@ -2777,68 +2805,40 @@ function ReplayVersionSelector({
 }) {
   if (!versions.length) return null;
   return (
-    <section className="panel replay-selector-panel">
-      <div className="model-chart-title">Replay Versions</div>
-      <div className="replay-version-selector">
+    <section className="panel replay-table-panel">
+      <div className="panel-heading">Replay Model Selector</div>
+      <div className="replay-table replay-summary-table">
+        <div className="replay-table-row replay-table-head">
+          <span>Model</span><span>Role</span><span>Total Return</span><span>Excess</span><span>Max DD</span><span>Rows</span><span>Accepted</span><span>Filled</span><span>Good / Bad</span><span>Avoided</span><span>Missed</span><span>Months</span>
+        </div>
         {versions.map((version, index) => {
-          const id = versionStableId(version, index);
-          const selected = selectedIds.includes(id);
+          const row = replayVersionOutcomeSummary(version, index);
+          const selected = selectedIds.includes(row.id);
           return (
             <button
-              className={selected ? 'selected' : ''}
-              key={id}
+              className={selected ? 'replay-table-row selected' : 'replay-table-row'}
+              key={row.id}
               type="button"
               onClick={() => {
-                const next = selected ? selectedIds.filter((item) => item !== id) : [...selectedIds, id];
-                onChange(next.length ? next : [id]);
+                const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
+                onChange(next.length ? next : [row.id]);
               }}
             >
-              <i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />
-              <strong>{compactVersionLabel(version, index)}</strong>
-              <span>{startCase(modelIdentity(version))}</span>
+              <strong><i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{row.label}</strong>
+              <span><StatusPill status={row.identity} severity={modelStatusSeverity(row.identity)} /></span>
+              <span>{formatMetricValue(row.netReturn, 4)}</span>
+              <span>{formatMetricValue(row.excessReturn, 4)}</span>
+              <span>{formatMetricValue(row.maxDrawdown, 4)}</span>
+              <span>{row.decisionRows === null ? 'Not reported' : row.decisionRows.toFixed(0)}</span>
+              <span>{row.accepted.toFixed(0)}</span>
+              <span>{row.fillDenominator ? `${row.filled.toFixed(0)}/${row.fillDenominator.toFixed(0)}` : row.filled.toFixed(0)}</span>
+              <span>{row.takenGood.toFixed(0)} / {row.takenBad.toFixed(0)}</span>
+              <span>{row.avoidedBad.toFixed(0)}</span>
+              <span>{row.missedGood.toFixed(0)}</span>
+              <span>{row.months}</span>
             </button>
           );
         })}
-      </div>
-    </section>
-  );
-}
-
-function ReplayOutcomeTable({ entries }: { entries: ReplayVersionEntry[] }) {
-  const rows = entries.map(({ version, index }) => {
-    const coverage = nestedRecord(nestedRecord(version.metrics, 'decision_variable_schema_diagnostics'), 'coverage');
-    return {
-      id: versionStableId(version, index),
-      label: compactVersionLabel(version, index),
-      accepted: metricNumber(nestedRecord(nestedRecord(coverage, 'decision_disposition'), 'values'), 'accepted') ?? 0,
-      rejected: metricNumber(nestedRecord(nestedRecord(coverage, 'decision_disposition'), 'values'), 'rejected') ?? 0,
-      filled: metricNumber(nestedRecord(nestedRecord(coverage, 'replay_fill_status'), 'values'), 'filled') ?? 0,
-      notFilled: metricNumber(nestedRecord(nestedRecord(coverage, 'replay_fill_status'), 'values'), 'not_filled') ?? 0,
-      takenGood: metricNumber(nestedRecord(nestedRecord(coverage, 'eval_action_class'), 'values'), 'taken_good') ?? 0,
-      takenBad: metricNumber(nestedRecord(nestedRecord(coverage, 'eval_action_class'), 'values'), 'taken_bad') ?? 0,
-      avoidedBad: metricNumber(nestedRecord(nestedRecord(coverage, 'eval_action_class'), 'values'), 'avoided_bad') ?? 0,
-      missedGood: metricNumber(nestedRecord(nestedRecord(coverage, 'eval_action_class'), 'values'), 'missed_good') ?? 0,
-    };
-  });
-  return (
-    <section className="panel replay-table-panel">
-      <div className="panel-heading">Trade Outcome</div>
-      <div className="replay-table replay-outcome-table">
-        <div className="replay-table-row replay-table-head">
-          <span>Version</span><span>Accepted</span><span>Rejected</span><span>Filled</span><span>Taken Good</span><span>Taken Bad</span><span>Avoided Bad</span><span>Missed Good</span>
-        </div>
-        {rows.length ? rows.map((row) => (
-          <div className="replay-table-row" key={row.id}>
-            <strong>{row.label}</strong>
-            <span>{row.accepted}</span>
-            <span>{row.rejected}</span>
-            <span>{row.filled}/{row.filled + row.notFilled}</span>
-            <span>{row.takenGood}</span>
-            <span>{row.takenBad}</span>
-            <span>{row.avoidedBad}</span>
-            <span>{row.missedGood}</span>
-          </div>
-        )) : <div className="empty-chart compact">No replay outcome diagnostics published</div>}
       </div>
     </section>
   );
@@ -2887,7 +2887,7 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
-  const defaultIds = versionIds.slice(0, 4);
+  const defaultIds = versionIds.slice(0, 1);
   const versionKey = versionIds.join('|');
   const [frame, setFrame] = useState<ReplayFrame>(12);
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
@@ -2905,7 +2905,7 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
   return (
     <section className="replay-view">
       <ReplayFrameControl frame={frame} onChange={setFrame} />
-      <ReplayVersionSelector versions={versions} selectedIds={selectedIds} onChange={setSelectedIds} />
+      <ReplayVersionSummarySelector versions={versions} selectedIds={selectedIds} onChange={setSelectedIds} />
       <ReplayOverlayChart title="Cumulative Return Overlay" series={returnSeries} yLabel="Cumulative return" frame={frame} emptyLabel="No replay return slices published" />
       <ReplayOverlayChart title="Drawdown Overlay" series={drawdownSeries} yLabel="Max drawdown" frame={frame} emptyLabel="No replay drawdown slices published" />
       <div className="replay-chart-grid">
@@ -2914,7 +2914,6 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
         <CostSensitivityCurve version={selectedVersion} emptyLabel="Select a replay version with cost sensitivity evidence" />
         <SliceDistributionPanel version={selectedVersion} />
       </div>
-      <ReplayOutcomeTable entries={selectedEntries} />
       <ReplayMonthlyTable entries={selectedEntries} />
     </section>
   );
