@@ -54,7 +54,7 @@ class DataTablesTest(unittest.TestCase):
         self.assertEqual(physical_tables["market_regime_bars"], "trading_data.m01_market_regime_data_acquisition")
         self.assertEqual(physical_tables["market_regime_features"], "trading_data.m01_market_regime_feature_generation")
         self.assertEqual(physical_tables["sector_context_features"], "trading_data.m02_sector_context_feature_generation")
-        self.assertEqual(physical_tables["market_regime_model_output"], "trading_model.model_01_market_regime")
+        self.assertEqual(physical_tables["market_regime_model_output"], "trading_model.m01_market_regime_model_generation")
 
     def test_event_table_puts_event_type_first(self) -> None:
         spec = _TABLE_BY_ID["event_risk_governor_events"]
