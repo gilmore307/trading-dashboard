@@ -3307,27 +3307,41 @@ function compactConfigValue(value: unknown): string {
   }
 }
 
+function layerEvaluationParameterRows(view: ModelLayerView): Array<{ label: string; value: unknown; target: string; status: string }> {
+  const published = Array.isArray(view.evaluation?.parameter_values)
+    ? view.evaluation.parameter_values
+        .filter((parameter) => maybeRecord(parameter).status !== 'not_published')
+        .map((parameter) => {
+          const record = maybeRecord(parameter);
+          return {
+            label: String(record.label ?? record.parameter_id ?? 'parameter'),
+            value: record.value,
+            target: startCase(String(record.role ?? record.source ?? 'layer evaluation parameter')),
+            status: String(record.status ?? 'published'),
+          };
+        })
+    : [];
+  if (published.length) return published;
+  const config = versionCandidateConfig(view.groupVersion);
+  return view.definition.optimizationTargets.map((parameter) => ({
+    label: parameter.label,
+    value: nestedConfigValue(config, view.definition, parameter.label),
+    target: parameter.value,
+    status: config ? 'config evidence available' : 'not_published',
+  }));
+}
+
 function LayerOptimizationParameters({ view }: { view: ModelLayerView }) {
   const version = view.groupVersion;
-  if (!version) {
-    return (
-      <section className="model-chart-panel version-parameters-panel">
-        <div className="model-chart-title">Optimization Parameters</div>
-        <div className="empty-chart compact">No model-group version is available for this layer yet</div>
-      </section>
-    );
-  }
+  const rows = layerEvaluationParameterRows(view);
+  const hasLayerParameters = rows.some((row) => row.status !== 'not_published');
   const config = versionCandidateConfig(version);
-  const configMissing = !config || version.blocking_issues?.some((issue) => issue.toLowerCase().includes('candidate config evidence'));
-  const rows = view.definition.optimizationTargets.map((parameter) => ({
-    parameter,
-    value: nestedConfigValue(config, view.definition, parameter.label),
-  }));
+  const configMissing = !hasLayerParameters && (!config || version?.blocking_issues?.some((issue) => issue.toLowerCase().includes('candidate config evidence')));
   return (
     <section className="model-chart-panel version-parameters-panel">
       <div className="model-chart-title-row">
-        <span className="model-chart-title">Optimization Parameters · {compactVersionLabel(version, 0)}</span>
-        <StatusPill status={configMissing ? 'config evidence missing' : 'config evidence available'} severity={configMissing ? 'medium' : 'low'} />
+        <span className="model-chart-title">Optimization Parameters · {version ? compactVersionLabel(version, 0) : String(view.evaluation?.version_id ?? view.definition.modelId)}</span>
+        <StatusPill status={hasLayerParameters ? 'layer parameters published' : (configMissing ? 'config evidence missing' : 'config evidence available')} severity={configMissing ? 'medium' : 'low'} />
       </div>
       <div className="layer-parameter-table" role="table" aria-label="Layer optimization parameters">
         <div className="layer-parameter-row layer-parameter-head" role="row">
@@ -3336,14 +3350,14 @@ function LayerOptimizationParameters({ view }: { view: ModelLayerView }) {
           <span>Optimization Target</span>
         </div>
         {rows.map((row) => (
-          <div className="layer-parameter-row" role="row" key={row.parameter.label}>
-            <strong>{row.parameter.label}</strong>
+          <div className="layer-parameter-row" role="row" key={row.label}>
+            <strong>{row.label}</strong>
             <span>{compactConfigValue(row.value)}</span>
-            <small>{row.parameter.value}</small>
+            <small>{row.target}</small>
           </div>
         ))}
       </div>
-      {configMissing ? <div className="model-chart-note">This version does not publish candidate config evidence yet, so this layer shows required optimization parameters and leaves current values as Not published.</div> : null}
+      {configMissing ? <div className="model-chart-note">This layer does not publish layer_evaluation_summary parameter values or candidate config evidence yet, so current values remain Not published.</div> : null}
     </section>
   );
 }

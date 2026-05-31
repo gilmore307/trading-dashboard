@@ -399,6 +399,16 @@ export interface ModelLayerMetricTestPayload {
   [key: string]: unknown;
 }
 
+export interface ModelLayerParameterPayload {
+  parameter_id?: string | null;
+  label?: string | null;
+  value?: unknown;
+  status?: string | null;
+  source?: string | null;
+  role?: string | null;
+  [key: string]: unknown;
+}
+
 export interface ModelLayerEvaluationPayload {
   layer?: number | null;
   layer_id?: string | null;
@@ -411,6 +421,7 @@ export interface ModelLayerEvaluationPayload {
   claim?: Record<string, unknown>;
   metric_families?: string[];
   metric_tests?: ModelLayerMetricTestPayload[];
+  parameter_values?: ModelLayerParameterPayload[];
   sections?: ModelLayerEvaluationSectionPayload[];
   group_context?: Record<string, unknown>;
   operational_refs?: Record<string, unknown>;

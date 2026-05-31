@@ -288,6 +288,7 @@ Dashboard presentation:
 - layer pages lead with claim, evidence, and validity decision;
 - layer pages show each layer's allowed metric tests before evidence sections, with missing values shown as insufficient evidence rather than fabricated metrics;
 - missing per-layer statistical artifacts are displayed as `insufficient_evidence`;
+- optimization parameter tables consume normalized `layer_evaluation_summary.parameter_values` when present, then fall back to model-group candidate config evidence, and only then display `Not published`;
 - task progress, receipts, blockers, and safety flags stay on Tasks/Diagnostics, not on layer evaluation pages;
 - group-level AUROC/return/PCA/slice metrics must not be relabeled as layer-level metrics.
 
