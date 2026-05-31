@@ -131,13 +131,19 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .evidence-status-row i { display: block; height: 100%; border-radius: inherit; }
 .evidence-status-row strong { color: #f8fbff; font-size: 13px; text-align: right; }
 .evidence-metric-table, .layer-spec-table { min-width: 0; display: grid; gap: 1px; overflow: hidden; border: 1px solid rgba(148, 163, 184, .13); border-radius: 14px; background: rgba(148, 163, 184, .10); }
-.evidence-metric-row { min-width: 0; display: grid; grid-template-columns: minmax(150px, .8fr) 150px minmax(180px, 1.15fr) minmax(220px, 1.35fr); gap: 12px; align-items: center; padding: 11px 12px; background: rgba(15, 23, 42, .58); }
+.evidence-metric-row { min-width: 0; display: grid; grid-template-columns: minmax(140px, .72fr) 88px minmax(0, 1.9fr); gap: 10px; align-items: center; padding: 10px 12px; background: rgba(15, 23, 42, .58); }
 .evidence-metric-head { background: rgba(8, 47, 73, .52); }
 .evidence-metric-row span, .layer-spec-row span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
 .evidence-metric-row strong, .layer-spec-row strong { min-width: 0; color: #f8fbff; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
 .evidence-metric-row small { min-width: 0; color: #8fa2ba; line-height: 1.4; overflow-wrap: anywhere; }
+.evidence-metric-status { min-width: 0; display: flex; }
+.evidence-metric-status .status-pill { max-width: 82px; overflow: hidden; text-overflow: ellipsis; padding: 6px 8px; font-size: 10px; letter-spacing: .04em; }
+.evidence-chip-cell { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.evidence-chip-cell > strong { margin-right: 4px; color: #dbeafe; font-size: 12px; white-space: nowrap; }
+.evidence-chip { min-width: 0; display: inline-flex; align-items: center; max-width: min(180px, 100%); min-height: 24px; padding: 4px 7px; border-radius: 999px; border: 1px solid rgba(56, 189, 248, .22); background: rgba(14, 165, 233, .10); color: #bfdbfe; font-size: 11px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evidence-chip.muted-chip { border-color: rgba(148, 163, 184, .16); background: rgba(148, 163, 184, .08); color: #94a3b8; }
 .layer-metric-test-table { min-width: 0; display: grid; gap: 1px; overflow: hidden; border: 1px solid rgba(148, 163, 184, .13); border-radius: 14px; background: rgba(148, 163, 184, .10); }
-.layer-metric-test-row { min-width: 0; display: grid; grid-template-columns: minmax(150px, .85fr) minmax(118px, .6fr) 112px minmax(220px, 1.25fr) minmax(130px, .62fr); gap: 12px; align-items: center; padding: 11px 12px; background: rgba(15, 23, 42, .58); }
+.layer-metric-test-row { min-width: 0; display: grid; grid-template-columns: minmax(190px, 1fr) minmax(150px, .72fr) 112px minmax(130px, .55fr); gap: 10px; align-items: center; padding: 10px 12px; background: rgba(15, 23, 42, .58); }
 .layer-metric-test-head { background: rgba(8, 47, 73, .52); }
 .layer-metric-test-row span { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
 .layer-metric-test-row strong { min-width: 0; color: #f8fbff; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }

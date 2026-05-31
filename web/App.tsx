@@ -3425,9 +3425,16 @@ function evidenceStatusSeverity(status?: string | null): string {
   return 'info';
 }
 
-function requiredEvidenceLabel(values?: string[]): string {
-  if (!values?.length) return 'No required evidence list published.';
-  return values.map(startCase).join(' · ');
+function compactEvidenceStatus(status?: string | null): string {
+  const normalized = String(status ?? 'missing').toLowerCase();
+  if (normalized === 'insufficient_evidence') return 'no data';
+  if (normalized === 'reference_only') return 'ref';
+  if (normalized === 'not_applicable') return 'n/a';
+  return normalized;
+}
+
+function requiredEvidenceItems(values?: string[], limit = 3): string[] {
+  return (values ?? []).slice(0, limit).map(startCase);
 }
 
 function evidenceStatusCounts(sections: ModelLayerEvaluationSectionPayload[]): Array<{ status: string; count: number }> {
@@ -3464,16 +3471,23 @@ function EvidenceMetricTable({ sections }: { sections: ModelLayerEvaluationSecti
         <span>Analysis Area</span>
         <span>Status</span>
         <span>Required Evidence</span>
-        <span>Current Note</span>
       </div>
-      {sections.map((section) => (
-        <div className="evidence-metric-row" role="row" key={section.section_id ?? section.label}>
-          <strong>{section.label ?? startCase(String(section.section_id ?? 'evidence'))}</strong>
-          <span><StatusPill status={String(section.status ?? 'missing')} severity={evidenceStatusSeverity(section.status)} /></span>
-          <small>{requiredEvidenceLabel(section.required_evidence)}</small>
-          <small>{String(section.reason ?? 'No evidence note published.')}</small>
-        </div>
-      ))}
+      {sections.map((section) => {
+        const requiredEvidence = section.required_evidence ?? [];
+        const visibleEvidence = requiredEvidenceItems(requiredEvidence);
+        const hiddenCount = Math.max(0, requiredEvidence.length - visibleEvidence.length);
+        return (
+          <div className="evidence-metric-row" role="row" key={section.section_id ?? section.label} title={String(section.reason ?? '')}>
+            <strong>{section.label ?? startCase(String(section.section_id ?? 'evidence'))}</strong>
+            <span className="evidence-metric-status"><StatusPill status={compactEvidenceStatus(section.status)} severity={evidenceStatusSeverity(section.status)} /></span>
+            <div className="evidence-chip-cell" title={requiredEvidence.map(startCase).join(' · ')}>
+              <strong>{requiredEvidence.length ? `${requiredEvidence.length} checks` : '0 checks'}</strong>
+              {visibleEvidence.map((item) => <small className="evidence-chip" key={item}>{item}</small>)}
+              {hiddenCount ? <small className="evidence-chip muted-chip">+{hiddenCount}</small> : null}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -3494,15 +3508,13 @@ function LayerMetricTestTable({ tests }: { tests: ModelLayerMetricTestPayload[] 
         <span>Test</span>
         <span>Family</span>
         <span>Role</span>
-        <span>Evidence Rule</span>
         <span>Current</span>
       </div>
       {sorted.map((test) => (
-        <div className="layer-metric-test-row" role="row" key={String(test.metric_id ?? test.label)}>
+        <div className="layer-metric-test-row" role="row" key={String(test.metric_id ?? test.label)} title={String(test.eligibility ?? test.note ?? '')}>
           <strong>{String(test.label ?? test.metric_id ?? 'Metric test')}</strong>
           <small>{startCase(String(test.metric_family ?? 'unknown'))}</small>
           <span><StatusPill status={String(test.role ?? 'primary')} severity={metricRoleSeverity(test.role)} /></span>
-          <small>{String(test.eligibility ?? test.note ?? 'No eligibility rule published.')}</small>
           <small>{test.metric_value == null ? startCase(String(test.status ?? 'insufficient_evidence')) : formatMetricValue(Number(test.metric_value), 3)}</small>
         </div>
       ))}
