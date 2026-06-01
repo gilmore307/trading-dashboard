@@ -422,6 +422,7 @@ export interface ModelLayerEvaluationPayload {
   metric_families?: string[];
   metric_tests?: ModelLayerMetricTestPayload[];
   parameter_values?: ModelLayerParameterPayload[];
+  runtime_coefficients?: ModelLayerParameterPayload[];
   sections?: ModelLayerEvaluationSectionPayload[];
   group_context?: Record<string, unknown>;
   operational_refs?: Record<string, unknown>;

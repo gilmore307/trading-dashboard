@@ -3263,46 +3263,6 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
   );
 }
 
-function parameterConfigKey(label: string): string {
-  return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-}
-
-function versionCandidateConfig(version: ModelGroupPromotionVersionPayload | null): Record<string, unknown> | null {
-  if (!version) return null;
-  const record = version as Record<string, unknown>;
-  for (const key of ['candidate_config', 'model_config', 'hyperparameters', 'parameters', 'tunable_parameters', 'optimization_parameters']) {
-    const candidate = maybeRecord(record[key]);
-    if (Object.keys(candidate).length) return candidate;
-  }
-  const metrics = maybeRecord(version.metrics);
-  for (const key of ['candidate_config', 'model_config', 'hyperparameters', 'parameters', 'tunable_parameters', 'optimization_parameters']) {
-    const candidate = maybeRecord(metrics[key]);
-    if (Object.keys(candidate).length) return candidate;
-  }
-  return null;
-}
-
-function nestedConfigValue(config: Record<string, unknown> | null, layer: ModelLayerDefinition, parameterLabel: string): unknown {
-  if (!config) return undefined;
-  const parameterKeys = [parameterLabel, parameterConfigKey(parameterLabel)];
-  const layerKeys = [
-    `layer_${String(layer.layer).padStart(2, '0')}`,
-    `layer_${layer.layer}`,
-    layer.label,
-    parameterConfigKey(layer.label),
-  ];
-  for (const layerKey of layerKeys) {
-    const layerConfig = maybeRecord(config[layerKey]);
-    for (const parameterKey of parameterKeys) {
-      if (parameterKey in layerConfig) return layerConfig[parameterKey];
-    }
-  }
-  for (const parameterKey of parameterKeys) {
-    if (parameterKey in config) return config[parameterKey];
-  }
-  return undefined;
-}
-
 function compactConfigValue(value: unknown): string {
   if (value === undefined || value === null || value === '') return 'Not published';
   if (typeof value === 'number') return Number.isFinite(value) ? String(Number(value.toFixed(6))) : 'Not published';
@@ -3317,27 +3277,23 @@ function compactConfigValue(value: unknown): string {
 }
 
 function layerEvaluationParameterRows(view: ModelLayerView): Array<{ label: string; value: unknown; target: string; status: string }> {
-  const published = Array.isArray(view.evaluation?.parameter_values)
+  return Array.isArray(view.evaluation?.parameter_values)
     ? view.evaluation.parameter_values
-        .filter((parameter) => maybeRecord(parameter).status !== 'not_published')
+        .filter((parameter) => {
+          const record = maybeRecord(parameter);
+          return record.status !== 'not_published'
+            && (record.role === 'evaluation_acceptance_threshold' || record.source === 'acceptance_thresholds');
+        })
         .map((parameter) => {
           const record = maybeRecord(parameter);
           return {
             label: String(record.label ?? record.parameter_id ?? 'parameter'),
             value: record.value,
-            target: startCase(String(record.role ?? record.source ?? 'layer evaluation parameter')),
+            target: 'Acceptance Threshold',
             status: String(record.status ?? 'published'),
           };
         })
     : [];
-  if (published.length) return published;
-  const config = versionCandidateConfig(view.groupVersion);
-  return view.definition.optimizationTargets.map((parameter) => ({
-    label: parameter.label,
-    value: nestedConfigValue(config, view.definition, parameter.label),
-    target: parameter.value,
-    status: config ? 'config evidence available' : 'not_published',
-  }));
 }
 
 function layerVersionStableId(version: ModelVersionSummaryPayload, index: number): string {
@@ -3455,7 +3411,7 @@ function coefficientRowsFromPayload(payload: unknown, source: string): LayerRunt
     if (Array.isArray(value)) {
       for (const item of value) {
         const itemRecord = maybeRecord(item);
-        const label = String(itemRecord.label ?? itemRecord.feature ?? itemRecord.factor ?? itemRecord.parameter_id ?? itemRecord.name ?? key);
+        const label = String(itemRecord.label ?? itemRecord.feature ?? itemRecord.factor ?? itemRecord.coefficient_id ?? itemRecord.parameter_id ?? itemRecord.name ?? key);
         rows.push({
           label,
           value: itemRecord.coefficient ?? itemRecord.weight ?? itemRecord.value ?? itemRecord.importance ?? itemRecord.gain ?? itemRecord.contribution ?? item,
@@ -3482,22 +3438,21 @@ function coefficientRowsFromPayload(payload: unknown, source: string): LayerRunt
 
 function layerRuntimeCoefficientRows(view: ModelLayerView, selectedVersion: ModelVersionSummaryPayload | null): LayerRuntimeCoefficientRow[] {
   return [
+    ...coefficientRowsFromPayload(view.evaluation, 'layer evaluation artifact'),
     ...coefficientRowsFromPayload(selectedVersion, 'selected model version'),
     ...coefficientRowsFromPayload(selectedVersion?.metrics, 'selected model metrics'),
-    ...coefficientRowsFromPayload(view.evaluation, 'layer evaluation artifact'),
-    ...coefficientRowsFromPayload(view.groupVersion, 'model group version'),
-    ...coefficientRowsFromPayload(view.groupVersion?.metrics, 'model group metrics'),
   ];
 }
 
 function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerView; selectedVersion: ModelVersionSummaryPayload | null }) {
   const rows = layerRuntimeCoefficientRows(view, selectedVersion);
+  const hasPublishedRows = rows.some((row) => row.status !== 'not_published');
   const versionLabel = selectedVersion ? compactLayerVersionLabel(selectedVersion, 0) : String(view.evaluation?.version_id ?? view.definition.modelId);
   return (
     <section className="model-chart-panel runtime-coefficient-panel">
       <div className="model-chart-title-row">
         <span className="model-chart-title">Runtime Coefficients · {versionLabel}</span>
-        <StatusPill status={rows.length ? 'coefficients published' : 'coefficients not published'} severity={rows.length ? 'low' : 'medium'} />
+        <StatusPill status={hasPublishedRows ? 'coefficients published' : 'publication pending'} severity={hasPublishedRows ? 'low' : 'medium'} />
       </div>
       <div className="runtime-coefficient-table" role="table" aria-label="Runtime model coefficients and scoring contributions">
         <div className="runtime-coefficient-row runtime-coefficient-head" role="row">
@@ -3505,6 +3460,7 @@ function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerVi
           <span>Value</span>
           <span>Role</span>
           <span>Source</span>
+          <span>Status</span>
         </div>
         {rows.length ? rows.map((row, index) => (
           <div className="runtime-coefficient-row" role="row" key={`${row.source}:${row.label}:${index}`}>
@@ -3512,12 +3468,13 @@ function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerVi
             <span>{compactConfigValue(row.value)}</span>
             <small>{row.role}</small>
             <small>{row.source}</small>
+            <small>{startCase(row.status)}</small>
           </div>
         )) : (
-          <div className="empty-chart compact">No runtime coefficient, feature-weight, importance, or scoring-contribution payload is published for this selected layer version yet.</div>
+          <div className="empty-chart compact">Runtime coefficient publication state has not been materialized for this layer version.</div>
         )}
       </div>
-      {!rows.length ? <div className="model-chart-note">Evaluation thresholds are intentionally excluded from this panel. Publish coefficients through the selected model version, model artifact, explainability payload, or a normalized runtime-coefficients read model.</div> : null}
+      {!hasPublishedRows ? <div className="model-chart-note">Evaluation thresholds are intentionally excluded from this panel. This row is a publication-state marker until the selected layer writes coefficient, feature-importance, or scoring-contribution payloads.</div> : null}
     </section>
   );
 }
@@ -3525,14 +3482,12 @@ function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerVi
 function LayerAcceptanceThresholds({ view }: { view: ModelLayerView }) {
   const version = view.groupVersion;
   const rows = layerEvaluationParameterRows(view);
-  const hasLayerParameters = rows.some((row) => row.status !== 'not_published');
-  const config = versionCandidateConfig(version);
-  const configMissing = !hasLayerParameters && (!config || version?.blocking_issues?.some((issue) => issue.toLowerCase().includes('candidate config evidence')));
+  const hasLayerParameters = rows.length > 0;
   return (
     <section className="model-chart-panel version-parameters-panel">
       <div className="model-chart-title-row">
         <span className="model-chart-title">Acceptance Thresholds · {version ? compactVersionLabel(version, 0) : String(view.evaluation?.version_id ?? view.definition.modelId)}</span>
-        <StatusPill status={hasLayerParameters ? 'layer parameters published' : (configMissing ? 'config evidence missing' : 'config evidence available')} severity={configMissing ? 'medium' : 'low'} />
+        <StatusPill status={hasLayerParameters ? 'thresholds published' : 'thresholds not published'} severity={hasLayerParameters ? 'low' : 'medium'} />
       </div>
       <div className="layer-parameter-table" role="table" aria-label="Layer acceptance thresholds">
         <div className="layer-parameter-row layer-parameter-head" role="row">
@@ -3540,15 +3495,15 @@ function LayerAcceptanceThresholds({ view }: { view: ModelLayerView }) {
           <span>Published Value</span>
           <span>Evaluation Role</span>
         </div>
-        {rows.map((row) => (
+        {rows.length ? rows.map((row) => (
           <div className="layer-parameter-row" role="row" key={row.label}>
             <strong>{row.label}</strong>
             <span>{compactConfigValue(row.value)}</span>
             <small>{row.target}</small>
           </div>
-        ))}
+        )) : <div className="empty-chart compact">No acceptance thresholds are published for this layer evaluation artifact.</div>}
       </div>
-      {configMissing ? <div className="model-chart-note">This layer does not publish layer_evaluation_summary threshold values or candidate config evidence yet, so current values remain Not published.</div> : null}
+      {!hasLayerParameters ? <div className="model-chart-note">Request payloads, evidence sources, model ids, and reason codes are not acceptance thresholds and are intentionally excluded.</div> : null}
     </section>
   );
 }
