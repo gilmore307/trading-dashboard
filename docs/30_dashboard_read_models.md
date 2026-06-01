@@ -249,7 +249,7 @@ Dashboard presentation:
 - group page charts are organized as scorecards for Ranking / Calibration, Selection Diagnostics, and Feature Space;
 - AUROC/ROC remains ranking evidence, while decision-variable schema/coverage, silhouette, PCA, and PCoA carry the owner-facing model-validity interpretation when published;
 - layer pages show chart/table-first component evidence dossiers: model claim, required evidence, validity status, evidence-status distribution, evidence matrix, model specification, acceptance thresholds, and runtime coefficients;
-- each layer page exposes that layer's version table, acceptance-threshold table, and runtime coefficient/feature-importance table. Acceptance thresholds are shown only from the layer evaluation artifact's `acceptance_thresholds`; runtime coefficients are shown only from coefficient, feature-importance, or scoring-contribution payloads plus an explicit publication-state row when missing;
+- each layer page exposes that layer's version table, acceptance-threshold table, and runtime coefficient/feature-importance table. Acceptance thresholds are shown only from the layer evaluation artifact's `acceptance_thresholds`; runtime coefficients are shown only from coefficient, feature-importance, or scoring-contribution payloads, with a publication-pending empty state when missing;
 - replay return, drawdown, threshold utility, cost sensitivity, score-decile return, slice distribution, good/bad fills, missed winners, and monthly replay rows live under Replay rather than Models;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
@@ -289,7 +289,7 @@ Dashboard presentation:
 - layer pages show each layer's allowed metric tests before evidence sections, with missing values shown as insufficient evidence rather than fabricated metrics;
 - missing per-layer statistical artifacts are displayed as `insufficient_evidence`;
 - acceptance-threshold tables consume only normalized `layer_evaluation_summary.parameter_values` rows whose source is `acceptance_thresholds`; request payload fields, evidence-source names, model ids, and reason codes are never displayed as thresholds;
-- runtime-coefficient tables consume normalized `layer_evaluation_summary.runtime_coefficients` plus selected version coefficient/importance/contribution payloads; missing coefficient artifacts are shown as publication state, not as threshold or summary-field substitutes;
+- runtime-coefficient tables consume normalized `layer_evaluation_summary.runtime_coefficients` plus selected version coefficient/importance/contribution payloads; missing coefficient artifacts are shown as an empty publication-pending state, not as rows, thresholds, or summary-field substitutes;
 - task progress, receipts, blockers, and safety flags stay on Tasks/Diagnostics, not on layer evaluation pages;
 - group-level AUROC/return/PCA/slice metrics must not be relabeled as layer-level metrics.
 

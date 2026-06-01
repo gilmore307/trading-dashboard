@@ -3445,8 +3445,8 @@ function layerRuntimeCoefficientRows(view: ModelLayerView, selectedVersion: Mode
 }
 
 function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerView; selectedVersion: ModelVersionSummaryPayload | null }) {
-  const rows = layerRuntimeCoefficientRows(view, selectedVersion);
-  const hasPublishedRows = rows.some((row) => row.status !== 'not_published');
+  const rows = layerRuntimeCoefficientRows(view, selectedVersion).filter((row) => row.status !== 'not_published');
+  const hasPublishedRows = rows.length > 0;
   const versionLabel = selectedVersion ? compactLayerVersionLabel(selectedVersion, 0) : String(view.evaluation?.version_id ?? view.definition.modelId);
   return (
     <section className="model-chart-panel runtime-coefficient-panel">
@@ -3471,10 +3471,10 @@ function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerVi
             <small>{startCase(row.status)}</small>
           </div>
         )) : (
-          <div className="empty-chart compact">Runtime coefficient publication state has not been materialized for this layer version.</div>
+          <div className="empty-chart compact">No runtime coefficient payload published for this layer version yet.</div>
         )}
       </div>
-      {!hasPublishedRows ? <div className="model-chart-note">Evaluation thresholds are intentionally excluded from this panel. This row is a publication-state marker until the selected layer writes coefficient, feature-importance, or scoring-contribution payloads.</div> : null}
+      <div className="model-chart-note">Evaluation thresholds are intentionally excluded from this panel.</div>
     </section>
   );
 }
