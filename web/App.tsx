@@ -18,6 +18,7 @@ import type {
   ModelLayerMetricTestPayload,
   ModelLayerEvaluationSectionPayload,
   ModelLayerReadinessChartPayload,
+  ModelVersionSummaryPayload,
   ModelGroupPromotionVersionPayload,
   ModelPromotionItemPayload,
   ModelPromotionPostureChartPayload,
@@ -1003,6 +1004,14 @@ type ModelLayerView = {
   evaluation: ModelLayerEvaluationPayload | null;
   promotions: ModelPromotionItemPayload[];
   groupVersion: ModelGroupPromotionVersionPayload | null;
+};
+
+type LayerRuntimeCoefficientRow = {
+  label: string;
+  value: unknown;
+  source: string;
+  role: string;
+  status: string;
 };
 
 function normalizeModelRef(value: unknown): string {
@@ -3331,7 +3340,189 @@ function layerEvaluationParameterRows(view: ModelLayerView): Array<{ label: stri
   }));
 }
 
-function LayerOptimizationParameters({ view }: { view: ModelLayerView }) {
+function layerVersionStableId(version: ModelVersionSummaryPayload, index: number): string {
+  return String(version.version_id ?? version.model_version ?? version.run_id ?? version.artifact_ref ?? `layer-version-${index}`);
+}
+
+function compactLayerVersionLabel(version: ModelVersionSummaryPayload, index: number): string {
+  return String(version.version_id ?? version.model_version ?? version.run_id ?? `Version ${index + 1}`);
+}
+
+function layerVersionIdentity(version: ModelVersionSummaryPayload): string {
+  return String(version.lifecycle_status ?? version.promotion_status ?? version.evaluation_status ?? version.role ?? 'not_reported').toLowerCase();
+}
+
+function preferredLayerVersionId(view: ModelLayerView, versions: ModelVersionSummaryPayload[]): string | null {
+  if (!versions.length) return null;
+  const refs = [
+    view.lifecycle?.active_version_ref,
+    view.lifecycle?.current_version_ref,
+    view.lifecycle?.latest_version_ref,
+  ].filter(Boolean).map(String);
+  for (const ref of refs) {
+    const index = versions.findIndex((version) => [version.version_id, version.model_version, version.run_id, version.artifact_ref].some((value) => value && String(value) === ref));
+    if (index >= 0) return layerVersionStableId(versions[index], index);
+  }
+  return layerVersionStableId(versions[0], 0);
+}
+
+function LayerModelVersionTable({
+  versions,
+  selectedVersionId,
+  onSelectVersion,
+}: {
+  versions: ModelVersionSummaryPayload[];
+  selectedVersionId: string | null;
+  onSelectVersion: (versionId: string | null) => void;
+}) {
+  const [filter, setFilter] = useState('');
+  const query = filter.trim().toLowerCase();
+  const rows = versions.map((version, index) => ({
+    id: layerVersionStableId(version, index),
+    label: compactLayerVersionLabel(version, index),
+    run: String(version.run_id ?? 'not published'),
+    role: String(version.role ?? 'candidate'),
+    lifecycle: layerVersionIdentity(version),
+    evaluation: String(version.evaluation_status ?? 'not_reported'),
+    promotion: String(version.promotion_status ?? 'not_reported'),
+    updated: String(version.updated_at_utc ?? version.created_at_utc ?? 'not published'),
+  }));
+  const displayedRows = rows.filter((row) => !query || searchText(row.label, row.run, row.role, row.lifecycle, row.evaluation, row.promotion, row.updated).includes(query));
+  return (
+    <section className="model-version-table-panel layer-version-table-panel">
+      <div className="model-version-table-toolbar">
+        <div>
+          <strong>Model Versions</strong>
+          <span>{selectedVersionId ? 'Selected layer version' : 'Latest/current layer version'}</span>
+        </div>
+      </div>
+      <div className="dashboard-table-controls">
+        <label>
+          <span>Filter</span>
+          <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter layer versions..." />
+        </label>
+        <small>Showing {displayedRows.length} of {versions.length}</small>
+      </div>
+      <div className="layer-version-row layer-version-head">
+        <span>Version</span>
+        <span>Role</span>
+        <span>Lifecycle</span>
+        <span>Evaluation</span>
+        <span>Promotion</span>
+        <span>Updated</span>
+      </div>
+      {versions.length ? (displayedRows.length ? displayedRows.map((row) => (
+        <button
+          className={selectedVersionId === row.id ? 'layer-version-row selected' : 'layer-version-row'}
+          key={row.id}
+          onClick={() => onSelectVersion(row.id)}
+          type="button"
+        >
+          <strong>{row.label}<small>{row.run}</small></strong>
+          <span>{startCase(row.role)}</span>
+          <span><StatusPill status={row.lifecycle} severity={modelStatusSeverity(row.lifecycle)} /></span>
+          <span>{startCase(row.evaluation)}</span>
+          <span>{startCase(row.promotion)}</span>
+          <small>{formatTimestamp(row.updated)}</small>
+        </button>
+      )) : <div className="empty-chart compact">No layer versions match the current filter.</div>) : (
+        <div className="empty-chart compact">No versioned model runs are published for this layer yet.</div>
+      )}
+    </section>
+  );
+}
+
+function coefficientRowsFromPayload(payload: unknown, source: string): LayerRuntimeCoefficientRow[] {
+  const record = maybeRecord(payload);
+  const rows: LayerRuntimeCoefficientRow[] = [];
+  const candidateKeys = [
+    'runtime_coefficients',
+    'scoring_coefficients',
+    'model_coefficients',
+    'feature_coefficients',
+    'factor_coefficients',
+    'coefficient_values',
+    'feature_importance',
+    'feature_importances',
+    'factor_weights',
+    'scoring_weights',
+    'row_contributions',
+    'scoring_contributions',
+    'feature_contributions',
+  ];
+  for (const key of candidateKeys) {
+    const value = record[key];
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const itemRecord = maybeRecord(item);
+        const label = String(itemRecord.label ?? itemRecord.feature ?? itemRecord.factor ?? itemRecord.parameter_id ?? itemRecord.name ?? key);
+        rows.push({
+          label,
+          value: itemRecord.coefficient ?? itemRecord.weight ?? itemRecord.value ?? itemRecord.importance ?? itemRecord.gain ?? itemRecord.contribution ?? item,
+          source: startCase(source),
+          role: startCase(String(itemRecord.role ?? key)),
+          status: String(itemRecord.status ?? 'published'),
+        });
+      }
+    } else {
+      const valueRecord = maybeRecord(value);
+      for (const [label, coefficient] of Object.entries(valueRecord)) {
+        rows.push({
+          label,
+          value: coefficient,
+          source: startCase(source),
+          role: startCase(key),
+          status: 'published',
+        });
+      }
+    }
+  }
+  return rows;
+}
+
+function layerRuntimeCoefficientRows(view: ModelLayerView, selectedVersion: ModelVersionSummaryPayload | null): LayerRuntimeCoefficientRow[] {
+  return [
+    ...coefficientRowsFromPayload(selectedVersion, 'selected model version'),
+    ...coefficientRowsFromPayload(selectedVersion?.metrics, 'selected model metrics'),
+    ...coefficientRowsFromPayload(view.evaluation, 'layer evaluation artifact'),
+    ...coefficientRowsFromPayload(view.groupVersion, 'model group version'),
+    ...coefficientRowsFromPayload(view.groupVersion?.metrics, 'model group metrics'),
+  ];
+}
+
+function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerView; selectedVersion: ModelVersionSummaryPayload | null }) {
+  const rows = layerRuntimeCoefficientRows(view, selectedVersion);
+  const versionLabel = selectedVersion ? compactLayerVersionLabel(selectedVersion, 0) : String(view.evaluation?.version_id ?? view.definition.modelId);
+  return (
+    <section className="model-chart-panel runtime-coefficient-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Runtime Coefficients · {versionLabel}</span>
+        <StatusPill status={rows.length ? 'coefficients published' : 'coefficients not published'} severity={rows.length ? 'low' : 'medium'} />
+      </div>
+      <div className="runtime-coefficient-table" role="table" aria-label="Runtime model coefficients and scoring contributions">
+        <div className="runtime-coefficient-row runtime-coefficient-head" role="row">
+          <span>Coefficient / Feature</span>
+          <span>Value</span>
+          <span>Role</span>
+          <span>Source</span>
+        </div>
+        {rows.length ? rows.map((row, index) => (
+          <div className="runtime-coefficient-row" role="row" key={`${row.source}:${row.label}:${index}`}>
+            <strong>{row.label}</strong>
+            <span>{compactConfigValue(row.value)}</span>
+            <small>{row.role}</small>
+            <small>{row.source}</small>
+          </div>
+        )) : (
+          <div className="empty-chart compact">No runtime coefficient, feature-weight, importance, or scoring-contribution payload is published for this selected layer version yet.</div>
+        )}
+      </div>
+      {!rows.length ? <div className="model-chart-note">Evaluation thresholds are intentionally excluded from this panel. Publish coefficients through the selected model version, model artifact, explainability payload, or a normalized runtime-coefficients read model.</div> : null}
+    </section>
+  );
+}
+
+function LayerAcceptanceThresholds({ view }: { view: ModelLayerView }) {
   const version = view.groupVersion;
   const rows = layerEvaluationParameterRows(view);
   const hasLayerParameters = rows.some((row) => row.status !== 'not_published');
@@ -3340,14 +3531,14 @@ function LayerOptimizationParameters({ view }: { view: ModelLayerView }) {
   return (
     <section className="model-chart-panel version-parameters-panel">
       <div className="model-chart-title-row">
-        <span className="model-chart-title">Optimization Parameters · {version ? compactVersionLabel(version, 0) : String(view.evaluation?.version_id ?? view.definition.modelId)}</span>
+        <span className="model-chart-title">Acceptance Thresholds · {version ? compactVersionLabel(version, 0) : String(view.evaluation?.version_id ?? view.definition.modelId)}</span>
         <StatusPill status={hasLayerParameters ? 'layer parameters published' : (configMissing ? 'config evidence missing' : 'config evidence available')} severity={configMissing ? 'medium' : 'low'} />
       </div>
-      <div className="layer-parameter-table" role="table" aria-label="Layer optimization parameters">
+      <div className="layer-parameter-table" role="table" aria-label="Layer acceptance thresholds">
         <div className="layer-parameter-row layer-parameter-head" role="row">
-          <span>Parameter</span>
+          <span>Threshold</span>
           <span>Published Value</span>
-          <span>Optimization Target</span>
+          <span>Evaluation Role</span>
         </div>
         {rows.map((row) => (
           <div className="layer-parameter-row" role="row" key={row.label}>
@@ -3357,7 +3548,7 @@ function LayerOptimizationParameters({ view }: { view: ModelLayerView }) {
           </div>
         ))}
       </div>
-      {configMissing ? <div className="model-chart-note">This layer does not publish layer_evaluation_summary parameter values or candidate config evidence yet, so current values remain Not published.</div> : null}
+      {configMissing ? <div className="model-chart-note">This layer does not publish layer_evaluation_summary threshold values or candidate config evidence yet, so current values remain Not published.</div> : null}
     </section>
   );
 }
@@ -3616,6 +3807,13 @@ function ModelLayerDetail({
 }: {
   view: ModelLayerView;
 }) {
+  const versions = view.lifecycle?.versions ?? [];
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  useEffect(() => {
+    setSelectedVersionId(null);
+  }, [view.definition.layer]);
+  const effectiveVersionId = selectedVersionId ?? preferredLayerVersionId(view, versions);
+  const selectedVersion = versions.find((version, index) => layerVersionStableId(version, index) === effectiveVersionId) ?? null;
   const evaluation = view.evaluation;
   const status = String(evaluation?.validity_status ?? evaluation?.evidence_status ?? 'insufficient_evidence');
   return (
@@ -3627,8 +3825,10 @@ function ModelLayerDetail({
         </div>
         <StatusPill status={status} severity={evidenceStatusSeverity(status)} />
       </div>
+      <LayerModelVersionTable versions={versions} selectedVersionId={effectiveVersionId} onSelectVersion={setSelectedVersionId} />
+      <RuntimeCoefficientPanel view={view} selectedVersion={selectedVersion} />
       <ModelEvidenceDossier view={view} />
-      <LayerOptimizationParameters view={view} />
+      <LayerAcceptanceThresholds view={view} />
       <section className="model-detail-section wide-detail">
         <span>Model Specification</span>
         <LayerSpecTable view={view} />
