@@ -228,9 +228,9 @@ Hidden by default:
 
 ### `model_layer_readiness_summary`
 
-Purpose: support the Models page model-group tab and ten layer subpages.
+Purpose: support the Models page model-group versions view.
 
-Owner-facing fields per layer:
+Owner-facing fields per layer readiness row:
 
 - layer id and name;
 - latest version or run id summary;
@@ -244,13 +244,11 @@ Group-level fields own active/shadow/retiring/eliminated model refs when those r
 
 Dashboard presentation:
 
-- one selectable model-group page plus one selectable page per model layer;
+- Models shows one model-group versions view;
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
-- group page charts are organized as scorecards for Ranking / Calibration, Selection Diagnostics, and Feature Space;
-- AUROC/ROC remains ranking evidence, while decision-variable schema/coverage, silhouette, PCA, and PCoA carry the owner-facing model-validity interpretation when published;
-- layer pages show chart/table-first component evidence dossiers: model claim, required evidence, validity status, evidence-status distribution, evidence matrix, model specification, acceptance thresholds, and runtime coefficients;
-- each layer page exposes that layer's version table, acceptance-threshold table, and runtime coefficient/feature-importance table. Acceptance thresholds are shown only from the layer evaluation artifact's `acceptance_thresholds`; runtime coefficients are shown only from coefficient, feature-importance, or scoring-contribution payloads, with a publication-pending empty state when missing;
-- replay return, drawdown, threshold utility, cost sensitivity, score-decile return, slice distribution, good/bad fills, missed winners, and monthly replay rows live under Replay rather than Models;
+- group page charts are organized as model-group evaluation test families: Evaluation Test Summary, Ranking / Calibration, Selection Diagnostics, Feature Space, Economic / Robustness, and Temporal Stability;
+- AUROC/ROC remains ranking evidence, while decision-variable schema/coverage, silhouette, PCA, PCoA, economic robustness, baseline comparison, data integrity, uncertainty, and temporal stability carry the owner-facing model-validity interpretation when published;
+- replay return overlays, drawdown overlays, threshold utility, score-decile return, trade-level rows, and monthly replay drilldowns live under Replay rather than Models;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
 Canonical layer map:
