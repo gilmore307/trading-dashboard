@@ -246,9 +246,9 @@ Dashboard presentation:
 
 - Models shows one model-group versions view;
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
-- group page charts are organized as model-group evaluation test families: Evaluation Test Summary, Ranking / Calibration, Selection Diagnostics, Feature Space, Economic / Robustness, and Temporal Stability;
-- AUROC/ROC remains ranking evidence, while decision-variable schema/coverage, silhouette, PCA, PCoA, economic robustness, baseline comparison, data integrity, uncertainty, and temporal stability carry the owner-facing model-validity interpretation when published;
-- replay return overlays, drawdown overlays, threshold utility, score-decile return, trade-level rows, and monthly replay drilldowns live under Replay rather than Models;
+- group page charts are organized as model statistical-validity families: Evaluation Test Summary, Ranking / Calibration, Selection Diagnostics, Feature Space, Integrity / Uncertainty, and Temporal Stability;
+- AUROC/ROC, PR-AUC, Brier, calibration, decision-variable schema/coverage, silhouette, PCA, PCoA, data integrity, uncertainty, and temporal AUROC/Brier stability carry the owner-facing model-validity interpretation when published;
+- replay return overlays, drawdown overlays, threshold utility, cost sensitivity, score-decile return, baseline/no-trade comparisons, economic robustness, trading-distribution slices, trade-level rows, and monthly replay drilldowns live under Replay rather than Models;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
 Canonical layer map:

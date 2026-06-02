@@ -1972,7 +1972,7 @@ function AdaptiveDiagnosticChart({
   title: string;
   globalSeries: Array<{ label: string; value: number; status?: string | null }>;
   selectedVersion: ModelGroupPromotionVersionPayload | null;
-  selectedKind: Parameters<typeof selectedDiagnosticSeries>[1];
+  selectedKind: 'monthly_brier' | 'calibration' | 'silhouette';
   emptyLabel: string;
 }) {
   if (selectedVersion) {
@@ -1986,35 +1986,8 @@ function AdaptiveDiagnosticChart({
         />
       );
     }
-    if (selectedKind === 'monthly_return') {
-      return (
-        <TemporalDiagnosticCurve
-          title="Cumulative Return"
-          version={selectedVersion}
-          metricKey="net_return_total"
-          mode="cumulative"
-          emptyLabel="No selected-model return curve published"
-        />
-      );
-    }
-    if (selectedKind === 'monthly_drawdown') {
-      return (
-        <TemporalDiagnosticCurve
-          title="Drawdown"
-          version={selectedVersion}
-          metricKey="max_drawdown"
-          emptyLabel="No selected-model drawdown curve published"
-        />
-      );
-    }
     if (selectedKind === 'calibration') {
       return <CalibrationReliabilityChart version={selectedVersion} emptyLabel="No selected-model calibration curve published" />;
-    }
-    if (selectedKind === 'threshold_return') {
-      return <ThresholdReturnCurve version={selectedVersion} emptyLabel="No selected-model threshold return curve published" />;
-    }
-    if (selectedKind === 'cost_sensitivity') {
-      return <CostSensitivityCurve version={selectedVersion} emptyLabel="No selected-model cost sensitivity curve published" />;
     }
     if (selectedKind === 'silhouette') {
       return <SilhouetteDiagnosticBars version={selectedVersion} emptyLabel="No selected-model silhouette diagnostics published" />;
@@ -2197,7 +2170,7 @@ function ModelVersionTable({
   onSelectVersion: (versionId: string | null) => void;
 }) {
   const [filter, setFilter] = useState('');
-  const [sort, setSort] = useState<SortState<'label' | 'identity' | 'auroc' | 'prAuc' | 'ece' | 'profit' | 'integrity' | 'decision'>>({ key: 'auroc', direction: 'desc' });
+  const [sort, setSort] = useState<SortState<'label' | 'identity' | 'auroc' | 'prAuc' | 'ece' | 'integrity' | 'decision'>>({ key: 'auroc', direction: 'desc' });
   const query = filter.trim().toLowerCase();
   const rows: ModelVersionTableRow[] = versions.map((version, index) => {
     const metrics = version.metrics ?? {};
@@ -2209,13 +2182,12 @@ function ModelVersionTable({
       auroc: metricNumber(metrics, 'auroc'),
       prAuc: metricNumber(metrics, 'pr_auc'),
       ece: metricNumber(metrics, 'ece'),
-      profit: metricNumber(metrics, 'profit_factor'),
       integrity: startCase(String(metrics.data_integrity_status ?? 'not_reported')),
       decision: startCase(version.decision_status ?? version.agent_review_recommendation ?? 'not_reported'),
     };
   });
   const displayedRows = rows
-    .filter((row) => !query || searchText(row.label, row.identity, row.auroc, row.prAuc, row.ece, row.profit, row.integrity, row.decision).includes(query))
+    .filter((row) => !query || searchText(row.label, row.identity, row.auroc, row.prAuc, row.ece, row.integrity, row.decision).includes(query))
     .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.index - right.index);
   return (
     <section className="model-version-table-panel">
@@ -2239,7 +2211,6 @@ function ModelVersionTable({
         <SortableHeader label="AUROC" column="auroc" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="PR-AUC" column="prAuc" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="ECE" column="ece" sort={sort} onSort={setSort} />
-        <SortableHeader label="Profit" column="profit" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Integrity" column="integrity" sort={sort} onSort={setSort} />
         <SortableHeader label="Decision" column="decision" sort={sort} onSort={setSort} />
       </div>
@@ -2255,7 +2226,6 @@ function ModelVersionTable({
           <span>{formatMetricValue(row.auroc)}</span>
           <span>{formatMetricValue(row.prAuc)}</span>
           <span>{formatMetricValue(row.ece)}</span>
-          <span>{formatMetricValue(row.profit)}</span>
           <span>{row.integrity}</span>
           <span>{row.decision}</span>
         </button>
@@ -2283,14 +2253,11 @@ function EvaluationTestSummaryPanel({
   const metrics = version.metrics ?? {};
   const predictive = nestedRecord(metrics, 'predictive_diagnostics');
   const calibration = nestedRecord(metrics, 'calibration_diagnostics');
-  const economic = nestedRecord(metrics, 'economic_diagnostics');
   const integrity = nestedRecord(metrics, 'data_integrity_diagnostics');
   const temporal = nestedRecord(metrics, 'temporal_stability_diagnostics');
-  const baseline = nestedRecord(metrics, 'baseline_comparison_diagnostics');
   const uncertainty = nestedRecord(metrics, 'uncertainty_diagnostics');
   const decisionSchema = decisionVariableDiagnostics(version);
   const feature = featureDiagnostics(version);
-  const scorecards = modelScorecards(version);
   const disagreement = evaluationDisagreementReport(version);
   return (
     <ModelScorecardSection title="Evaluation Test Summary" subtitle={`Summarized model-group evaluation tests for ${compactVersionLabel(version, 0)}.`}>
@@ -2319,34 +2286,16 @@ function EvaluationTestSummaryPanel({
         hint={`PCoA ${formatMetricValue(metricNumber(metrics, 'pcoa_variance_top2'))} · silhouette ${formatMetricValue(metricNumber(metrics, 'silhouette_outcome_label'))}`}
       />
       <ModelLifecycleStat
-        label="Economic"
-        value={`PF ${formatMetricValue(metricNumber(metrics, 'profit_factor'))}`}
-        status={economic ? 'ready' : 'missing'}
-        hint={`return/decision ${formatMetricValue(metricNumber(metrics, 'return_per_decision'), 4)} · tail p05 ${formatMetricValue(metricNumber(metrics, 'tail_loss_p05'), 4)}`}
-      />
-      <ModelLifecycleStat
         label="Temporal"
         value={`${formatMetricValue(metricNumber(metrics, 'month_slice_count'), 0)} slices`}
         status={temporal ? 'ready' : 'missing'}
-        hint={`worst month ${formatMetricValue(metricNumber(metrics, 'worst_month_return'), 4)}`}
+        hint="monthly AUROC and Brier stability"
       />
       <ModelLifecycleStat
         label="Integrity"
         value={startCase(String(metrics.data_integrity_status ?? integrity?.status ?? 'not_reported'))}
         status={String(metrics.data_integrity_status ?? integrity?.status ?? 'not_reported')}
         hint={`leakage ${startCase(String(metrics.leakage_check_status ?? integrity?.leakage_check_status ?? 'not_reported'))}`}
-      />
-      <ModelLifecycleStat
-        label="Baseline"
-        value={formatMetricValue(metricNumber(baseline, 'candidate_minus_no_trade'), 4)}
-        status={baseline ? 'ready' : 'missing'}
-        hint={`vs recorded ${formatMetricValue(metricNumber(baseline, 'candidate_minus_recorded_baseline'), 4)} · randomized AUROC ${formatMetricValue(metricNumber(baseline, 'randomized_label_auroc'))}`}
-      />
-      <ModelLifecycleStat
-        label="Scorecards"
-        value={scorecards ? `${Object.keys(scorecards).filter((key) => key !== 'contract_type').length} families` : 'Missing'}
-        status={scorecards ? 'ready' : 'missing'}
-        hint="ranking/calibration · selection quality · economic quality · slices"
       />
       <ModelLifecycleStat
         label="Uncertainty"
@@ -2381,39 +2330,6 @@ function BrierDecompositionChart({
   ]);
   const compactSeries = series.filter((point, index) => series.findIndex((item) => item.label === point.label) === index);
   return <MiniMetricBarChart title={version ? `Brier Decomposition · ${compactVersionLabel(version, 0)}` : 'Brier Decomposition'} series={compactSeries} emptyLabel="Brier decomposition not published" />;
-}
-
-function EconomicRobustnessChart({
-  version,
-}: {
-  version: ModelGroupPromotionVersionPayload | null;
-}) {
-  const economic = nestedRecord(version?.metrics, 'economic_diagnostics');
-  const series = metricBarSeries(economic ?? version?.metrics, [
-    { key: 'profit_factor', label: 'Profit factor' },
-    { key: 'return_per_decision', label: 'Return/decision' },
-    { key: 'tail_loss_p05', label: 'Tail p05' },
-    { key: 'tail_loss_p01', label: 'Tail p01' },
-    { key: 'worst_return', label: 'Worst return' },
-  ]);
-  return <MiniMetricBarChart title={version ? `Economic Robustness · ${compactVersionLabel(version, 0)}` : 'Economic Robustness'} series={series} emptyLabel="Economic diagnostics not published" />;
-}
-
-function BaselineComparisonChart({
-  version,
-}: {
-  version: ModelGroupPromotionVersionPayload | null;
-}) {
-  const baseline = nestedRecord(version?.metrics, 'baseline_comparison_diagnostics');
-  const series = metricBarSeries(baseline, [
-    { key: 'candidate_minus_no_trade', label: 'vs no trade' },
-    { key: 'candidate_minus_recorded_baseline', label: 'vs recorded baseline' },
-    { key: 'candidate_return_total', label: 'candidate return' },
-    { key: 'no_trade_return_total', label: 'no-trade return' },
-    { key: 'recorded_baseline_return_total', label: 'recorded baseline' },
-    { key: 'randomized_label_auroc', label: 'random AUROC' },
-  ]);
-  return <MiniMetricBarChart title={version ? `Baseline Comparison · ${compactVersionLabel(version, 0)}` : 'Baseline Comparison'} series={series} emptyLabel="Baseline comparison diagnostics not published" />;
 }
 
 function DataIntegrityPanel({
@@ -2458,7 +2374,7 @@ function ExcludedPromotionEvidencePanel({
           <span key={reason}>{startCase(reason)} · {count}</span>
         ))}
       </div>
-      <div className="model-chart-note">Skipped artifacts are not target-scoped promotion evidence, so they are excluded from version charts and slice analysis.</div>
+      <div className="model-chart-note">Skipped artifacts are not target-scoped promotion evidence, so they are excluded from model-version comparison.</div>
     </section>
   );
 }
@@ -2567,7 +2483,6 @@ type ModelVersionTableRow = {
   auroc: number | null;
   prAuc: number | null;
   ece: number | null;
-  profit: number | null;
   integrity: string;
   decision: string;
 };
@@ -3207,26 +3122,20 @@ function ModelGroupDetail({
         <AdaptiveDiagnosticChart title="Calibration" globalSeries={versionMetricSeries(versions, 'ece')} selectedVersion={selectedVersion} selectedKind="calibration" emptyLabel="Calibration series not published" />
         <BrierDecompositionChart version={selectedVersion ?? diagnosticVersion} />
       </ModelScorecardSection>
-      <ModelScorecardSection title="Selection Diagnostics" subtitle="Decision-variable schema and slice labels used for model review; replay economics live under Replay.">
+      <ModelScorecardSection title="Selection Diagnostics" subtitle="Decision-variable schema and label coverage used for model review; trading-distribution slices live under Replay.">
         <DecisionVariableAuditPanel version={selectedVersion ?? diagnosticVersion} />
-        <SliceDistributionPanel version={selectedVersion ?? diagnosticVersion} />
       </ModelScorecardSection>
       <ModelScorecardSection title="Feature Space" subtitle="Feature-space separation views for model evidence; replay outcome slices live under Replay.">
         <AdaptiveDiagnosticChart title="Silhouette" globalSeries={versionMetricSeries(versions, 'silhouette_outcome_label')} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
         <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCA diagnostics not published" />
         <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCoA diagnostics not published" />
       </ModelScorecardSection>
-      <ModelScorecardSection title="Economic / Robustness" subtitle="Compact model-group evaluation robustness tests; trade-level replay detail remains under Replay.">
-        <EconomicRobustnessChart version={selectedVersion ?? diagnosticVersion} />
-        <CostSensitivityCurve version={selectedVersion ?? diagnosticVersion} emptyLabel="Cost sensitivity diagnostics not published" />
-        <BaselineComparisonChart version={selectedVersion ?? diagnosticVersion} />
+      <ModelScorecardSection title="Integrity / Uncertainty" subtitle="Model evidence quality checks that do not depend on replay economics.">
         <DataIntegrityPanel version={selectedVersion ?? diagnosticVersion} />
       </ModelScorecardSection>
-      <ModelScorecardSection title="Temporal Stability" subtitle="Fold-month stability tests for model quality and outcome drift.">
+      <ModelScorecardSection title="Temporal Stability" subtitle="Fold-month stability tests for model statistical quality.">
         <TemporalDiagnosticCurve title="Monthly AUROC" version={selectedVersion ?? diagnosticVersion} metricKey="auroc" emptyLabel="Monthly AUROC diagnostics not published" />
         <TemporalDiagnosticCurve title="Monthly Brier" version={selectedVersion ?? diagnosticVersion} metricKey="brier_score" emptyLabel="Monthly Brier diagnostics not published" />
-        <TemporalDiagnosticCurve title="Monthly Net Return" version={selectedVersion ?? diagnosticVersion} metricKey="net_return_total" mode="cumulative" emptyLabel="Monthly net return diagnostics not published" />
-        <TemporalDiagnosticCurve title="Monthly Drawdown" version={selectedVersion ?? diagnosticVersion} metricKey="max_drawdown" emptyLabel="Monthly drawdown diagnostics not published" />
       </ModelScorecardSection>
     </section>
   );
