@@ -3460,12 +3460,10 @@ function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerVi
 }
 
 function ModelGroupDetail({
-  layers,
   layerChart,
   runtimeChart,
   promotionChart,
 }: {
-  layers: ModelLayerView[];
   layerChart: ModelLayerReadinessChartPayload;
   runtimeChart: ExecutionRuntimeStatusChartPayload;
   promotionChart: ModelPromotionPostureChartPayload;
@@ -3747,92 +3745,20 @@ function ModelLayerDetail({
 }
 
 function ModelLayerOverview({
-  chart,
   layerChart,
-  layerEvaluationChart,
   promotionChart,
   runtimeChart,
 }: {
-  chart: HistoricalTaskProgressChartPayload;
   layerChart: ModelLayerReadinessChartPayload;
-  layerEvaluationChart: ModelLayerEvaluationChartPayload;
   promotionChart: ModelPromotionPostureChartPayload;
   runtimeChart: ExecutionRuntimeStatusChartPayload;
 }) {
-  const [selectedLayer, setSelectedLayer] = useState(0);
-  const allTasks = chart.task_timeline ?? [];
-  const periodTasks = chart.current_month ? allTasks.filter((task) => task.month === chart.current_month) : [];
-  const tasks = periodTasks.length ? periodTasks : allTasks;
-  const groupVersions = groupPromotionVersions(layerChart, promotionChart);
-  const layerGroupVersion = groupVersions.find((version) => modelIdentity(version) === 'active') ?? groupVersions.at(-1) ?? null;
-  const lifecycleByLayer = new Map<number, ModelLayerLifecyclePayload>();
-  (layerChart.layers ?? []).forEach((layer) => {
-    const layerNumber = lifecycleLayerNumber(layer);
-    if (layerNumber !== null) lifecycleByLayer.set(layerNumber, layer);
-  });
-  const evaluationByLayer = new Map<number, ModelLayerEvaluationPayload>();
-  (layerEvaluationChart.layers ?? []).forEach((layer) => {
-    if (typeof layer.layer === 'number') evaluationByLayer.set(layer.layer, layer);
-  });
-  const promotionsByLayer = new Map<number, ModelPromotionItemPayload[]>();
-  promotionItems(promotionChart).forEach((item) => {
-    const layerNumber = promotionLayerNumber(item);
-    if (layerNumber !== null) promotionsByLayer.set(layerNumber, [...(promotionsByLayer.get(layerNumber) ?? []), item]);
-  });
-  const layers = MODEL_LAYER_DEFINITIONS.map((definition) => ({
-    definition,
-    tasks: modelLayerTasks(tasks, definition.layer),
-    lifecycle: lifecycleByLayer.get(definition.layer) ?? null,
-    evaluation: evaluationByLayer.get(definition.layer) ?? null,
-    promotions: promotionsByLayer.get(definition.layer) ?? [],
-    groupVersion: layerGroupVersion,
-  }));
-  const selectedView = layers.find((layer) => layer.definition.layer === selectedLayer) ?? layers[0];
   return (
-    <>
-      <section className="model-workspace">
-        <nav className="panel model-layer-tabs" aria-label="Model layer pages">
-          <div className="panel-heading">Model Pages</div>
-          <button
-            className={selectedLayer === 0 ? 'selected group-tab' : 'group-tab'}
-            onClick={() => setSelectedLayer(0)}
-            type="button"
-          >
-            <span>0</span>
-            <div>
-              <strong>Model Group Versions</strong>
-              <small>Version identity, metrics, and promotion history</small>
-            </div>
-          </button>
-          {layers.map((view) => {
-            return (
-              <button
-                className={selectedLayer === view.definition.layer ? 'selected' : ''}
-                key={view.definition.layer}
-                onClick={() => setSelectedLayer(view.definition.layer)}
-                type="button"
-              >
-                <span>{view.definition.layer}</span>
-                <div>
-                  <strong>{view.definition.label}</strong>
-                  <small>{view.definition.family} · {startCase(String(view.evaluation?.validity_status ?? view.evaluation?.evidence_status ?? 'not published'))}</small>
-                </div>
-              </button>
-            );
-          })}
-        </nav>
-        {selectedLayer === 0 ? (
-          <ModelGroupDetail
-            layers={layers}
-            layerChart={layerChart}
-            runtimeChart={runtimeChart}
-            promotionChart={promotionChart}
-          />
-        ) : (
-          <ModelLayerDetail view={selectedView} />
-        )}
-      </section>
-    </>
+    <ModelGroupDetail
+      layerChart={layerChart}
+      runtimeChart={runtimeChart}
+      promotionChart={promotionChart}
+    />
   );
 }
 
@@ -5265,9 +5191,7 @@ function App() {
     if (activeView === 'models') {
       return (
         <ModelLayerOverview
-          chart={chart}
           layerChart={modelLayerChart}
-          layerEvaluationChart={modelLayerEvaluationChart}
           promotionChart={modelPromotionChart}
           runtimeChart={executionRuntimeChart}
         />

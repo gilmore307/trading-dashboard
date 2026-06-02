@@ -268,11 +268,11 @@ Canonical layer map:
 | 9 | Trading Guidance / Option Expression | `trading_guidance_record` plus optional `option_expression_plan` / `expression_vector` |
 | 10 | Event Risk Governor / Event Intelligence Overlay | `event_risk_intervention` / event-adjusted risk guidance |
 
-Dashboard model pages must follow the accepted current layer map.
+The accepted current layer map remains the model-stack reference, but the current Models tab does not expose layer pages in the primary navigation.
 
 ### `model_layer_evaluation_summary`
 
-Purpose: support layer subtabs as model-evidence dossiers rather than operational task-status pages.
+Purpose: retain layer-local evaluation evidence for diagnostics and future review. The current Models tab does not render layer subtabs; it shows model-group versions as the primary model surface.
 
 Owner-facing fields per layer:
 
@@ -285,9 +285,9 @@ Owner-facing fields per layer:
 
 Dashboard presentation:
 
-- layer pages lead with claim, evidence, and validity decision;
-- layer pages show each layer's allowed metric tests before evidence sections, with missing values shown as insufficient evidence rather than fabricated metrics;
-- missing per-layer statistical artifacts are displayed as `insufficient_evidence`;
+- current Models tab renders only the model-group version surface; the model-layer sidebar is not shown;
+- layer-local evidence remains available in the read model but is not promoted into the main Models page unless a layer-specific surface is accepted later;
+- if a layer-specific surface is reintroduced, missing per-layer statistical artifacts must be displayed as `insufficient_evidence`;
 - acceptance thresholds may remain in `layer_evaluation_summary.parameter_values` as evaluation evidence, but the model page does not render a threshold table;
 - runtime-coefficient tables consume normalized `layer_evaluation_summary.runtime_coefficients` plus selected version coefficient/importance/contribution payloads; missing coefficient artifacts are shown as an empty publication-pending state, not as rows, thresholds, or summary-field substitutes;
 - task progress, receipts, blockers, and safety flags stay on Tasks/Diagnostics, not on layer evaluation pages;
