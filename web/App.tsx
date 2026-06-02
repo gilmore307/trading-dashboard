@@ -2627,7 +2627,7 @@ type ReplayDecisionDetailRow = {
   row_index?: number;
   timestamp?: string | null;
   target_ref?: string | null;
-  instrument_ref?: string | null;
+  instrument_type?: string | null;
   action?: string | null;
   disposition?: string | null;
   fill_status?: string | null;
@@ -3038,7 +3038,7 @@ function ReplayDecisionDetailTable({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
-  const [sort, setSort] = useState<SortState<'timestamp' | 'target_ref' | 'instrument_ref' | 'action' | 'disposition' | 'fill_status' | 'score' | 'net_return' | 'realized_return' | 'cost' | 'reason_codes'>>({ key: 'timestamp', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'timestamp' | 'target_ref' | 'instrument_type' | 'action' | 'disposition' | 'fill_status' | 'score' | 'net_return' | 'realized_return' | 'cost' | 'reason_codes'>>({ key: 'timestamp', direction: 'asc' });
   useEffect(() => {
     if (!month) {
       setPayload(null);
@@ -3066,7 +3066,7 @@ function ReplayDecisionDetailTable({
   const rows = payload?.rows ?? [];
   const query = filter.trim().toLowerCase();
   const displayedRows = rows
-    .filter((row) => !query || searchText(row.timestamp, row.target_ref, row.instrument_ref, row.action, row.disposition, row.fill_status, row.score, row.net_return, row.realized_return, row.cost, row.reason_codes).includes(query))
+    .filter((row) => !query || searchText(row.timestamp, row.target_ref, row.instrument_type, row.action, row.disposition, row.fill_status, row.score, row.net_return, row.realized_return, row.cost, row.reason_codes).includes(query))
     .sort((left, right) => {
       const leftValue = sort.key === 'reason_codes' ? (left.reason_codes ?? []).join(', ') : left[sort.key];
       const rightValue = sort.key === 'reason_codes' ? (right.reason_codes ?? []).join(', ') : right[sort.key];
@@ -3099,7 +3099,7 @@ function ReplayDecisionDetailTable({
             <div className="replay-table-row replay-table-head">
               <SortableHeader label="Time" column="timestamp" sort={sort} onSort={setSort} />
               <SortableHeader label="Target" column="target_ref" sort={sort} onSort={setSort} />
-              <SortableHeader label="Instrument" column="instrument_ref" sort={sort} onSort={setSort} />
+              <SortableHeader label="Type" column="instrument_type" sort={sort} onSort={setSort} />
               <SortableHeader label="Action" column="action" sort={sort} onSort={setSort} />
               <SortableHeader label="Disposition" column="disposition" sort={sort} onSort={setSort} />
               <SortableHeader label="Fill" column="fill_status" sort={sort} onSort={setSort} />
@@ -3113,7 +3113,7 @@ function ReplayDecisionDetailTable({
               <div className="replay-table-row" key={`${row.timestamp ?? 'row'}-${index}`}>
                 <strong>{row.timestamp ?? 'No timestamp'}</strong>
                 <span>{row.target_ref ?? 'Unknown'}</span>
-                <span>{row.instrument_ref ?? 'Unknown'}</span>
+                <span>{startCase(row.instrument_type ?? 'unknown')}</span>
                 <span>{startCase(row.action ?? 'unknown')}</span>
                 <span>{startCase(row.disposition ?? 'unknown')}</span>
                 <span>{startCase(row.fill_status ?? 'unknown')}</span>

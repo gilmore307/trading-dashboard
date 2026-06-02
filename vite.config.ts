@@ -133,6 +133,72 @@ function stringOrNull(value: unknown): string | null {
   return String(value);
 }
 
+const ETF_SYMBOLS = new Set([
+  'AIQ',
+  'ARKF',
+  'ARKG',
+  'ARKW',
+  'ARKX',
+  'BITW',
+  'BKCH',
+  'CIBR',
+  'CPER',
+  'DBA',
+  'DBC',
+  'DIA',
+  'GLD',
+  'HYG',
+  'IEF',
+  'IGV',
+  'IWM',
+  'IYT',
+  'LQD',
+  'QQQ',
+  'RSP',
+  'SHY',
+  'SLV',
+  'SMH',
+  'SPY',
+  'TLT',
+  'USO',
+  'UUP',
+  'VIXY',
+  'XBI',
+  'XLB',
+  'XLC',
+  'XLE',
+  'XLF',
+  'XLI',
+  'XLK',
+  'XLP',
+  'XLRE',
+  'XLU',
+  'XLV',
+  'XLY',
+  'XME',
+  'XOP',
+  'XRT',
+]);
+
+function replayInstrumentType(row: Record<string, unknown>): string {
+  const selectedOption = stringOrNull(row.selected_option_contract_ref);
+  const expressionType = stringOrNull(row.selected_option_expression_type);
+  const optionRoute = stringOrNull(row.asset_expression_route);
+  if (
+    selectedOption
+    || (expressionType && expressionType !== 'underlying_only_expression')
+    || optionRoute === 'option_expression_filled'
+  ) {
+    return 'Option';
+  }
+  const assetClass = stringOrNull(row.asset_class);
+  if (assetClass === 'crypto_spot' || assetClass === 'crypto') return 'Crypto';
+  const target = String(row.target_ref ?? row.target_symbol ?? row.instrument_ref ?? '').toUpperCase();
+  if (ETF_SYMBOLS.has(target)) return 'ETF';
+  if (assetClass === 'us_equity' || assetClass === 'equity') return 'Stock';
+  return assetClass ? assetClass.replace(/_/g, ' ') : 'Unknown';
+}
+
 function versionStableId(record: Record<string, unknown>, index: number): string {
   return String(record.version_id ?? record.candidate_model_ref ?? record.promotion_run_id ?? index);
 }
@@ -156,7 +222,7 @@ function sanitizeReplayDecisionRow(row: Record<string, unknown>, index: number):
     row_index: index,
     timestamp: stringOrNull(row.timestamp ?? row.decision_timestamp),
     target_ref: stringOrNull(row.target_ref ?? row.target_symbol),
-    instrument_ref: stringOrNull(row.instrument_ref),
+    instrument_type: replayInstrumentType(row),
     action: stringOrNull(row.decision_action ?? row.action),
     disposition: stringOrNull(row.decision_disposition ?? row.decision_status ?? row.status),
     fill_status: stringOrNull(row.fill_status ?? row.replay_fill_status),
@@ -191,7 +257,7 @@ function replayDecisionRows(versionId: string, month: string): Record<string, un
     if (timestamp.slice(0, 7) !== month) continue;
     if (String(row.entry_threshold_calibration_role ?? 'test') === 'validation') continue;
     totalMonthRows += 1;
-    if (rows.length < 500) rows.push(sanitizeReplayDecisionRow(row, totalMonthRows));
+    rows.push(sanitizeReplayDecisionRow(row, totalMonthRows));
   }
   return {
     version_id: versionId,
