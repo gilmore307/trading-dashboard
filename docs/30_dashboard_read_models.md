@@ -56,7 +56,7 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 
 ## Dashboard Read-Model Contracts
 
-The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_layer_readiness_summary`, `model_layer_evaluation_summary`, and `model_promotion_posture_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
+The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_layer_readiness_summary`, and `model_promotion_posture_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
 
 ### `current_system_status_summary`
 
@@ -269,29 +269,6 @@ Canonical layer map:
 | 10 | Event Risk Governor / Event Intelligence Overlay | `event_risk_intervention` / event-adjusted risk guidance |
 
 The accepted current layer map remains the model-stack reference, but the current Models tab does not expose layer pages in the primary navigation.
-
-### `model_layer_evaluation_summary`
-
-Purpose: retain layer-local evaluation evidence for diagnostics and future review. The current Models tab does not render layer subtabs; it shows model-group versions as the primary model surface.
-
-Owner-facing fields per layer:
-
-- layer claim, target definition, input scope, and output contract;
-- evidence status and validity status;
-- valid layer-local metric families and primary/guardrail/avoid tests;
-- evaluation sections for population, predictive evidence, statistical reliability, calibration/distribution, signal diagnostics, robustness, integrity, and downstream contribution;
-- explicit missing-evidence reasons and required artifact fields;
-- group-level context only when clearly labeled as reference, not as layer-specific evidence.
-
-Dashboard presentation:
-
-- current Models tab renders only the model-group version surface; the model-layer sidebar is not shown;
-- layer-local evidence remains available in the read model but is not promoted into the main Models page unless a layer-specific surface is accepted later;
-- if a layer-specific surface is reintroduced, missing per-layer statistical artifacts must be displayed as `insufficient_evidence`;
-- acceptance thresholds may remain in `layer_evaluation_summary.parameter_values` as evaluation evidence, but the model page does not render a threshold table;
-- runtime-coefficient tables consume normalized `layer_evaluation_summary.runtime_coefficients` plus selected version coefficient/importance/contribution payloads; missing coefficient artifacts are shown as an empty publication-pending state, not as rows, thresholds, or summary-field substitutes;
-- task progress, receipts, blockers, and safety flags stay on Tasks/Diagnostics, not on layer evaluation pages;
-- group-level AUROC/return/PCA/slice metrics must not be relabeled as layer-level metrics.
 
 ### `model_promotion_posture_summary`
 

@@ -378,64 +378,6 @@ export interface ModelLayerReadinessChartPayload {
   [key: string]: unknown;
 }
 
-export interface ModelLayerEvaluationSectionPayload {
-  section_id?: string | null;
-  label?: string | null;
-  status?: string | null;
-  reason?: string | null;
-  required_evidence?: string[];
-  [key: string]: unknown;
-}
-
-export interface ModelLayerMetricTestPayload {
-  metric_id?: string | null;
-  label?: string | null;
-  metric_family?: string | null;
-  role?: 'primary' | 'guardrail' | 'avoid' | string | null;
-  eligibility?: string | null;
-  note?: string | null;
-  status?: string | null;
-  metric_value?: number | null;
-  [key: string]: unknown;
-}
-
-export interface ModelLayerParameterPayload {
-  parameter_id?: string | null;
-  label?: string | null;
-  value?: unknown;
-  status?: string | null;
-  source?: string | null;
-  role?: string | null;
-  [key: string]: unknown;
-}
-
-export interface ModelLayerEvaluationPayload {
-  layer?: number | null;
-  layer_id?: string | null;
-  model_id?: string | null;
-  name?: string | null;
-  version_id?: string | null;
-  evidence_status?: string | null;
-  validity_status?: string | null;
-  validity_decision?: Record<string, unknown>;
-  claim?: Record<string, unknown>;
-  metric_families?: string[];
-  metric_tests?: ModelLayerMetricTestPayload[];
-  parameter_values?: ModelLayerParameterPayload[];
-  runtime_coefficients?: ModelLayerParameterPayload[];
-  sections?: ModelLayerEvaluationSectionPayload[];
-  group_context?: Record<string, unknown>;
-  operational_refs?: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-export interface ModelLayerEvaluationChartPayload {
-  layers?: ModelLayerEvaluationPayload[];
-  required_artifact?: string | null;
-  state_vocabulary?: string[];
-  [key: string]: unknown;
-}
-
 export interface ModelPromotionItemPayload {
   layer?: number | null;
   layer_id?: string | null;
