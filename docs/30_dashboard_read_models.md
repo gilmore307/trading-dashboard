@@ -96,7 +96,7 @@ Hidden by default:
 
 ### `alert_exception_summary`
 
-Purpose: support the Alerts and Exceptions page.
+Purpose: support Diagnostics with owner-facing visible errors and degraded states.
 
 Owner-facing fields:
 
@@ -129,11 +129,11 @@ Initial alert taxonomy:
 - `registry_contract_mismatch_alert`;
 - `dashboard_data_stale_alert`.
 
-The alert page is an owner-actionable issue queue, not a log viewer.
+Diagnostics is an owner-facing error/status summary, not a log viewer.
 
 ### `historical_task_progress_summary`
 
-Purpose: support the Historical Modeling subtab under Tasks.
+Purpose: support Tasks in the Historical Models navigation group.
 
 Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks view. Tasks consumes the timeline as an operational work list. Models consumes dedicated model summaries for evaluation; task progress does not drive model-page wording.
 
@@ -163,7 +163,7 @@ Hidden by default:
 
 ### `realtime_task_progress_summary`
 
-Purpose: support the Realtime Trading subtab under Tasks.
+Purpose: support realtime task-state visibility when it is surfaced under the Realtime navigation group.
 
 Owner-facing fields:
 
@@ -296,7 +296,7 @@ Replay presentation:
 
 ### `registry_dictionary_profile`
 
-Purpose: support Registry Dictionary and hover field profiles.
+Purpose: support Definitions and hover field profiles.
 
 Owner-facing fields:
 
@@ -312,7 +312,7 @@ Owner-facing fields:
 - usage examples where useful;
 - last updated.
 
-The registry dictionary is read-only. It must not expose editor controls or replace `trading-manager` registry governance.
+Definitions is read-only. It must not expose editor controls or replace `trading-manager` registry governance.
 
 ## Parked/Future Read Models
 
@@ -333,7 +333,7 @@ Possible owner-facing fields:
 
 ### `trading_performance_summary`
 
-Future purpose: support Trading Performance Summary.
+Future purpose: support Trading Performance.
 
 Required distinction:
 

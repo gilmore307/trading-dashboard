@@ -84,17 +84,34 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
 
 type ViewId = 'status' | 'tasks' | 'timewheel' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance';
 
-const navItems: Array<{ id: ViewId; label: string; state: string }> = [
-  { id: 'status', label: 'Status', state: 'Live' },
-  { id: 'tasks', label: 'Tasks', state: 'Task list' },
-  { id: 'timewheel', label: 'Timewheel', state: 'Temporal explorer' },
-  { id: 'data', label: 'Data', state: 'Data + model outputs' },
-  { id: 'models', label: 'Models', state: 'Historical modeling' },
-  { id: 'replay', label: 'Replay', state: 'Historical replay' },
-  { id: 'registry', label: 'Definitions', state: 'Coming soon' },
-  { id: 'realtime', label: 'Realtime Signals', state: 'Shadow monitor' },
-  { id: 'performance', label: 'Trading Performance', state: 'Coming soon' },
-  { id: 'diagnostics', label: 'Diagnostics', state: 'Error summary' },
+type NavItem = { id: ViewId; label: string; state: string };
+
+const navSections: Array<{ label: string; items: NavItem[] }> = [
+  {
+    label: 'General',
+    items: [
+      { id: 'status', label: 'Status', state: 'Live' },
+      { id: 'registry', label: 'Definitions', state: 'Coming soon' },
+      { id: 'diagnostics', label: 'Diagnostics', state: 'Error summary' },
+    ],
+  },
+  {
+    label: 'Historical Models',
+    items: [
+      { id: 'tasks', label: 'Tasks', state: 'Task list' },
+      { id: 'data', label: 'Data', state: 'Data + model outputs' },
+      { id: 'models', label: 'Models', state: 'Historical modeling' },
+      { id: 'replay', label: 'Replay', state: 'Historical replay' },
+      { id: 'timewheel', label: 'Timewheel', state: 'Temporal explorer' },
+    ],
+  },
+  {
+    label: 'Realtime',
+    items: [
+      { id: 'realtime', label: 'Realtime Signals', state: 'Shadow monitor' },
+      { id: 'performance', label: 'Trading Performance', state: 'Coming soon' },
+    ],
+  },
 ];
 
 function isHistoricalChart(payload: DashboardReadModel['chart_payload']): payload is HistoricalTaskProgressChartPayload {
@@ -4540,11 +4557,18 @@ function App() {
           </div>
         </div>
         <nav className="nav-list" aria-label="Primary dashboard navigation">
-          {navItems.map((item) => (
-            <button className={`nav-item ${activeView === item.id ? 'active' : ''}`} key={item.id} type="button" onClick={() => setActiveView(item.id)}>
-              <span>{item.label}</span>
-              <small>{item.state}</small>
-            </button>
+          {navSections.map((section) => (
+            <section className="nav-section" key={section.label} aria-label={`${section.label} navigation`}>
+              <div className="nav-section-title">{section.label}</div>
+              <div className="nav-section-items">
+                {section.items.map((item) => (
+                  <button className={`nav-item ${activeView === item.id ? 'active' : ''}`} key={item.id} type="button" onClick={() => setActiveView(item.id)}>
+                    <span>{item.label}</span>
+                    <small>{item.state}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
           ))}
         </nav>
       </aside>

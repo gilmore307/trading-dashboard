@@ -17,7 +17,15 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 
 ## Primary Navigation
 
-### 1. Status
+The left sidebar is grouped by user intent:
+
+- General — Status, Definitions, and Diagnostics.
+- Historical Models — Tasks, Data, Models, Replay, and Timewheel.
+- Realtime — Realtime Signals and Trading Performance.
+
+## Page Contracts
+
+### Status
 
 Purpose: answer “Is the system healthy enough for its current role?”
 
@@ -47,26 +55,52 @@ Hidden by default:
 - request/run/artifact row dumps;
 - maintenance-only checks unless they affect user-facing readiness.
 
-### 2. Alerts and Exceptions
+### Definitions
 
-Purpose: answer “What needs attention, and what should I look at first?”
+Purpose: answer “What does this system term, field, status, contract, or script name mean?”
 
 Visible content should include:
 
-- active unresolved alerts;
+- searchable accepted registry vocabulary;
+- concise term/field/contract/status explanations;
+- source repository and canonical path where useful;
+- accepted value ranges or status vocabularies;
+- last-updated metadata when useful;
+- links back to pages where the term appears.
+
+Preferred visuals:
+
+- search-first dictionary layout;
+- kind filters;
+- related-term graph for high-value concepts;
+- compact profile cards.
+
+Hidden by default:
+
+- registry maintenance/migration internals;
+- raw SQL migration history;
+- editor controls;
+- rows irrelevant to visible dashboard concepts unless searched explicitly.
+
+Definitions is read-only and explanatory. It must not become the canonical registry editor or a replacement for `trading-manager` registry governance.
+
+### Diagnostics
+
+Purpose: answer “What visible system errors or degraded states need attention?”
+
+Visible content should include:
+
+- active unresolved diagnostics;
 - severity and affected area;
 - first-seen / last-seen / age;
 - concise cause category;
-- suggested owner/system next action;
 - whether the issue blocks modeling, realtime signals, or trading performance visibility.
 
 Preferred visuals:
 
-- severity cards;
-- alert timeline;
-- affected-system heatmap;
-- open/resolved trend chart;
-- blocker impact matrix.
+- severity filters;
+- compact error/status table;
+- blocker impact summary.
 
 Hidden by default:
 
@@ -75,20 +109,15 @@ Hidden by default:
 - internal receipt dumps;
 - low-level daemon details.
 
-Diagnostic details may be reachable only from a specific alert when they help resolve that alert.
+Diagnostic details may be reachable only when they explain a visible status, task, model, replay, signal, or performance issue.
 
-### 3. Tasks
+### Tasks
 
 Purpose: answer “What important work is underway, complete, blocked, or waiting?”
 
-Subtabs:
-
-- Historical Modeling
-- Realtime Trading
-
 Visible content should include:
 
-- stage/month/layer progress at summary level;
+- historical stage/month/layer progress at summary level;
 - current active task;
 - completion percentage and blocker category;
 - failures that need attention;
@@ -111,7 +140,24 @@ Hidden by default:
 
 Those internals may be reachable only through an advanced diagnostic drawer when a visible task is failed or blocked.
 
-### 4. Models
+### Data
+
+Purpose: answer “What approved source, feature, and model-output tables are available for read-only inspection?”
+
+Visible content should include:
+
+- allowlisted source, feature, and main model-output tables;
+- table selection, search, filtering, sorting, and pagination;
+- source artifact write time versus dashboard read-model refresh time where relevant.
+
+Hidden by default:
+
+- arbitrary SQL;
+- manager control-plane tables;
+- dataset and promotion internals;
+- diagnostics internals.
+
+### Models
 
 Purpose: answer “How are model-group versions evolving, which versions are active/shadow/retired, what objective does each component optimize, and what evaluation evidence supports the version trajectory?”
 
@@ -163,7 +209,46 @@ Hidden by default:
 - internal request/control-plane records;
 - implementation logs.
 
-### 5. Realtime Trading Signals
+### Replay
+
+Purpose: answer “How did the historical replay perform economically?”
+
+Visible content should include:
+
+- return, drawdown, cost, slice, and trade-outcome analysis;
+- monthly replay operation status;
+- replay source-data readiness and visible gaps.
+
+Preferred visuals:
+
+- full-width draggable charts;
+- hover readouts;
+- summary metric cards;
+- inspectable trade/outcome tables.
+
+Hidden by default:
+
+- model statistical validity metrics such as AUROC;
+- raw provider plumbing;
+- dataset internals unless they explain replay gaps.
+
+### Timewheel
+
+Purpose: answer “What happened across the historical time axis?”
+
+Visible content should include:
+
+- frame-aligned symbol/frame/center-time controls;
+- volume and accepted-event-density subcharts;
+- Layer 10 accepted event markers for the selected time unit.
+
+Hidden by default:
+
+- raw event payloads;
+- implementation receipts;
+- unrelated market-state summaries.
+
+### Realtime Signals
 
 Purpose: answer “What is being monitored now, and what signals are present?”
 
@@ -184,7 +269,7 @@ Hidden by default:
 - capture fixtures;
 - raw stream events unless needed for a visible incident.
 
-### 6. Trading Performance Summary
+### Trading Performance
 
 Purpose: answer “How is realtime trading performing?”
 
@@ -204,35 +289,6 @@ Hidden by default:
 - broker adapter internals;
 - raw fills unless needed for explanation;
 - reconciliation implementation details.
-
-### 7. Registry Dictionary
-
-Purpose: answer “What does this system term, field, status, contract, or script name mean?”
-
-Visible content should include:
-
-- searchable accepted registry vocabulary;
-- concise term/field/contract/status explanations;
-- source repository and canonical path where useful;
-- accepted value ranges or status vocabularies;
-- last-updated metadata when useful;
-- links back to pages where the term appears.
-
-Preferred visuals:
-
-- search-first dictionary layout;
-- kind filters;
-- related-term graph for high-value concepts;
-- compact profile cards.
-
-Hidden by default:
-
-- registry maintenance/migration internals;
-- raw SQL migration history;
-- editor controls;
-- rows irrelevant to visible dashboard concepts unless searched explicitly.
-
-The registry dictionary is read-only and explanatory. It must not become the canonical registry editor or a replacement for `trading-manager` registry governance.
 
 ## Registry Field Profiles
 

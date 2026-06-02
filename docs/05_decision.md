@@ -121,24 +121,20 @@ Chentong clarified that the website exists to summarize system, model, signal, a
 
 ### Decision
 
-The dashboard primary navigation will focus on owner-facing summary and explanation pages:
+The dashboard primary navigation is grouped by user intent:
 
-1. Status
-2. Alerts and Exceptions
-3. Tasks, with Historical Modeling and Realtime Trading subtabs
-4. Models, with a model-group subtab plus one subtab for each of the ten model layers
-5. Realtime Trading Signals
-6. Trading Performance Summary
-7. Registry Dictionary
+- General — Status, Definitions, and Diagnostics.
+- Historical Models — Tasks, Data, Models, Replay, and Timewheel.
+- Realtime — Realtime Signals and Trading Performance.
 
 The dashboard should be simple, clear, chart-first, and text-light. Internal artifacts, manifests, ready-signal rows, request payloads, daemon internals, raw logs, and model intermediate products are hidden by default. They may appear only in advanced diagnostic drilldowns when needed to explain a visible owner-facing issue.
 
-Registry-backed field profiles remain useful as contextual hover/detail explanations for fields already shown on the dashboard. A read-only Registry Dictionary is also accepted because it helps interpret system vocabulary, but it must stay explanatory and must not become a registry editor or maintenance console. Alerts and exceptions are accepted because they give Chentong an owner-actionable queue of problems to inspect and resolve.
+Registry-backed field profiles remain useful as contextual hover/detail explanations for fields already shown on the dashboard. Definitions is read-only explanation for system vocabulary and must not become a registry editor or maintenance console. Diagnostics is the owner-facing place for visible system errors and degraded states.
 
 ### Consequences
 
 - `docs/20_information_architecture.md` owns the initial page structure and visibility rules.
-- Implementation must not turn `trading-dashboard` into a general artifact browser, registry editor, maintenance console, or workflow controller. The Registry Dictionary is read-only explanation, and Alerts/Exceptions are owner-facing issue summaries.
+- Implementation must not turn `trading-dashboard` into a general artifact browser, registry editor, maintenance console, or workflow controller. Definitions is read-only explanation, and Diagnostics is an owner-facing error/status summary.
 - Implementation slices should consume owner-facing summary/read-model outputs, not raw internal control-plane tables as primary UI content.
 - Advanced diagnostics must stay issue-focused and secondary.
 
