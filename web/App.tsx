@@ -84,32 +84,32 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
 
 type ViewId = 'status' | 'tasks' | 'timewheel' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance';
 
-type NavItem = { id: ViewId; label: string; state: string };
+type NavItem = { id: ViewId; label: string };
 
 const navSections: Array<{ label: string; items: NavItem[] }> = [
   {
     label: 'General',
     items: [
-      { id: 'status', label: 'Status', state: 'Live' },
-      { id: 'registry', label: 'Definitions', state: 'Coming soon' },
-      { id: 'diagnostics', label: 'Diagnostics', state: 'Error summary' },
+      { id: 'status', label: 'Status' },
+      { id: 'registry', label: 'Definitions' },
+      { id: 'diagnostics', label: 'Diagnostics' },
     ],
   },
   {
     label: 'Historical Models',
     items: [
-      { id: 'tasks', label: 'Tasks', state: 'Task list' },
-      { id: 'data', label: 'Data', state: 'Data + model outputs' },
-      { id: 'models', label: 'Models', state: 'Historical modeling' },
-      { id: 'replay', label: 'Replay', state: 'Historical replay' },
-      { id: 'timewheel', label: 'Timewheel', state: 'Temporal explorer' },
+      { id: 'tasks', label: 'Tasks' },
+      { id: 'data', label: 'Data' },
+      { id: 'models', label: 'Models' },
+      { id: 'replay', label: 'Replay' },
+      { id: 'timewheel', label: 'Timewheel' },
     ],
   },
   {
     label: 'Realtime',
     items: [
-      { id: 'realtime', label: 'Realtime Signals', state: 'Shadow monitor' },
-      { id: 'performance', label: 'Trading Performance', state: 'Coming soon' },
+      { id: 'realtime', label: 'Realtime Signals' },
+      { id: 'performance', label: 'Trading Performance' },
     ],
   },
 ];
@@ -4564,7 +4564,6 @@ function App() {
                 {section.items.map((item) => (
                   <button className={`nav-item ${activeView === item.id ? 'active' : ''}`} key={item.id} type="button" onClick={() => setActiveView(item.id)}>
                     <span>{item.label}</span>
-                    <small>{item.state}</small>
                   </button>
                 ))}
               </div>
