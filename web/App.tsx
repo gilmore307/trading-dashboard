@@ -3472,7 +3472,7 @@ function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerVi
   return (
     <section className="model-chart-panel runtime-coefficient-panel">
       <div className="model-chart-title-row">
-        <span className="model-chart-title">Runtime Coefficients · {versionLabel}</span>
+        <span className="model-chart-title">Model Internal Coefficients · {versionLabel}</span>
         <StatusPill status={hasPublishedRows ? 'coefficients published' : 'publication pending'} severity={hasPublishedRows ? 'low' : 'medium'} />
       </div>
       <div className="runtime-coefficient-table" role="table" aria-label="Runtime model coefficients and scoring contributions">
@@ -3492,7 +3492,7 @@ function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerVi
             <small>{startCase(row.status)}</small>
           </div>
         )) : (
-          <div className="empty-chart compact">No runtime coefficient payload published for this layer version yet.</div>
+          <div className="empty-chart compact">No model internal coefficient payload is published for this layer version yet.</div>
         )}
       </div>
       <div className="model-chart-note">Evaluation thresholds are intentionally excluded from this panel.</div>
@@ -3808,7 +3808,7 @@ function ModelLayerDetail({
       <LayerModelVersionTable versions={versions} selectedVersionId={effectiveVersionId} onSelectVersion={setSelectedVersionId} />
       <RuntimeCoefficientPanel view={view} selectedVersion={selectedVersion} />
       <ModelEvidenceDossier view={view} />
-      <LayerAcceptanceThresholds view={view} />
+      {view.definition.layer <= 3 ? <LayerAcceptanceThresholds view={view} /> : null}
       <section className="model-detail-section wide-detail">
         <span>Model Specification</span>
         <LayerSpecTable view={view} />
