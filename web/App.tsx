@@ -3507,12 +3507,12 @@ function LayerAcceptanceThresholds({ view }: { view: ModelLayerView }) {
   return (
     <section className="model-chart-panel version-parameters-panel">
       <div className="model-chart-title-row">
-        <span className="model-chart-title">Acceptance Thresholds · {layerEvaluationThresholdLabel(view)}</span>
+        <span className="model-chart-title">Evaluation Acceptance Gates · {layerEvaluationThresholdLabel(view)}</span>
         <StatusPill status={publication.status} severity={publication.severity} />
       </div>
       <div className="layer-parameter-table" role="table" aria-label="Layer acceptance thresholds">
         <div className="layer-parameter-row layer-parameter-head" role="row">
-          <span>Threshold</span>
+          <span>Gate</span>
           <span>Published Value</span>
           <span>Evaluation Role</span>
         </div>
@@ -3526,8 +3526,8 @@ function LayerAcceptanceThresholds({ view }: { view: ModelLayerView }) {
       </div>
       <div className="model-chart-note">
         {publication.isLocalOnly
-          ? 'These thresholds come from the layer-local evaluation artifact only; group fold context is reference data and is not used as the threshold identity.'
-          : 'Request payloads, evidence sources, model ids, reason codes, and group fold context are not acceptance thresholds and are intentionally excluded.'}
+          ? 'These are evaluation gates from the layer-local artifact, not model internal coefficients. Group fold context is reference data and is not used as the gate identity.'
+          : 'These are evaluation acceptance gates, not model internal coefficients. Request payloads, evidence sources, model ids, reason codes, and group fold context are intentionally excluded.'}
       </div>
     </section>
   );
@@ -3808,7 +3808,7 @@ function ModelLayerDetail({
       <LayerModelVersionTable versions={versions} selectedVersionId={effectiveVersionId} onSelectVersion={setSelectedVersionId} />
       <RuntimeCoefficientPanel view={view} selectedVersion={selectedVersion} />
       <ModelEvidenceDossier view={view} />
-      {view.definition.layer <= 3 ? <LayerAcceptanceThresholds view={view} /> : null}
+      <LayerAcceptanceThresholds view={view} />
       <section className="model-detail-section wide-detail">
         <span>Model Specification</span>
         <LayerSpecTable view={view} />
