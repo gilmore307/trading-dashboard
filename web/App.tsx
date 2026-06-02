@@ -2236,83 +2236,6 @@ function ModelVersionTable({
   );
 }
 
-function EvaluationTestSummaryPanel({
-  version,
-}: {
-  version: ModelGroupPromotionVersionPayload | null;
-}) {
-  if (!version) {
-    return (
-      <ModelScorecardSection title="Evaluation Test Summary" subtitle="Model-group evaluation tests are summarized here when promotion evidence is published.">
-        <section className="model-chart-panel">
-          <div className="empty-chart compact">No model-group evaluation evidence published yet</div>
-        </section>
-      </ModelScorecardSection>
-    );
-  }
-  const metrics = version.metrics ?? {};
-  const predictive = nestedRecord(metrics, 'predictive_diagnostics');
-  const calibration = nestedRecord(metrics, 'calibration_diagnostics');
-  const integrity = nestedRecord(metrics, 'data_integrity_diagnostics');
-  const temporal = nestedRecord(metrics, 'temporal_stability_diagnostics');
-  const uncertainty = nestedRecord(metrics, 'uncertainty_diagnostics');
-  const decisionSchema = decisionVariableDiagnostics(version);
-  const feature = featureDiagnostics(version);
-  const disagreement = evaluationDisagreementReport(version);
-  return (
-    <ModelScorecardSection title="Evaluation Test Summary" subtitle={`Summarized model-group evaluation tests for ${compactVersionLabel(version, 0)}.`}>
-      <ModelLifecycleStat
-        label="Predictive"
-        value={`AUROC ${formatMetricValue(metricNumber(metrics, 'auroc'))}`}
-        status={predictive ? 'ready' : 'missing'}
-        hint={`PR-AUC ${formatMetricValue(metricNumber(metrics, 'pr_auc'))} · base ${formatMetricValue(metricNumber(metrics, 'base_rate'))}`}
-      />
-      <ModelLifecycleStat
-        label="Calibration"
-        value={`ECE ${formatMetricValue(metricNumber(metrics, 'ece'))}`}
-        status={calibration ? 'ready' : 'missing'}
-        hint={`Brier ${formatMetricValue(metricNumber(metrics, 'brier_score'))} · MCE ${formatMetricValue(metricNumber(metrics, 'mce'))}`}
-      />
-      <ModelLifecycleStat
-        label="Selection"
-        value={startCase(String(decisionSchema?.status ?? metrics.decision_variable_schema_status ?? 'not_reported'))}
-        status={String(decisionSchema?.status ?? metrics.decision_variable_schema_status ?? 'not_reported')}
-        hint={`side unknown ${formatMetricValue(metricNumber(metrics, 'decision_intended_side_unknown_count'), 0)} · agency unknown ${formatMetricValue(metricNumber(metrics, 'decision_agency_unknown_count'), 0)}`}
-      />
-      <ModelLifecycleStat
-        label="Feature Space"
-        value={`PCA ${formatMetricValue(metricNumber(metrics, 'pca_variance_top2'))}`}
-        status={feature ? 'ready' : 'missing'}
-        hint={`PCoA ${formatMetricValue(metricNumber(metrics, 'pcoa_variance_top2'))} · silhouette ${formatMetricValue(metricNumber(metrics, 'silhouette_outcome_label'))}`}
-      />
-      <ModelLifecycleStat
-        label="Temporal"
-        value={`${formatMetricValue(metricNumber(metrics, 'month_slice_count'), 0)} slices`}
-        status={temporal ? 'ready' : 'missing'}
-        hint="monthly AUROC and Brier stability"
-      />
-      <ModelLifecycleStat
-        label="Integrity"
-        value={startCase(String(metrics.data_integrity_status ?? integrity?.status ?? 'not_reported'))}
-        status={String(metrics.data_integrity_status ?? integrity?.status ?? 'not_reported')}
-        hint={`leakage ${startCase(String(metrics.leakage_check_status ?? integrity?.leakage_check_status ?? 'not_reported'))}`}
-      />
-      <ModelLifecycleStat
-        label="Uncertainty"
-        value={uncertainty?.available === true ? 'Available' : startCase(String(uncertainty?.reason ?? 'not_reported'))}
-        status={uncertainty?.available === true ? 'ready' : 'pending'}
-        hint="promotion review still owns final uncertainty judgment"
-      />
-      <ModelLifecycleStat
-        label="Disagreement"
-        value={`${formatMetricValue(metricNumber(disagreement, 'disagreement_count'), 0)} findings`}
-        status={(metricNumber(disagreement, 'disagreement_count') ?? 0) > 0 ? 'deferred' : 'ready'}
-        hint={`AUROC hard gate ${String(nestedRecord(disagreement, 'promotion_gate_basis')?.auroc_is_hard_gate ?? false)}`}
-      />
-    </ModelScorecardSection>
-  );
-}
-
 function BrierDecompositionChart({
   version,
 }: {
@@ -3109,7 +3032,6 @@ function ModelGroupDetail({
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <ExcludedPromotionEvidencePanel exclusions={exclusions} />
       <IdentityDistribution versions={versions} />
-      <EvaluationTestSummaryPanel version={diagnosticVersion} />
       <EvaluationDisagreementPanel version={selectedVersion ?? diagnosticVersion} />
       <ModelScorecardSection title="Ranking / Calibration" subtitle="Prediction sorting and probability quality; AUROC is diagnostic, not the hard promotion gate.">
         {selectedVersion ? (
