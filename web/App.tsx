@@ -3276,47 +3276,6 @@ function compactConfigValue(value: unknown): string {
   }
 }
 
-function layerEvaluationParameterRows(view: ModelLayerView): Array<{ label: string; value: unknown; target: string; status: string }> {
-  return Array.isArray(view.evaluation?.parameter_values)
-    ? view.evaluation.parameter_values
-        .filter((parameter) => {
-          const record = maybeRecord(parameter);
-          return record.status !== 'not_published'
-            && (record.role === 'evaluation_acceptance_threshold' || record.source === 'acceptance_thresholds');
-        })
-        .map((parameter) => {
-          const record = maybeRecord(parameter);
-          return {
-            label: String(record.label ?? record.parameter_id ?? 'parameter'),
-            value: record.value,
-            target: startCase(String(record.role ?? record.source ?? 'acceptance_threshold')),
-            status: String(record.status ?? 'published'),
-          };
-        })
-    : [];
-}
-
-function layerEvaluationThresholdLabel(view: ModelLayerView): string {
-  const rawVersion = String(view.evaluation?.version_id ?? '').trim();
-  const localVersion = rawVersion && !/model_group|storage:\/\/trading-manager\/model_group|aapl\/20\d{2}/iu.test(rawVersion)
-    ? rawVersion
-    : '';
-  if (localVersion) return localVersion;
-  return `${view.definition.label} evaluation`;
-}
-
-function layerThresholdPublication(view: ModelLayerView, hasRows: boolean): { status: string; severity: string; isLocalOnly: boolean } {
-  if (!hasRows) return { status: 'thresholds not published', severity: 'medium', isLocalOnly: false };
-  const evidenceStatus = String(view.evaluation?.evidence_status ?? '').toLowerCase();
-  const validityStatus = String(view.evaluation?.validity_status ?? '').toLowerCase();
-  const isLocalOnly = evidenceStatus.includes('local') || evidenceStatus.includes('deferred') || validityStatus.includes('insufficient');
-  return {
-    status: isLocalOnly ? 'local thresholds only' : 'thresholds published',
-    severity: isLocalOnly ? 'medium' : 'low',
-    isLocalOnly,
-  };
-}
-
 function layerVersionStableId(version: ModelVersionSummaryPayload, index: number): string {
   return String(version.version_id ?? version.model_version ?? version.run_id ?? version.artifact_ref ?? `layer-version-${index}`);
 }
@@ -3496,39 +3455,6 @@ function RuntimeCoefficientPanel({ view, selectedVersion }: { view: ModelLayerVi
         )}
       </div>
       <div className="model-chart-note">Evaluation thresholds are intentionally excluded from this panel.</div>
-    </section>
-  );
-}
-
-function LayerAcceptanceThresholds({ view }: { view: ModelLayerView }) {
-  const rows = layerEvaluationParameterRows(view);
-  const hasLayerParameters = rows.length > 0;
-  const publication = layerThresholdPublication(view, hasLayerParameters);
-  return (
-    <section className="model-chart-panel version-parameters-panel">
-      <div className="model-chart-title-row">
-        <span className="model-chart-title">Evaluation Acceptance Gates · {layerEvaluationThresholdLabel(view)}</span>
-        <StatusPill status={publication.status} severity={publication.severity} />
-      </div>
-      <div className="layer-parameter-table" role="table" aria-label="Layer acceptance thresholds">
-        <div className="layer-parameter-row layer-parameter-head" role="row">
-          <span>Gate</span>
-          <span>Published Value</span>
-          <span>Evaluation Role</span>
-        </div>
-        {rows.length ? rows.map((row) => (
-          <div className="layer-parameter-row" role="row" key={row.label}>
-            <strong>{row.label}</strong>
-            <span>{compactConfigValue(row.value)}</span>
-            <small>{row.target}</small>
-          </div>
-        )) : <div className="empty-chart compact">No acceptance thresholds are published for this layer evaluation artifact.</div>}
-      </div>
-      <div className="model-chart-note">
-        {publication.isLocalOnly
-          ? 'These are evaluation gates from the layer-local artifact, not model internal coefficients. Group fold context is reference data and is not used as the gate identity.'
-          : 'These are evaluation acceptance gates, not model internal coefficients. Request payloads, evidence sources, model ids, reason codes, and group fold context are intentionally excluded.'}
-      </div>
     </section>
   );
 }
@@ -3808,7 +3734,6 @@ function ModelLayerDetail({
       <LayerModelVersionTable versions={versions} selectedVersionId={effectiveVersionId} onSelectVersion={setSelectedVersionId} />
       <RuntimeCoefficientPanel view={view} selectedVersion={selectedVersion} />
       <ModelEvidenceDossier view={view} />
-      <LayerAcceptanceThresholds view={view} />
       <section className="model-detail-section wide-detail">
         <span>Model Specification</span>
         <LayerSpecTable view={view} />

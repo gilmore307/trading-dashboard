@@ -288,9 +288,7 @@ Dashboard presentation:
 - layer pages lead with claim, evidence, and validity decision;
 - layer pages show each layer's allowed metric tests before evidence sections, with missing values shown as insufficient evidence rather than fabricated metrics;
 - missing per-layer statistical artifacts are displayed as `insufficient_evidence`;
-- acceptance-threshold tables consume only normalized `layer_evaluation_summary.parameter_values` rows whose source is `acceptance_thresholds`; request payload fields, evidence-source names, model ids, and reason codes are never displayed as thresholds;
-- acceptance-threshold panels are identified by the layer evaluation artifact, not by group replay, fold, or target labels. Group/fold refs may appear only as context and must not make local thresholds look like formal target-fold acceptance evidence;
-- acceptance-threshold panels are evaluation gates, not model internals. They may appear for all layers when published, but must be visually and verbally separated from internal coefficients, feature importances, and scoring contributions;
+- acceptance thresholds may remain in `layer_evaluation_summary.parameter_values` as evaluation evidence, but the model page does not render a threshold table;
 - runtime-coefficient tables consume normalized `layer_evaluation_summary.runtime_coefficients` plus selected version coefficient/importance/contribution payloads; missing coefficient artifacts are shown as an empty publication-pending state, not as rows, thresholds, or summary-field substitutes;
 - task progress, receipts, blockers, and safety flags stay on Tasks/Diagnostics, not on layer evaluation pages;
 - group-level AUROC/return/PCA/slice metrics must not be relabeled as layer-level metrics.
