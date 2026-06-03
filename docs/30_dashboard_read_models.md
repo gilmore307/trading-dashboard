@@ -287,6 +287,7 @@ The dashboard must not activate models. It only reports promotion posture.
 Replay presentation:
 
 - Replay initially consumes `model_promotion_posture_summary.group_versions` for historical replay economics because that is where current version-level replay diagnostics are published;
+- published replay group versions must come from the live-flow candidate-policy route: Layer 1/2 base context is only reusable context, while trade candidates must be evidenced by the Layer 2 target-candidate handoff or an explicit reviewed preview override;
 - full-width return and drawdown overlay charts can compare multiple selected versions on one full-history All frame and expose hover values at the current month;
 - replay version selection is a table-first surface: version identity, total return, excess return, drawdown, row counts, accepted/fill counts, good/bad outcome counts, missed winners, and model focus controls are shown in one selector table;
 - the replay selector defaults to all available versions selected for comparison; a row-level focus action narrows inspection to one version;
