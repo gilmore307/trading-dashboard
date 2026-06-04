@@ -101,7 +101,8 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
       { id: 'tasks', label: 'Tasks' },
       { id: 'data', label: 'Data' },
       { id: 'models', label: 'Models' },
-      { id: 'replay', label: 'Replay' },
+      { id: 'performance', label: 'Replay Performance' },
+      { id: 'replay', label: 'Replay Operations' },
       { id: 'timewheel', label: 'Timewheel' },
     ],
   },
@@ -109,7 +110,6 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
     label: 'Realtime',
     items: [
       { id: 'realtime', label: 'Realtime Signals' },
-      { id: 'performance', label: 'Trading Performance' },
     ],
   },
 ];
@@ -2362,6 +2362,15 @@ type ReplaySeries = {
   valueByMonth: Map<string, number>;
 };
 
+type ReplayCandle = {
+  label: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  returnValue: number;
+};
+
 type ReplayVersionEntry = {
   version: ModelGroupPromotionVersionPayload;
   index: number;
@@ -2493,6 +2502,48 @@ function replaySeriesForVersions(
   }).filter((series) => series.points.length);
 }
 
+function normalizedNavPoints(points: Array<{ label: string; value: number }>): Array<{ label: string; value: number }> {
+  let nav = 1;
+  return points.map((point) => {
+    nav *= 1 + point.value;
+    return { label: point.label, value: nav };
+  });
+}
+
+function replayNormalizedNavSeriesForVersions(entries: ReplayVersionEntry[]): ReplaySeries[] {
+  return entries.map(({ version, index }) => {
+    const raw = temporalDiagnosticPoints(version, 'net_return_total').sort((left, right) => left.label.localeCompare(right.label));
+    const points = normalizedNavPoints(raw);
+    return {
+      id: versionStableId(version, index),
+      label: compactVersionLabel(version, index),
+      color: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length],
+      points,
+      valueByMonth: new Map(points.map((point) => [point.label, point.value])),
+    };
+  }).filter((series) => series.points.length);
+}
+
+function replayCandlesForVersion(version: ModelGroupPromotionVersionPayload | null): ReplayCandle[] {
+  if (!version) return [];
+  let nav = 1;
+  return temporalDiagnosticPoints(version, 'net_return_total')
+    .sort((left, right) => left.label.localeCompare(right.label))
+    .map((point) => {
+      const open = nav;
+      const close = open * (1 + point.value);
+      nav = close;
+      return {
+        label: point.label,
+        open,
+        close,
+        high: Math.max(open, close),
+        low: Math.min(open, close),
+        returnValue: point.value,
+      };
+    });
+}
+
 function replayMonths(series: ReplaySeries[]): string[] {
   return [...new Set(series.flatMap((item) => item.points.map((point) => point.label)))].sort();
 }
@@ -2506,11 +2557,13 @@ function ReplayOverlayChart({
   series,
   yLabel,
   emptyLabel,
+  referenceValue = 0,
 }: {
   title: string;
   series: ReplaySeries[];
   yLabel: string;
   emptyLabel: string;
+  referenceValue?: number;
 }) {
   const months = replayMonths(series);
   const windowSize = Math.max(months.length, 1);
@@ -2544,12 +2597,12 @@ function ReplayOverlayChart({
   const chartWidth = width - padding * 2;
   const chartHeight = height - padding - bottomPadding;
   const visibleValues = series.flatMap((item) => visibleMonths.map((month) => item.valueByMonth.get(month)).filter((value): value is number => typeof value === 'number'));
-  const minValue = Math.min(0, ...visibleValues);
-  const maxValue = Math.max(0, ...visibleValues);
+  const minValue = Math.min(referenceValue, ...visibleValues);
+  const maxValue = Math.max(referenceValue, ...visibleValues);
   const range = maxValue - minValue || 1;
   const projectX = (index: number) => padding + (visibleMonths.length === 1 ? 0.5 : index / (visibleMonths.length - 1)) * chartWidth;
   const projectY = (value: number) => height - bottomPadding - ((value - minValue) / range) * chartHeight;
-  const zeroY = projectY(0);
+  const referenceY = projectY(referenceValue);
   const hoveredMonth = hoverIndex === null ? null : visibleMonths[hoverIndex] ?? null;
   const hoverX = hoverIndex === null ? null : projectX(hoverIndex);
   const pointerIndex = (clientX: number, element: SVGSVGElement) => {
@@ -2597,7 +2650,7 @@ function ReplayOverlayChart({
       >
         <line className="curve-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
         <line className="curve-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
-        <line className="curve-zero-line" x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} />
+        <line className="curve-zero-line" x1={padding} y1={referenceY} x2={width - padding} y2={referenceY} />
         {series.map((item) => {
           const points = visibleMonths
             .map((month, index) => {
@@ -2751,6 +2804,144 @@ function ReplayVersionSummarySelector({
           );
         }) : <div className="empty-chart compact">No replay models match the current filter.</div>}
       </div>
+    </section>
+  );
+}
+
+function ReplayPerformanceSummaryTable({
+  entries,
+  selectedIds,
+  onChange,
+}: {
+  entries: ReplayVersionEntry[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const rows = entries.map(({ version, index }) => {
+    const summary = replayVersionOutcomeSummary(version, index);
+    const navPoints = normalizedNavPoints(temporalDiagnosticPoints(version, 'net_return_total').sort((left, right) => left.label.localeCompare(right.label)));
+    return {
+      ...summary,
+      index,
+      nav: navPoints[navPoints.length - 1]?.value ?? null,
+    };
+  });
+  return (
+    <section className="panel replay-table-panel">
+      <div className="panel-heading">Performance Summary</div>
+      <div className="replay-table replay-performance-summary-table">
+        <div className="replay-table-row replay-table-head">
+          <span>Series</span>
+          <span>Normalized NAV</span>
+          <span>Total Return</span>
+          <span>Excess</span>
+          <span>Max DD</span>
+          <span>Months</span>
+          <span>Rows</span>
+          <span>Filled</span>
+          <span>Good / Bad</span>
+          <span>Missed</span>
+        </div>
+        {rows.length ? rows.map((row) => {
+          const selected = selectedIds.includes(row.id);
+          return (
+            <button
+              className={selected ? 'replay-table-row selected' : 'replay-table-row'}
+              key={row.id}
+              type="button"
+              onClick={() => {
+                const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
+                onChange(next.length ? next : [row.id]);
+              }}
+            >
+              <strong><i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}</strong>
+              <span>{formatMetricValue(row.nav, 4)}</span>
+              <span>{formatMetricValue(row.netReturn, 4)}</span>
+              <span>{formatMetricValue(row.excessReturn, 4)}</span>
+              <span>{formatMetricValue(row.maxDrawdown, 4)}</span>
+              <span>{row.months.toFixed(0)}</span>
+              <span>{row.decisionRows === null ? 'Not reported' : row.decisionRows.toFixed(0)}</span>
+              <span>{row.fillDenominator ? `${row.filled.toFixed(0)}/${row.fillDenominator.toFixed(0)}` : row.filled.toFixed(0)}</span>
+              <span>{row.takenGood.toFixed(0)} / {row.takenBad.toFixed(0)}</span>
+              <span>{row.missedGood.toFixed(0)}</span>
+            </button>
+          );
+        }) : <div className="empty-chart compact">No replay performance series published.</div>}
+      </div>
+    </section>
+  );
+}
+
+function ReplayNormalizedNavCandles({
+  version,
+}: {
+  version: ModelGroupPromotionVersionPayload | null;
+}) {
+  const candles = replayCandlesForVersion(version);
+  if (!version || !candles.length) {
+    return (
+      <section className="model-chart-panel replay-wide-chart">
+        <div className="model-chart-title">Normalized NAV K-line</div>
+        <div className="empty-chart compact">Select a replay version with monthly return slices.</div>
+      </section>
+    );
+  }
+  const width = 1120;
+  const height = 340;
+  const padding = 54;
+  const bottomPadding = 62;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding - bottomPadding;
+  const values = candles.flatMap((candle) => [candle.open, candle.high, candle.low, candle.close, 1]);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const range = maxValue - minValue || 1;
+  const slot = chartWidth / candles.length;
+  const bodyWidth = Math.max(8, Math.min(22, slot * 0.54));
+  const projectX = (index: number) => padding + slot * index + slot / 2;
+  const projectY = (value: number) => height - bottomPadding - ((value - minValue) / range) * chartHeight;
+  const baselineY = projectY(1);
+  const final = candles[candles.length - 1];
+  return (
+    <section className="model-chart-panel replay-wide-chart">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Normalized NAV K-line · {compactVersionLabel(version, 0)}</span>
+        <strong>{formatMetricValue(final.close, 4)}</strong>
+      </div>
+      <svg className="replay-nav-candles" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Replay normalized NAV K-line">
+        <line className="curve-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
+        <line className="curve-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line className="curve-zero-line" x1={padding} y1={baselineY} x2={width - padding} y2={baselineY} />
+        {candles.map((candle, index) => {
+          const x = projectX(index);
+          const rising = candle.close >= candle.open;
+          const top = projectY(Math.max(candle.open, candle.close));
+          const bottom = projectY(Math.min(candle.open, candle.close));
+          const bodyHeight = Math.max(2, bottom - top);
+          const showLabel = candles.length <= 10 || index === 0 || index === candles.length - 1 || index % Math.ceil(candles.length / 8) === 0;
+          return (
+            <g key={candle.label}>
+              <line className={rising ? 'nav-candle-wick rising' : 'nav-candle-wick falling'} x1={x} x2={x} y1={projectY(candle.high)} y2={projectY(candle.low)} />
+              <rect className={rising ? 'nav-candle-body rising' : 'nav-candle-body falling'} x={x - bodyWidth / 2} y={top} width={bodyWidth} height={bodyHeight} rx="3">
+                <title>{`${candle.label}: ${candle.open.toFixed(4)} -> ${candle.close.toFixed(4)} return ${candle.returnValue.toFixed(4)}`}</title>
+              </rect>
+              {showLabel ? <text x={x} y={height - 24} textAnchor="middle">{compactMonthLabel(candle.label)}</text> : null}
+            </g>
+          );
+        })}
+        <text className="curve-y-label" x={20} y={padding + chartHeight / 2} transform={`rotate(-90 20 ${padding + chartHeight / 2})`}>Normalized NAV</text>
+      </svg>
+    </section>
+  );
+}
+
+function ReplayBenchmarkGapPanel() {
+  const pending = ['SPDR sector ETFs', 'Crypto ETFs', 'Layer 1 context', 'Layer 2 anchors'];
+  return (
+    <section className="panel replay-benchmark-panel">
+      <div className="panel-heading">Benchmark Inputs</div>
+      <p className="panel-subtitle">ETF and Layer context comparison series are not yet published in the replay performance read model. They should be normalized to 1.0 before joining this page.</p>
+      <div className="chips">{pending.map((item) => <span className="chip" key={item}>{item}</span>)}</div>
     </section>
   );
 }
@@ -2962,11 +3153,50 @@ function ReplayMonthlyWindow({
   );
 }
 
-function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
+function ReplayPerformanceView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const defaultIds = versionIds;
+  const versionKey = versionIds.join('|');
+  const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const valid = new Set(versionIds);
+      const kept = current.filter((id) => valid.has(id));
+      return kept.length ? kept : defaultIds;
+    });
+  }, [defaultIds.join('|'), versionKey]);
+  const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
+  const navSeries = replayNormalizedNavSeriesForVersions(selectedEntries);
+  const drawdownSeries = replaySeriesForVersions(selectedEntries, 'max_drawdown', 'raw');
+  const selectedVersion = selectedEntries[0]?.version ?? null;
+  return (
+    <section className="replay-view">
+      <ReplayPerformanceSummaryTable
+        entries={entries}
+        selectedIds={selectedIds}
+        onChange={setSelectedIds}
+      />
+      <ReplayNormalizedNavCandles version={selectedVersion} />
+      <ReplayOverlayChart title="Normalized NAV Overlay" series={navSeries} yLabel="Normalized NAV" emptyLabel="No replay NAV slices published" referenceValue={1} />
+      <ReplayOverlayChart title="Drawdown Overlay" series={drawdownSeries} yLabel="Max drawdown" emptyLabel="No replay drawdown slices published" />
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart title="Total Return Compare" series={versionMetricSeries(versions, 'net_return_total')} emptyLabel="No replay total return metrics published" />
+        <MiniMetricBarChart title="Max Drawdown Compare" series={versionMetricSeries(versions, 'max_drawdown')} emptyLabel="No replay drawdown metrics published" />
+        <MiniMetricBarChart title="Excess Return Compare" series={versionMetricSeries(versions, 'excess_return_total')} emptyLabel="No replay excess return metrics published" />
+        <SliceDistributionPanel version={selectedVersion} />
+      </div>
+      <ReplayBenchmarkGapPanel />
+    </section>
+  );
+}
+
+function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
+  const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const entries = versions.map((version, index) => ({ version, index }));
+  const versionIds = versions.map((version, index) => versionStableId(version, index));
+  const defaultIds = versionIds.slice(0, 1);
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
   const [monthlyVersionId, setMonthlyVersionId] = useState<string | null>(null);
@@ -2979,8 +3209,6 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
     });
   }, [defaultIds.join('|'), versionKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
-  const returnSeries = replaySeriesForVersions(selectedEntries, 'net_return_total', 'cumulative');
-  const drawdownSeries = replaySeriesForVersions(selectedEntries, 'max_drawdown', 'raw');
   const selectedVersion = selectedEntries[0]?.version ?? null;
   const monthlyEntry = entries.find(({ version, index }) => versionStableId(version, index) === monthlyVersionId) ?? null;
   return (
@@ -2994,8 +3222,6 @@ function ReplayView({ promotionChart }: { promotionChart: ModelPromotionPostureC
           setSelectedMonth(null);
         }}
       />
-      <ReplayOverlayChart title="Cumulative Return Overlay" series={returnSeries} yLabel="Cumulative return" emptyLabel="No replay return slices published" />
-      <ReplayOverlayChart title="Drawdown Overlay" series={drawdownSeries} yLabel="Max drawdown" emptyLabel="No replay drawdown slices published" />
       <div className="replay-chart-grid">
         <ScoreDecileReturnCurve version={selectedVersion} emptyLabel="Select a replay version with score decile return evidence" />
         <ThresholdReturnCurve version={selectedVersion} emptyLabel="Select a replay version with threshold return evidence" />
@@ -3946,7 +4172,7 @@ function contractForView(view: ViewId): string {
   if (view === 'timewheel') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   if (view === 'models') return MODEL_LAYER_READINESS;
-  if (view === 'replay') return MODEL_PROMOTION_POSTURE;
+  if (view === 'replay' || view === 'performance') return MODEL_PROMOTION_POSTURE;
   return HISTORICAL_TASK_PROGRESS;
 }
 
@@ -4074,7 +4300,7 @@ function App() {
       ? realtimeModel
     : activeView === 'models'
       ? modelLayerModel ?? historicalModel
-    : activeView === 'replay'
+    : activeView === 'replay' || activeView === 'performance'
       ? modelPromotionModel ?? historicalModel
       : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
@@ -4491,7 +4717,8 @@ function App() {
     if (activeView === 'status') return renderCurrentStatusView();
     if (activeView === 'timewheel') return renderTemporalExplorerView();
     if (activeView === 'data') return <DataExplorerView />;
-    if (activeView === 'replay') return <ReplayView promotionChart={modelPromotionChart} />;
+    if (activeView === 'performance') return <ReplayPerformanceView promotionChart={modelPromotionChart} />;
+    if (activeView === 'replay') return <ReplayOperationsView promotionChart={modelPromotionChart} />;
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
       return <DiagnosticsSummaryView items={diagnosticItems} currentStatusModel={currentStatusModel} historicalModel={historicalModel} />;
@@ -4510,7 +4737,6 @@ function App() {
     }
     if (activeView === 'registry') return <PlaceholderView title="Definitions" />;
     if (activeView === 'realtime') return renderRealtimeSignalsView();
-    if (activeView === 'performance') return <PlaceholderView title="Trading Performance" />;
     return (
       <>
         <section className="metric-grid">
@@ -4534,8 +4760,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'timewheel' ? 'Temporal Explorer' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'timewheel' ? 'Timewheel / Dashboard' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'timewheel' ? 'Temporal Explorer' : activeView === 'performance' ? 'Replay Performance' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'timewheel' ? 'Timewheel / Dashboard' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);

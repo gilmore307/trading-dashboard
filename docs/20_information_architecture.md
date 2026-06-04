@@ -20,8 +20,8 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 The left sidebar is grouped by user intent:
 
 - General — Status, Definitions, and Diagnostics.
-- Historical Models — Tasks, Data, Models, Replay, and Timewheel.
-- Realtime — Realtime Signals and Trading Performance.
+- Historical Models — Tasks, Data, Models, Replay Performance, Replay Operations, and Timewheel.
+- Realtime — Realtime Signals.
 
 ## Page Contracts
 
@@ -209,13 +209,38 @@ Hidden by default:
 - internal request/control-plane records;
 - implementation logs.
 
-### Replay
+### Replay Performance
 
 Purpose: answer “How did the historical replay perform economically?”
 
 Visible content should include:
 
+- normalized replay net-asset-value series with every displayed strategy, ETF, layer, or context comparison rebased to `1.0` at the selected start;
+- monthly replay performance K-line over normalized NAV, not a `25000 USD` account-value chart;
+- strategy, ETF, Layer 1, Layer 2, and sector-anchor performance summary rows when those comparison series are published;
 - return, drawdown, cost, slice, and trade-outcome analysis;
+- metric comparison charts for total return, drawdown, excess return, volatility, and risk-adjusted return when available;
+- performance contribution slices by sector/context, asset class, action class, and time bucket when available.
+
+The replay initial capital of `25000 USD` is an execution/risk-limit input. It may appear as metadata, but Performance charts compare normalized values from `1.0` so strategy and ETF/context series share one scale.
+
+Hidden by default:
+
+- component decision traces;
+- raw decision rows;
+- execution adapter internals;
+- broker/account state.
+
+### Replay Operations
+
+Purpose: answer “Did the replay execution graph and model components behave normally and explainably?”
+
+Visible content should include:
+
+- C01-C07 decision timelines and summaries;
+- Layer 1-10 input/output summaries where available;
+- traded, skipped, blocked, rejected, and failed decision summaries;
+- component health, coverage, and missing-evidence diagnostics;
 - monthly replay operation status;
 - replay source-data readiness and visible gaps.
 

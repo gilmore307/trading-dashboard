@@ -272,6 +272,8 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .dashboard-table-controls input:focus { border-color: rgba(125, 211, 252, .62); box-shadow: 0 0 0 3px rgba(14, 165, 233, .12); }
 .dashboard-table-controls small { justify-self: end; color: #8fa2ba; font-size: 12px; font-weight: 850; }
 .replay-table-row { display: grid; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); color: #cbd5e1; font-size: 12px; font-weight: 800; }
+button.replay-table-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); background: rgba(14, 165, 233, .10); }
 .table-sort-button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; border: 0; padding: 0; color: #7dd3fc; background: transparent; text-align: left; font: inherit; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
 .table-sort-button:hover { color: #bae6fd; }
 .table-sort-button small { color: #7dd3fc; font-size: 10px; font-weight: 900; letter-spacing: 0; }
@@ -280,6 +282,11 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .replay-summary-table .replay-table-row.selected { border-color: rgba(125, 211, 252, .45); background: rgba(14, 165, 233, .13); }
 .replay-summary-table strong { display: flex; align-items: center; gap: 8px; }
 .replay-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
+.replay-performance-summary-table { min-width: 1120px; }
+.replay-performance-summary-table .replay-table-row { grid-template-columns: minmax(180px, 1.25fr) repeat(9, minmax(88px, .72fr)); }
+.replay-performance-summary-table .replay-table-row.selected { border-color: rgba(52, 211, 153, .48); background: rgba(6, 78, 59, .20); }
+.replay-performance-summary-table strong { display: flex; align-items: center; gap: 8px; }
+.replay-performance-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
 .replay-row-main { display: flex; align-items: center; gap: 8px; min-width: 0; border: 0; padding: 0; color: #f8fbff; background: transparent; font: inherit; font-weight: 900; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 .replay-row-main:hover { color: #bae6fd; }
 .replay-performance-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -312,6 +319,17 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .replay-decision-table { min-width: 1320px; }
 .replay-decision-table .replay-table-row { grid-template-columns: minmax(190px, 1.1fr) minmax(76px, .5fr) minmax(82px, .52fr) minmax(120px, .7fr) minmax(105px, .65fr) minmax(105px, .65fr) repeat(4, minmax(86px, .55fr)) minmax(220px, 1.2fr); }
 .replay-decision-table .replay-table-head { position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 18px rgba(2, 6, 23, .22); }
+.replay-nav-candles { width: 100%; min-height: 340px; display: block; overflow: visible; }
+.replay-nav-candles text { fill: #8fa2ba; font-size: 12px; font-weight: 750; }
+.replay-nav-candles .curve-axis { stroke: rgba(148, 163, 184, .30); stroke-width: 1.2; }
+.replay-nav-candles .curve-zero-line { stroke: rgba(203, 213, 225, .38); stroke-width: 1.3; stroke-dasharray: 7 7; }
+.replay-nav-candles .curve-y-label { text-anchor: middle; }
+.nav-candle-wick { stroke-width: 2; stroke-linecap: round; }
+.nav-candle-wick.rising { stroke: #34d399; }
+.nav-candle-wick.falling { stroke: #fb7185; }
+.nav-candle-body.rising { fill: rgba(52, 211, 153, .82); stroke: #bbf7d0; stroke-width: .8; }
+.nav-candle-body.falling { fill: rgba(251, 113, 133, .82); stroke: #ffe4e6; stroke-width: .8; }
+.replay-benchmark-panel { border-color: rgba(125, 211, 252, .18); background: rgba(15, 23, 42, .32); }
 
 @media (max-width: 1220px) {
   .model-chart-grid, .replay-chart-grid { grid-template-columns: 1fr; }
