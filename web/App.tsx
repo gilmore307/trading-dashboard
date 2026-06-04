@@ -2889,13 +2889,15 @@ function ReplayNormalizedNavCandles({
   version: ModelGroupPromotionVersionPayload | null;
 }) {
   const candles = useMemo(() => replayCandlesForVersion(version), [version]);
+  const chartData = useMemo(() => candles.map(toReplayLightweightCandle), [candles]);
+  const candleByTime = useMemo(() => new Map(chartData.map((candle) => [chartTimeKey(candle.time), candle])), [chartData]);
   const chartRef = useRef<HTMLDivElement | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const [hoveredCandle, setHoveredCandle] = useState<ReplayLightweightCandle | null>(null);
 
   useEffect(() => {
     const container = chartRef.current;
-    if (!container || !version || !candles.length) return undefined;
+    if (!container || !version || !chartData.length) return undefined;
 
     const chart: IChartApi = createChart(container, {
       autoSize: true,
@@ -2955,13 +2957,12 @@ function ReplayNormalizedNavCandles({
       wickUpColor: '#22ab94',
       wickDownColor: '#f23645',
       priceLineVisible: true,
-      priceLineColor: candles[candles.length - 1].close >= 1 ? '#22ab94' : '#f23645',
+      priceLineColor: chartData[chartData.length - 1].close >= 1 ? '#22ab94' : '#f23645',
       priceLineStyle: LineStyle.LargeDashed,
       lastValueVisible: true,
     });
     seriesRef.current = series;
 
-    const chartData = candles.map(toReplayLightweightCandle);
     series.setData(chartData);
     series.createPriceLine({
       price: 1,
@@ -2975,7 +2976,8 @@ function ReplayNormalizedNavCandles({
 
     const handleCrosshairMove = (event: MouseEventParams) => {
       const item = seriesRef.current ? event.seriesData.get(seriesRef.current) : null;
-      setHoveredCandle(isReplayLightweightCandle(item) ? item : null);
+      const timeMatch = event.time === undefined ? null : candleByTime.get(chartTimeKey(event.time));
+      setHoveredCandle(timeMatch ?? (isReplayLightweightCandle(item) ? item : null));
     };
     chart.subscribeCrosshairMove(handleCrosshairMove);
 
@@ -2988,7 +2990,7 @@ function ReplayNormalizedNavCandles({
       seriesRef.current = null;
       chart.remove();
     };
-  }, [candles, version]);
+  }, [candleByTime, chartData, version]);
 
   if (!version || !candles.length) {
     return (
@@ -3009,10 +3011,10 @@ function ReplayNormalizedNavCandles({
       <div className="replay-lightweight-chart-shell">
         <div className="replay-lightweight-legend">
           <strong>{legendCandle.label}</strong>
-          <span>O {legendCandle.open.toFixed(4)}</span>
-          <span>H {legendCandle.high.toFixed(4)}</span>
-          <span>L {legendCandle.low.toFixed(4)}</span>
-          <span>C {legendCandle.close.toFixed(4)}</span>
+          <span>Open {legendCandle.open.toFixed(4)}</span>
+          <span>High {legendCandle.high.toFixed(4)}</span>
+          <span>Low {legendCandle.low.toFixed(4)}</span>
+          <span>Close {legendCandle.close.toFixed(4)}</span>
           <span className={legendCandle.close >= legendCandle.open ? 'positive' : 'negative'}>R {legendCandle.returnValue.toFixed(4)}</span>
         </div>
         <div ref={chartRef} className="replay-lightweight-chart" role="img" aria-label="Replay normalized NAV K-line" />
@@ -3040,6 +3042,11 @@ function toReplayLightweightCandle(candle: ReplayCandle): ReplayLightweightCandl
 
 function replayMonthToChartTime(label: string): string {
   return /^\d{4}-\d{2}$/.test(label) ? `${label}-01` : label;
+}
+
+function chartTimeKey(time: CandlestickData['time']): string {
+  if (typeof time === 'string' || typeof time === 'number') return String(time);
+  return `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')}`;
 }
 
 function isReplayLightweightCandle(value: unknown): value is ReplayLightweightCandle {
