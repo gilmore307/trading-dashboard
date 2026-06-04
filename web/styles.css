@@ -319,28 +319,13 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-decision-table { min-width: 1320px; }
 .replay-decision-table .replay-table-row { grid-template-columns: minmax(190px, 1.1fr) minmax(76px, .5fr) minmax(82px, .52fr) minmax(120px, .7fr) minmax(105px, .65fr) minmax(105px, .65fr) repeat(4, minmax(86px, .55fr)) minmax(220px, 1.2fr); }
 .replay-decision-table .replay-table-head { position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 18px rgba(2, 6, 23, .22); }
-.replay-nav-candles { width: 100%; min-height: 420px; display: block; overflow: visible; cursor: crosshair; background: #0f1720; border-radius: 8px; }
-.replay-nav-candles text { fill: #8b9bb0; font-size: 11px; font-weight: 700; letter-spacing: 0; }
-.replay-nav-candles .tv-chart-bg { fill: #0f1720; }
-.replay-nav-candles .tv-plot-bg { fill: #0f1720; }
-.replay-nav-candles .tv-grid-line { stroke: rgba(148, 163, 184, .14); stroke-width: 1; shape-rendering: crispEdges; }
-.replay-nav-candles .tv-grid-line.vertical { stroke: rgba(148, 163, 184, .10); }
-.replay-nav-candles .tv-baseline { stroke: rgba(203, 213, 225, .32); stroke-width: 1.1; stroke-dasharray: 6 6; }
-.replay-nav-candles .tv-last-price { stroke-width: 1.1; stroke-dasharray: 5 5; }
-.replay-nav-candles .tv-last-price.rising { stroke: rgba(34, 197, 94, .68); }
-.replay-nav-candles .tv-last-price.falling { stroke: rgba(239, 68, 68, .68); }
-.tv-price-axis-label, .tv-time-axis-label { fill: #7d8fa5; }
-.tv-last-price-label.rising, .tv-hover-price-label.rising { fill: #22ab94; }
-.tv-last-price-label.falling, .tv-hover-price-label.falling { fill: #f23645; }
-.tv-last-price-text, .tv-hover-price-text { fill: #fff; font-weight: 850; }
-.nav-candle-wick { stroke-width: 1.4; stroke-linecap: square; shape-rendering: crispEdges; }
-.nav-candle-wick.rising { stroke: #22ab94; }
-.nav-candle-wick.falling { stroke: #f23645; }
-.nav-candle-body.rising { fill: #22ab94; stroke: #22ab94; stroke-width: 1; shape-rendering: crispEdges; }
-.nav-candle-body.falling { fill: #f23645; stroke: #f23645; stroke-width: 1; shape-rendering: crispEdges; }
-.tv-crosshair line { stroke: rgba(209, 213, 219, .48); stroke-width: 1; stroke-dasharray: 4 4; shape-rendering: crispEdges; }
-.tv-tooltip-bg { fill: rgba(15, 23, 32, .94); stroke: rgba(148, 163, 184, .22); }
-.tv-crosshair text { fill: #d8e2ef; font-size: 12px; font-weight: 800; }
+.replay-lightweight-chart-shell { position: relative; min-width: 0; min-height: 420px; border-radius: 8px; overflow: hidden; background: #0f1720; }
+.replay-lightweight-chart { width: 100%; height: 420px; min-height: 420px; }
+.replay-lightweight-legend { position: absolute; top: 10px; left: 12px; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 7px 9px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 8px; background: rgba(15, 23, 32, .86); color: #d8e2ef; font-size: 12px; font-weight: 850; pointer-events: none; }
+.replay-lightweight-legend strong { color: #f8fbff; }
+.replay-lightweight-legend span { color: #9fb1c7; }
+.replay-lightweight-legend .positive { color: #22ab94; }
+.replay-lightweight-legend .negative { color: #f23645; }
 .replay-benchmark-panel { border-color: rgba(125, 211, 252, .18); background: rgba(15, 23, 42, .32); }
 
 @media (max-width: 1220px) {

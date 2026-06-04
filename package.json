@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "lightweight-charts": "^5.2.0",
     "react": "latest",
     "react-dom": "latest",
     "typescript": "latest",
@@ -23,6 +24,6 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@types/ws": "^8.18.1",
-    "ws": "^8.20.0"
+    "ws": "^8.21.0"
   }
 }

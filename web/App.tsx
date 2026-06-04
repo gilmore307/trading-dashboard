@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  CandlestickSeries,
+  ColorType,
+  createChart,
+  CrosshairMode,
+  LineStyle,
+  type CandlestickData,
+  type IChartApi,
+  type ISeriesApi,
+  type MouseEventParams,
+} from 'lightweight-charts';
 import { HistoricalProgressVisual, MetricCard, ProgressBar, StatusPill } from './components';
 import { fetchDataTableCatalog, fetchDataTableRows, type DataTableQueryResult, type DataTableSpec } from './dataTables';
 import { formatTimestamp, startCase } from './format';
@@ -2877,8 +2888,108 @@ function ReplayNormalizedNavCandles({
 }: {
   version: ModelGroupPromotionVersionPayload | null;
 }) {
-  const candles = replayCandlesForVersion(version);
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const candles = useMemo(() => replayCandlesForVersion(version), [version]);
+  const chartRef = useRef<HTMLDivElement | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const [hoveredCandle, setHoveredCandle] = useState<ReplayLightweightCandle | null>(null);
+
+  useEffect(() => {
+    const container = chartRef.current;
+    if (!container || !version || !candles.length) return undefined;
+
+    const chart: IChartApi = createChart(container, {
+      autoSize: true,
+      layout: {
+        background: { type: ColorType.Solid, color: '#0f1720' },
+        textColor: '#8b9bb0',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        attributionLogo: true,
+      },
+      grid: {
+        vertLines: { color: 'rgba(148, 163, 184, .10)' },
+        horzLines: { color: 'rgba(148, 163, 184, .14)' },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: {
+          color: 'rgba(209, 213, 219, .48)',
+          style: LineStyle.LargeDashed,
+          labelVisible: false,
+        },
+        horzLine: {
+          color: 'rgba(209, 213, 219, .48)',
+          style: LineStyle.LargeDashed,
+          labelVisible: true,
+        },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(148, 163, 184, .18)',
+        scaleMargins: { top: 0.08, bottom: 0.12 },
+      },
+      timeScale: {
+        borderColor: 'rgba(148, 163, 184, .18)',
+        timeVisible: false,
+        secondsVisible: false,
+      },
+      localization: {
+        priceFormatter: (price: number) => price.toFixed(4),
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true,
+      },
+    });
+
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: '#22ab94',
+      downColor: '#f23645',
+      borderUpColor: '#22ab94',
+      borderDownColor: '#f23645',
+      wickUpColor: '#22ab94',
+      wickDownColor: '#f23645',
+      priceLineVisible: true,
+      priceLineColor: candles[candles.length - 1].close >= 1 ? '#22ab94' : '#f23645',
+      priceLineStyle: LineStyle.LargeDashed,
+      lastValueVisible: true,
+    });
+    seriesRef.current = series;
+
+    const chartData = candles.map(toReplayLightweightCandle);
+    series.setData(chartData);
+    series.createPriceLine({
+      price: 1,
+      color: 'rgba(203, 213, 225, .42)',
+      lineWidth: 1,
+      lineStyle: LineStyle.LargeDashed,
+      axisLabelVisible: true,
+      title: 'Start',
+    });
+    chart.timeScale().fitContent();
+
+    const handleCrosshairMove = (event: MouseEventParams) => {
+      const item = seriesRef.current ? event.seriesData.get(seriesRef.current) : null;
+      setHoveredCandle(isReplayLightweightCandle(item) ? item : null);
+    };
+    chart.subscribeCrosshairMove(handleCrosshairMove);
+
+    const resizeObserver = new ResizeObserver(() => chart.timeScale().fitContent());
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+      chart.unsubscribeCrosshairMove(handleCrosshairMove);
+      seriesRef.current = null;
+      chart.remove();
+    };
+  }, [candles, version]);
+
   if (!version || !candles.length) {
     return (
       <section className="model-chart-panel replay-wide-chart">
@@ -2887,104 +2998,59 @@ function ReplayNormalizedNavCandles({
       </section>
     );
   }
-  const width = 1120;
-  const height = 420;
-  const leftPadding = 18;
-  const topPadding = 28;
-  const rightPadding = 82;
-  const bottomPadding = 48;
-  const chartWidth = width - leftPadding - rightPadding;
-  const chartHeight = height - topPadding - bottomPadding;
-  const values = candles.flatMap((candle) => [candle.open, candle.high, candle.low, candle.close, 1]);
-  const rawMin = Math.min(...values);
-  const rawMax = Math.max(...values);
-  const valuePadding = Math.max((rawMax - rawMin) * 0.08, 0.01);
-  const minValue = rawMin - valuePadding;
-  const maxValue = rawMax + valuePadding;
-  const range = maxValue - minValue || 1;
-  const slot = chartWidth / candles.length;
-  const bodyWidth = Math.max(4, Math.min(16, slot * 0.62));
-  const projectX = (index: number) => leftPadding + slot * index + slot / 2;
-  const projectY = (value: number) => height - bottomPadding - ((value - minValue) / range) * chartHeight;
-  const baselineY = projectY(1);
   const final = candles[candles.length - 1];
-  const finalY = projectY(final.close);
-  const hoveredCandle = hoverIndex === null ? null : candles[hoverIndex] ?? null;
-  const hoverX = hoverIndex === null ? null : projectX(hoverIndex);
-  const priceTicks = Array.from({ length: 6 }, (_, index) => maxValue - (range * index) / 5);
-  const visibleMonthLabels = candles.map((candle, index) => ({
-    candle,
-    index,
-    show: candles.length <= 10 || index === 0 || index === candles.length - 1 || index % Math.ceil(candles.length / 8) === 0,
-  }));
-  const pointerIndex = (clientX: number, element: SVGSVGElement) => {
-    const rect = element.getBoundingClientRect();
-    const ratio = (clientX - rect.left) / Math.max(rect.width, 1);
-    const x = ratio * width;
-    return clampInt((x - leftPadding - slot / 2) / Math.max(slot, 1), 0, candles.length - 1);
-  };
+  const legendCandle = hoveredCandle ?? toReplayLightweightCandle(final);
   return (
     <section className="model-chart-panel replay-wide-chart">
       <div className="model-chart-title-row">
         <span className="model-chart-title">Normalized NAV K-line · {compactVersionLabel(version, 0)}</span>
         <strong>{final.label} · {formatMetricValue(final.close, 4)}</strong>
       </div>
-      <svg
-        className="replay-nav-candles tradingview-style"
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label="Replay normalized NAV K-line"
-        onPointerMove={(event) => setHoverIndex(pointerIndex(event.clientX, event.currentTarget))}
-        onPointerLeave={() => setHoverIndex(null)}
-      >
-        <rect className="tv-chart-bg" x="0" y="0" width={width} height={height} rx="0" />
-        <rect className="tv-plot-bg" x={leftPadding} y={topPadding} width={chartWidth} height={chartHeight} />
-        {priceTicks.map((tick) => (
-          <g key={tick.toFixed(6)}>
-            <line className="tv-grid-line" x1={leftPadding} y1={projectY(tick)} x2={leftPadding + chartWidth} y2={projectY(tick)} />
-            <text className="tv-price-axis-label" x={width - 12} y={projectY(tick) + 4} textAnchor="end">{tick.toFixed(4)}</text>
-          </g>
-        ))}
-        {visibleMonthLabels.filter((item) => item.show).map(({ candle, index }) => (
-          <g key={`${candle.label}-grid`}>
-            <line className="tv-grid-line vertical" x1={projectX(index)} y1={topPadding} x2={projectX(index)} y2={height - bottomPadding} />
-            <text className="tv-time-axis-label" x={projectX(index)} y={height - 18} textAnchor="middle">{compactMonthLabel(candle.label)}</text>
-          </g>
-        ))}
-        <line className="tv-baseline" x1={leftPadding} y1={baselineY} x2={leftPadding + chartWidth} y2={baselineY} />
-        <line className={final.close >= 1 ? 'tv-last-price rising' : 'tv-last-price falling'} x1={leftPadding} y1={finalY} x2={leftPadding + chartWidth} y2={finalY} />
-        <rect className={final.close >= 1 ? 'tv-last-price-label rising' : 'tv-last-price-label falling'} x={width - rightPadding + 8} y={finalY - 12} width="70" height="24" rx="4" />
-        <text className="tv-last-price-text" x={width - 12} y={finalY + 4} textAnchor="end">{final.close.toFixed(4)}</text>
-        {candles.map((candle, index) => {
-          const x = projectX(index);
-          const rising = candle.close >= candle.open;
-          const top = projectY(Math.max(candle.open, candle.close));
-          const bottom = projectY(Math.min(candle.open, candle.close));
-          const bodyHeight = Math.max(2, bottom - top);
-          return (
-            <g key={candle.label}>
-              <line className={rising ? 'nav-candle-wick rising' : 'nav-candle-wick falling'} x1={x} x2={x} y1={projectY(candle.high)} y2={projectY(candle.low)} />
-              <rect className={rising ? 'nav-candle-body rising' : 'nav-candle-body falling'} x={x - bodyWidth / 2} y={top} width={bodyWidth} height={bodyHeight} rx="1">
-                <title>{`${candle.label}: ${candle.open.toFixed(4)} -> ${candle.close.toFixed(4)} return ${candle.returnValue.toFixed(4)}`}</title>
-              </rect>
-            </g>
-          );
-        })}
-        {hoveredCandle && hoverX !== null ? (
-          <g className="tv-crosshair">
-            <line x1={hoverX} y1={topPadding} x2={hoverX} y2={height - bottomPadding} />
-            <line x1={leftPadding} y1={projectY(hoveredCandle.close)} x2={leftPadding + chartWidth} y2={projectY(hoveredCandle.close)} />
-            <rect className="tv-tooltip-bg" x={leftPadding + 12} y={topPadding + 12} width="326" height="78" rx="8" />
-            <text x={leftPadding + 26} y={topPadding + 34}>{hoveredCandle.label}</text>
-            <text x={leftPadding + 26} y={topPadding + 56}>O {hoveredCandle.open.toFixed(4)} H {hoveredCandle.high.toFixed(4)} L {hoveredCandle.low.toFixed(4)} C {hoveredCandle.close.toFixed(4)}</text>
-            <text x={leftPadding + 26} y={topPadding + 78}>Return {hoveredCandle.returnValue.toFixed(4)}</text>
-            <rect className={hoveredCandle.close >= hoveredCandle.open ? 'tv-hover-price-label rising' : 'tv-hover-price-label falling'} x={width - rightPadding + 8} y={projectY(hoveredCandle.close) - 12} width="70" height="24" rx="4" />
-            <text className="tv-hover-price-text" x={width - 12} y={projectY(hoveredCandle.close) + 4} textAnchor="end">{hoveredCandle.close.toFixed(4)}</text>
-          </g>
-        ) : null}
-      </svg>
+      <div className="replay-lightweight-chart-shell">
+        <div className="replay-lightweight-legend">
+          <strong>{legendCandle.label}</strong>
+          <span>O {legendCandle.open.toFixed(4)}</span>
+          <span>H {legendCandle.high.toFixed(4)}</span>
+          <span>L {legendCandle.low.toFixed(4)}</span>
+          <span>C {legendCandle.close.toFixed(4)}</span>
+          <span className={legendCandle.close >= legendCandle.open ? 'positive' : 'negative'}>R {legendCandle.returnValue.toFixed(4)}</span>
+        </div>
+        <div ref={chartRef} className="replay-lightweight-chart" role="img" aria-label="Replay normalized NAV K-line" />
+      </div>
     </section>
   );
+}
+
+type ReplayLightweightCandle = CandlestickData & {
+  label: string;
+  returnValue: number;
+};
+
+function toReplayLightweightCandle(candle: ReplayCandle): ReplayLightweightCandle {
+  return {
+    time: replayMonthToChartTime(candle.label),
+    label: candle.label,
+    open: candle.open,
+    high: candle.high,
+    low: candle.low,
+    close: candle.close,
+    returnValue: candle.returnValue,
+  };
+}
+
+function replayMonthToChartTime(label: string): string {
+  return /^\d{4}-\d{2}$/.test(label) ? `${label}-01` : label;
+}
+
+function isReplayLightweightCandle(value: unknown): value is ReplayLightweightCandle {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ReplayLightweightCandle>;
+  return typeof candidate.label === 'string'
+    && typeof candidate.open === 'number'
+    && typeof candidate.high === 'number'
+    && typeof candidate.low === 'number'
+    && typeof candidate.close === 'number'
+    && typeof candidate.returnValue === 'number';
 }
 
 function ReplayBenchmarkGapPanel() {
