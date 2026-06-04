@@ -2380,6 +2380,14 @@ type ReplayCandle = {
   low: number;
   close: number;
   returnValue: number;
+  ohlcSource: 'return_path' | 'endpoint';
+};
+
+type ReplayReturnPathOhlc = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 };
 
 type ReplayVersionEntry = {
@@ -2538,21 +2546,42 @@ function replayNormalizedNavSeriesForVersions(entries: ReplayVersionEntry[]): Re
 function replayCandlesForVersion(version: ModelGroupPromotionVersionPayload | null): ReplayCandle[] {
   if (!version) return [];
   let nav = 1;
-  return temporalDiagnosticPoints(version, 'net_return_total')
+  const temporal = nestedRecord(version.metrics, 'temporal_stability_diagnostics');
+  return nestedArray(temporal, 'slices')
+    .map((slice) => ({
+      label: String(slice.month ?? ''),
+      returnValue: metricNumber(slice, 'net_return_total'),
+      returnPath: replayReturnPathOhlc(slice),
+    }))
+    .filter((point): point is { label: string; returnValue: number; returnPath: ReplayReturnPathOhlc | null } => Boolean(point.label) && point.returnValue !== null)
     .sort((left, right) => left.label.localeCompare(right.label))
     .map((point) => {
       const open = nav;
-      const close = open * (1 + point.value);
+      const close = open * (point.returnPath?.close ?? (1 + point.returnValue));
+      const high = point.returnPath ? open * point.returnPath.high : Math.max(open, close);
+      const low = point.returnPath ? open * point.returnPath.low : Math.min(open, close);
       nav = close;
       return {
         label: point.label,
         open,
         close,
-        high: Math.max(open, close),
-        low: Math.min(open, close),
-        returnValue: point.value,
+        high: Math.max(open, close, high),
+        low: Math.min(open, close, low),
+        returnValue: point.returnValue,
+        ohlcSource: point.returnPath ? 'return_path' : 'endpoint',
       };
     });
+}
+
+function replayReturnPathOhlc(slice: Record<string, unknown>): ReplayReturnPathOhlc | null {
+  const path = nestedRecord(slice, 'net_return_path_ohlc');
+  if (!path) return null;
+  const open = metricNumber(path, 'open');
+  const high = metricNumber(path, 'high');
+  const low = metricNumber(path, 'low');
+  const close = metricNumber(path, 'close');
+  if (open === null || high === null || low === null || close === null) return null;
+  return { open, high, low, close };
 }
 
 function replayMonths(series: ReplaySeries[]): string[] {
@@ -3016,6 +3045,7 @@ function ReplayNormalizedNavCandles({
           <span>Low {legendCandle.low.toFixed(4)}</span>
           <span>Close {legendCandle.close.toFixed(4)}</span>
           <span className={legendCandle.close >= legendCandle.open ? 'positive' : 'negative'}>R {legendCandle.returnValue.toFixed(4)}</span>
+          <span>{legendCandle.ohlcSource === 'return_path' ? 'Path OHLC' : 'Endpoint OHLC'}</span>
         </div>
         <div ref={chartRef} className="replay-lightweight-chart" role="img" aria-label="Replay normalized NAV K-line" />
       </div>
@@ -3026,6 +3056,7 @@ function ReplayNormalizedNavCandles({
 type ReplayLightweightCandle = CandlestickData & {
   label: string;
   returnValue: number;
+  ohlcSource: ReplayCandle['ohlcSource'];
 };
 
 function toReplayLightweightCandle(candle: ReplayCandle): ReplayLightweightCandle {
@@ -3037,6 +3068,7 @@ function toReplayLightweightCandle(candle: ReplayCandle): ReplayLightweightCandl
     low: candle.low,
     close: candle.close,
     returnValue: candle.returnValue,
+    ohlcSource: candle.ohlcSource,
   };
 }
 
@@ -3057,7 +3089,8 @@ function isReplayLightweightCandle(value: unknown): value is ReplayLightweightCa
     && typeof candidate.high === 'number'
     && typeof candidate.low === 'number'
     && typeof candidate.close === 'number'
-    && typeof candidate.returnValue === 'number';
+    && typeof candidate.returnValue === 'number'
+    && (candidate.ohlcSource === 'return_path' || candidate.ohlcSource === 'endpoint');
 }
 
 function ReplayBenchmarkGapPanel() {

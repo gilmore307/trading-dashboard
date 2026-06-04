@@ -216,7 +216,7 @@ Purpose: answer “How did the historical replay perform economically?”
 Visible content should include:
 
 - normalized replay net-asset-value series with every displayed strategy, ETF, layer, or context comparison rebased to `1.0` at the selected start;
-- monthly replay performance K-line over normalized NAV, not a `25000 USD` account-value chart;
+- monthly replay performance K-line over normalized NAV, using row-path OHLC when the replay read model publishes it, not a `25000 USD` account-value chart;
 - strategy, ETF, Layer 1, Layer 2, and sector-anchor performance summary rows when those comparison series are published;
 - return, drawdown, cost, slice, and trade-outcome analysis;
 - metric comparison charts for total return, drawdown, excess return, volatility, and risk-adjusted return when available;

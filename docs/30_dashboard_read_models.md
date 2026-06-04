@@ -290,7 +290,7 @@ Replay Performance presentation:
 - published replay group versions must come from the live-flow candidate-policy route: Layer 1/2 base context is only reusable context, while trade candidates must be evidenced by the Layer 2 target-candidate handoff or an explicit reviewed preview override;
 - Performance charts must normalize every strategy, ETF, Layer 1, Layer 2, and context comparison series to `1.0` at the selected start. The replay `25000 USD` initial capital is execution/risk-limit metadata, not the chart scale;
 - full-width normalized NAV and drawdown overlay charts can compare multiple selected versions on one full-history All frame and expose hover values at the current month;
-- monthly normalized NAV K-line uses replay return slices compounded from `1.0`;
+- monthly normalized NAV K-line uses replay return slices compounded from `1.0`; when a slice publishes `net_return_path_ohlc`, the candle high/low must come from that row-level replay return path rather than from endpoint-only open/close values;
 - performance summary is table-first: series identity, normalized NAV, total return, excess return, drawdown, row counts, fill counts, outcome counts, and missed winners are shown in one selector table;
 - metric comparison charts show total return, drawdown, excess return, and slice/contribution diagnostics when published;
 - ETF, Layer 1, Layer 2, and sector-anchor comparison series stay absent until a read model publishes them; the dashboard must not fabricate benchmark rows from missing evidence.
