@@ -319,16 +319,28 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-decision-table { min-width: 1320px; }
 .replay-decision-table .replay-table-row { grid-template-columns: minmax(190px, 1.1fr) minmax(76px, .5fr) minmax(82px, .52fr) minmax(120px, .7fr) minmax(105px, .65fr) minmax(105px, .65fr) repeat(4, minmax(86px, .55fr)) minmax(220px, 1.2fr); }
 .replay-decision-table .replay-table-head { position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 18px rgba(2, 6, 23, .22); }
-.replay-nav-candles { width: 100%; min-height: 340px; display: block; overflow: visible; }
-.replay-nav-candles text { fill: #8fa2ba; font-size: 12px; font-weight: 750; }
-.replay-nav-candles .curve-axis { stroke: rgba(148, 163, 184, .30); stroke-width: 1.2; }
-.replay-nav-candles .curve-zero-line { stroke: rgba(203, 213, 225, .38); stroke-width: 1.3; stroke-dasharray: 7 7; }
-.replay-nav-candles .curve-y-label { text-anchor: middle; }
-.nav-candle-wick { stroke-width: 2; stroke-linecap: round; }
-.nav-candle-wick.rising { stroke: #34d399; }
-.nav-candle-wick.falling { stroke: #fb7185; }
-.nav-candle-body.rising { fill: rgba(52, 211, 153, .82); stroke: #bbf7d0; stroke-width: .8; }
-.nav-candle-body.falling { fill: rgba(251, 113, 133, .82); stroke: #ffe4e6; stroke-width: .8; }
+.replay-nav-candles { width: 100%; min-height: 420px; display: block; overflow: visible; cursor: crosshair; background: #0f1720; border-radius: 8px; }
+.replay-nav-candles text { fill: #8b9bb0; font-size: 11px; font-weight: 700; letter-spacing: 0; }
+.replay-nav-candles .tv-chart-bg { fill: #0f1720; }
+.replay-nav-candles .tv-plot-bg { fill: #0f1720; }
+.replay-nav-candles .tv-grid-line { stroke: rgba(148, 163, 184, .14); stroke-width: 1; shape-rendering: crispEdges; }
+.replay-nav-candles .tv-grid-line.vertical { stroke: rgba(148, 163, 184, .10); }
+.replay-nav-candles .tv-baseline { stroke: rgba(203, 213, 225, .32); stroke-width: 1.1; stroke-dasharray: 6 6; }
+.replay-nav-candles .tv-last-price { stroke-width: 1.1; stroke-dasharray: 5 5; }
+.replay-nav-candles .tv-last-price.rising { stroke: rgba(34, 197, 94, .68); }
+.replay-nav-candles .tv-last-price.falling { stroke: rgba(239, 68, 68, .68); }
+.tv-price-axis-label, .tv-time-axis-label { fill: #7d8fa5; }
+.tv-last-price-label.rising, .tv-hover-price-label.rising { fill: #22ab94; }
+.tv-last-price-label.falling, .tv-hover-price-label.falling { fill: #f23645; }
+.tv-last-price-text, .tv-hover-price-text { fill: #fff; font-weight: 850; }
+.nav-candle-wick { stroke-width: 1.4; stroke-linecap: square; shape-rendering: crispEdges; }
+.nav-candle-wick.rising { stroke: #22ab94; }
+.nav-candle-wick.falling { stroke: #f23645; }
+.nav-candle-body.rising { fill: #22ab94; stroke: #22ab94; stroke-width: 1; shape-rendering: crispEdges; }
+.nav-candle-body.falling { fill: #f23645; stroke: #f23645; stroke-width: 1; shape-rendering: crispEdges; }
+.tv-crosshair line { stroke: rgba(209, 213, 219, .48); stroke-width: 1; stroke-dasharray: 4 4; shape-rendering: crispEdges; }
+.tv-tooltip-bg { fill: rgba(15, 23, 32, .94); stroke: rgba(148, 163, 184, .22); }
+.tv-crosshair text { fill: #d8e2ef; font-size: 12px; font-weight: 800; }
 .replay-benchmark-panel { border-color: rgba(125, 211, 252, .18); background: rgba(15, 23, 42, .32); }
 
 @media (max-width: 1220px) {

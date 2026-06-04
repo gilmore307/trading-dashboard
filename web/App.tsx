@@ -2878,6 +2878,7 @@ function ReplayNormalizedNavCandles({
   version: ModelGroupPromotionVersionPayload | null;
 }) {
   const candles = replayCandlesForVersion(version);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   if (!version || !candles.length) {
     return (
       <section className="model-chart-panel replay-wide-chart">
@@ -2887,49 +2888,100 @@ function ReplayNormalizedNavCandles({
     );
   }
   const width = 1120;
-  const height = 340;
-  const padding = 54;
-  const bottomPadding = 62;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding - bottomPadding;
+  const height = 420;
+  const leftPadding = 18;
+  const topPadding = 28;
+  const rightPadding = 82;
+  const bottomPadding = 48;
+  const chartWidth = width - leftPadding - rightPadding;
+  const chartHeight = height - topPadding - bottomPadding;
   const values = candles.flatMap((candle) => [candle.open, candle.high, candle.low, candle.close, 1]);
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const valuePadding = Math.max((rawMax - rawMin) * 0.08, 0.01);
+  const minValue = rawMin - valuePadding;
+  const maxValue = rawMax + valuePadding;
   const range = maxValue - minValue || 1;
   const slot = chartWidth / candles.length;
-  const bodyWidth = Math.max(8, Math.min(22, slot * 0.54));
-  const projectX = (index: number) => padding + slot * index + slot / 2;
+  const bodyWidth = Math.max(4, Math.min(16, slot * 0.62));
+  const projectX = (index: number) => leftPadding + slot * index + slot / 2;
   const projectY = (value: number) => height - bottomPadding - ((value - minValue) / range) * chartHeight;
   const baselineY = projectY(1);
   const final = candles[candles.length - 1];
+  const finalY = projectY(final.close);
+  const hoveredCandle = hoverIndex === null ? null : candles[hoverIndex] ?? null;
+  const hoverX = hoverIndex === null ? null : projectX(hoverIndex);
+  const priceTicks = Array.from({ length: 6 }, (_, index) => maxValue - (range * index) / 5);
+  const visibleMonthLabels = candles.map((candle, index) => ({
+    candle,
+    index,
+    show: candles.length <= 10 || index === 0 || index === candles.length - 1 || index % Math.ceil(candles.length / 8) === 0,
+  }));
+  const pointerIndex = (clientX: number, element: SVGSVGElement) => {
+    const rect = element.getBoundingClientRect();
+    const ratio = (clientX - rect.left) / Math.max(rect.width, 1);
+    const x = ratio * width;
+    return clampInt((x - leftPadding - slot / 2) / Math.max(slot, 1), 0, candles.length - 1);
+  };
   return (
     <section className="model-chart-panel replay-wide-chart">
       <div className="model-chart-title-row">
         <span className="model-chart-title">Normalized NAV K-line · {compactVersionLabel(version, 0)}</span>
-        <strong>{formatMetricValue(final.close, 4)}</strong>
+        <strong>{final.label} · {formatMetricValue(final.close, 4)}</strong>
       </div>
-      <svg className="replay-nav-candles" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Replay normalized NAV K-line">
-        <line className="curve-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
-        <line className="curve-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
-        <line className="curve-zero-line" x1={padding} y1={baselineY} x2={width - padding} y2={baselineY} />
+      <svg
+        className="replay-nav-candles tradingview-style"
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Replay normalized NAV K-line"
+        onPointerMove={(event) => setHoverIndex(pointerIndex(event.clientX, event.currentTarget))}
+        onPointerLeave={() => setHoverIndex(null)}
+      >
+        <rect className="tv-chart-bg" x="0" y="0" width={width} height={height} rx="0" />
+        <rect className="tv-plot-bg" x={leftPadding} y={topPadding} width={chartWidth} height={chartHeight} />
+        {priceTicks.map((tick) => (
+          <g key={tick.toFixed(6)}>
+            <line className="tv-grid-line" x1={leftPadding} y1={projectY(tick)} x2={leftPadding + chartWidth} y2={projectY(tick)} />
+            <text className="tv-price-axis-label" x={width - 12} y={projectY(tick) + 4} textAnchor="end">{tick.toFixed(4)}</text>
+          </g>
+        ))}
+        {visibleMonthLabels.filter((item) => item.show).map(({ candle, index }) => (
+          <g key={`${candle.label}-grid`}>
+            <line className="tv-grid-line vertical" x1={projectX(index)} y1={topPadding} x2={projectX(index)} y2={height - bottomPadding} />
+            <text className="tv-time-axis-label" x={projectX(index)} y={height - 18} textAnchor="middle">{compactMonthLabel(candle.label)}</text>
+          </g>
+        ))}
+        <line className="tv-baseline" x1={leftPadding} y1={baselineY} x2={leftPadding + chartWidth} y2={baselineY} />
+        <line className={final.close >= 1 ? 'tv-last-price rising' : 'tv-last-price falling'} x1={leftPadding} y1={finalY} x2={leftPadding + chartWidth} y2={finalY} />
+        <rect className={final.close >= 1 ? 'tv-last-price-label rising' : 'tv-last-price-label falling'} x={width - rightPadding + 8} y={finalY - 12} width="70" height="24" rx="4" />
+        <text className="tv-last-price-text" x={width - 12} y={finalY + 4} textAnchor="end">{final.close.toFixed(4)}</text>
         {candles.map((candle, index) => {
           const x = projectX(index);
           const rising = candle.close >= candle.open;
           const top = projectY(Math.max(candle.open, candle.close));
           const bottom = projectY(Math.min(candle.open, candle.close));
           const bodyHeight = Math.max(2, bottom - top);
-          const showLabel = candles.length <= 10 || index === 0 || index === candles.length - 1 || index % Math.ceil(candles.length / 8) === 0;
           return (
             <g key={candle.label}>
               <line className={rising ? 'nav-candle-wick rising' : 'nav-candle-wick falling'} x1={x} x2={x} y1={projectY(candle.high)} y2={projectY(candle.low)} />
-              <rect className={rising ? 'nav-candle-body rising' : 'nav-candle-body falling'} x={x - bodyWidth / 2} y={top} width={bodyWidth} height={bodyHeight} rx="3">
+              <rect className={rising ? 'nav-candle-body rising' : 'nav-candle-body falling'} x={x - bodyWidth / 2} y={top} width={bodyWidth} height={bodyHeight} rx="1">
                 <title>{`${candle.label}: ${candle.open.toFixed(4)} -> ${candle.close.toFixed(4)} return ${candle.returnValue.toFixed(4)}`}</title>
               </rect>
-              {showLabel ? <text x={x} y={height - 24} textAnchor="middle">{compactMonthLabel(candle.label)}</text> : null}
             </g>
           );
         })}
-        <text className="curve-y-label" x={20} y={padding + chartHeight / 2} transform={`rotate(-90 20 ${padding + chartHeight / 2})`}>Normalized NAV</text>
+        {hoveredCandle && hoverX !== null ? (
+          <g className="tv-crosshair">
+            <line x1={hoverX} y1={topPadding} x2={hoverX} y2={height - bottomPadding} />
+            <line x1={leftPadding} y1={projectY(hoveredCandle.close)} x2={leftPadding + chartWidth} y2={projectY(hoveredCandle.close)} />
+            <rect className="tv-tooltip-bg" x={leftPadding + 12} y={topPadding + 12} width="326" height="78" rx="8" />
+            <text x={leftPadding + 26} y={topPadding + 34}>{hoveredCandle.label}</text>
+            <text x={leftPadding + 26} y={topPadding + 56}>O {hoveredCandle.open.toFixed(4)} H {hoveredCandle.high.toFixed(4)} L {hoveredCandle.low.toFixed(4)} C {hoveredCandle.close.toFixed(4)}</text>
+            <text x={leftPadding + 26} y={topPadding + 78}>Return {hoveredCandle.returnValue.toFixed(4)}</text>
+            <rect className={hoveredCandle.close >= hoveredCandle.open ? 'tv-hover-price-label rising' : 'tv-hover-price-label falling'} x={width - rightPadding + 8} y={projectY(hoveredCandle.close) - 12} width="70" height="24" rx="4" />
+            <text className="tv-hover-price-text" x={width - 12} y={projectY(hoveredCandle.close) + 4} textAnchor="end">{hoveredCandle.close.toFixed(4)}</text>
+          </g>
+        ) : null}
       </svg>
     </section>
   );
