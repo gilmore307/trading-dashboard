@@ -518,6 +518,21 @@ function activeTaskLabel(chart: HistoricalTaskProgressChartPayload): string {
   return startCase(chart.active_stage);
 }
 
+function runtimeWorkLabel(chart: HistoricalTaskProgressChartPayload): string {
+  const runtimeWork = chart.runtime_active_work;
+  if (runtimeWork?.stage_id) return startCase(runtimeWork.stage_id);
+  if (chart.internal_active_stage) return startCase(chart.internal_active_stage);
+  return startCase(runtimeWork?.status || 'unknown');
+}
+
+function runtimeWorkHint(chart: HistoricalTaskProgressChartPayload): string {
+  const runtimeWork = chart.runtime_active_work;
+  const status = startCase(runtimeWork?.status || chart.lock_status || 'unknown');
+  const month = runtimeWork?.month || chart.internal_current_month || chart.current_month || 'unknown period';
+  const reason = runtimeWork?.reason_code || runtimeWork?.decision_status || runtimeWork?.reason;
+  return reason ? `${status} · ${month} · ${startCase(reason)}` : `${status} · ${month}`;
+}
+
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
   const target = taskTargetSymbol(task);
   if (target) return target;
@@ -5333,7 +5348,12 @@ function App() {
       <>
         <section className="metric-grid">
           <MetricCard label="Active historical period" value={chart.current_month ?? 'Unknown'} />
-          <MetricCard label="Active task" value={activeTaskLabel(chart)} />
+          <MetricCard label="Runtime work" value={runtimeWorkLabel(chart)} hint={runtimeWorkHint(chart)} />
+          <MetricCard
+            label="Active task"
+            value={activeTaskLabel(chart)}
+            hint={chart.active_task?.status ? `${startCase(chart.active_task.status)} · ${chart.active_task.month ?? 'unknown period'}` : undefined}
+          />
           <MetricCard label="Provider posture" value={startCase(chart.provider_status)} />
           <MetricCard label="Lock" value={startCase(chart.lock_status)} />
         </section>

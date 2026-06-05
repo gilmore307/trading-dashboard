@@ -319,10 +319,22 @@ export interface HistoricalTaskTimelineItemPayload {
   detail?: HistoricalTaskTimelineDetailPayload;
 }
 
+export interface HistoricalRuntimeActiveWorkPayload {
+  month?: string | null;
+  stage_id?: string | null;
+  status?: string | null;
+  decision_status?: string | null;
+  reason_code?: string | null;
+  reason?: string | null;
+  next_internal_stage?: string | null;
+  lock_status?: string | null;
+}
+
 export interface HistoricalTaskProgressChartPayload {
   current_month?: string | null;
   active_stage?: string | null;
   active_task?: HistoricalTaskTimelineItemPayload | null;
+  runtime_active_work?: HistoricalRuntimeActiveWorkPayload | null;
   internal_current_month?: string | null;
   internal_active_stage?: string | null;
   progress_percent?: number;
