@@ -3737,8 +3737,29 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const receipts = detail.receipt_refs ?? [];
   const failureRegister = detail.failure_register ?? null;
   const failureCount = failureRegister?.failure_count ?? 0;
+  const autoRepairRequiredCount = failureRegister?.auto_repair_required_count ?? 0;
   const agentReviewRequiredCount = failureRegister?.agent_review_required_count ?? 0;
+  const retryRequiredCount = failureRegister?.retry_required_count ?? 0;
+  const correctedCount = failureRegister?.corrected_count ?? 0;
+  const acceptedSkipCount = failureRegister?.accepted_skip_count ?? 0;
+  const resolvedFailureCount = correctedCount + acceptedSkipCount;
+  const pendingFailureCount = autoRepairRequiredCount + agentReviewRequiredCount + retryRequiredCount;
+  const failureRegisterSolved = failureCount > 0 && pendingFailureCount === 0 && resolvedFailureCount >= failureCount;
+  const failureRegisterSummary = failureRegisterSolved
+    ? `${failureCount} failed request${failureCount === 1 ? '' : 's'} solved`
+    : [
+        resolvedFailureCount > 0
+          ? `${resolvedFailureCount}/${failureCount} failed request${failureCount === 1 ? '' : 's'} solved`
+          : `${failureCount} failed request${failureCount === 1 ? '' : 's'} tracked`,
+        autoRepairRequiredCount > 0 ? `${autoRepairRequiredCount} automatic repair${autoRepairRequiredCount === 1 ? '' : 's'} pending` : null,
+        retryRequiredCount > 0 ? `${retryRequiredCount} retr${retryRequiredCount === 1 ? 'y' : 'ies'} pending` : null,
+        agentReviewRequiredCount > 0 ? `${agentReviewRequiredCount} control decision${agentReviewRequiredCount === 1 ? '' : 's'} pending` : null,
+      ].filter(Boolean).join(' · ');
   const topFailure = failureRegister?.top_errors?.[0] ?? null;
+  const topFailureCount = topFailure?.count ?? failureCount;
+  const topFailureCountLabel = failureRegisterSolved
+    ? `${topFailureCount} solved`
+    : `${topFailureCount} occurrence${topFailureCount === 1 ? '' : 's'}`;
   const agentErrors = detail.agent_error_summary ?? [];
   const latestAgentError = agentErrors[0] ?? null;
   const repairInterventionStatus = detail.repair_intervention_status ?? null;
@@ -3799,10 +3820,10 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
           </div>
         ) : null}
         {failureRegister && failureCount > 0 ? (
-          <div className="task-detail-card wide-detail">
+          <div className={`task-detail-card wide-detail${failureRegisterSolved ? ' task-detail-card--resolved' : ''}`}>
             <span>Failure register</span>
-            <strong>{failureCount} failed request{failureCount === 1 ? '' : 's'} · {agentReviewRequiredCount} require review</strong>
-            {topFailure?.error_summary ? <small>{topFailure.count ?? failureCount} · {topFailure.error_summary}</small> : null}
+            <strong>{failureRegisterSummary}</strong>
+            {topFailure?.error_summary ? <small>{topFailureCountLabel} · {topFailure.error_summary}</small> : null}
             {failureRegister.latest_updated_at_utc ? <small>Latest update {formatTimestamp(failureRegister.latest_updated_at_utc)}</small> : null}
           </div>
         ) : null}

@@ -261,6 +261,10 @@ export interface HistoricalTaskDatasetUnitPayload {
 export interface HistoricalTaskFailureRegisterPayload {
   failure_count?: number;
   agent_review_required_count?: number;
+  auto_repair_required_count?: number;
+  retry_required_count?: number;
+  corrected_count?: number;
+  accepted_skip_count?: number;
   status_counts?: Record<string, number>;
   top_errors?: Array<{
     count?: number;
