@@ -2386,6 +2386,10 @@ type ReplayCandle = {
   high: number;
   low: number;
   close: number;
+  absoluteOpen: number;
+  absoluteHigh: number;
+  absoluteLow: number;
+  absoluteClose: number;
   returnValue: number;
   ohlcSource: 'return_path' | 'endpoint';
 };
@@ -2554,9 +2558,30 @@ function replayNormalizedNavSeriesForVersions(entries: ReplayVersionEntry[]): Re
   }).filter((series) => series.points.length);
 }
 
+function replayAbsoluteNavBase(version: ModelGroupPromotionVersionPayload): number {
+  const economicQuality = scorecardSection(version, 'economic_quality');
+  const directKeys = [
+    'initial_nav',
+    'starting_nav',
+    'start_nav',
+    'replay_initial_nav',
+    'initial_capital',
+    'starting_capital',
+    'start_capital',
+    'base_nav',
+    'base_capital',
+  ];
+  for (const key of directKeys) {
+    const value = metricNumber(version.metrics, key) ?? metricNumber(economicQuality, key);
+    if (value !== null && value > 0) return value;
+  }
+  return 1;
+}
+
 function replayCandlesForVersion(version: ModelGroupPromotionVersionPayload | null): ReplayCandle[] {
   if (!version) return [];
   let nav = 1;
+  const absoluteBase = replayAbsoluteNavBase(version);
   const temporal = nestedRecord(version.metrics, 'temporal_stability_diagnostics');
   return nestedArray(temporal, 'slices')
     .map((slice) => ({
@@ -2578,6 +2603,10 @@ function replayCandlesForVersion(version: ModelGroupPromotionVersionPayload | nu
         close,
         high: Math.max(open, close, high),
         low: Math.min(open, close, low),
+        absoluteOpen: open * absoluteBase,
+        absoluteClose: close * absoluteBase,
+        absoluteHigh: Math.max(open, close, high) * absoluteBase,
+        absoluteLow: Math.min(open, close, low) * absoluteBase,
         returnValue: point.returnValue,
         ohlcSource: point.returnPath ? 'return_path' : 'endpoint',
       };
@@ -3190,10 +3219,8 @@ function ReplayNormalizedNavCandles({
       <div className="replay-lightweight-chart-shell">
         <div className="replay-lightweight-legend">
           <strong>{legendCandle.label}</strong>
-          <span>Open {legendCandle.open.toFixed(4)}</span>
-          <span>High {legendCandle.high.toFixed(4)}</span>
-          <span>Low {legendCandle.low.toFixed(4)}</span>
-          <span>Close {legendCandle.close.toFixed(4)}</span>
+          <span>Abs O {formatMetricValue(legendCandle.absoluteOpen, 2)} H {formatMetricValue(legendCandle.absoluteHigh, 2)} L {formatMetricValue(legendCandle.absoluteLow, 2)} C {formatMetricValue(legendCandle.absoluteClose, 2)}</span>
+          <span>Norm O {legendCandle.open.toFixed(4)} H {legendCandle.high.toFixed(4)} L {legendCandle.low.toFixed(4)} C {legendCandle.close.toFixed(4)}</span>
           <span className={legendCandle.close >= legendCandle.open ? 'positive' : 'negative'}>R {legendCandle.returnValue.toFixed(4)}</span>
           <span>{legendCandle.ohlcSource === 'return_path' ? 'Path OHLC' : 'Endpoint OHLC'}</span>
         </div>
@@ -3240,6 +3267,10 @@ function ReplaySelectionModePanel({
 
 type ReplayLightweightCandle = CandlestickData & {
   label: string;
+  absoluteOpen: number;
+  absoluteHigh: number;
+  absoluteLow: number;
+  absoluteClose: number;
   returnValue: number;
   ohlcSource: ReplayCandle['ohlcSource'];
 };
@@ -3252,6 +3283,10 @@ function toReplayLightweightCandle(candle: ReplayCandle): ReplayLightweightCandl
     high: candle.high,
     low: candle.low,
     close: candle.close,
+    absoluteOpen: candle.absoluteOpen,
+    absoluteHigh: candle.absoluteHigh,
+    absoluteLow: candle.absoluteLow,
+    absoluteClose: candle.absoluteClose,
     returnValue: candle.returnValue,
     ohlcSource: candle.ohlcSource,
   };
@@ -3274,6 +3309,10 @@ function isReplayLightweightCandle(value: unknown): value is ReplayLightweightCa
     && typeof candidate.high === 'number'
     && typeof candidate.low === 'number'
     && typeof candidate.close === 'number'
+    && typeof candidate.absoluteOpen === 'number'
+    && typeof candidate.absoluteHigh === 'number'
+    && typeof candidate.absoluteLow === 'number'
+    && typeof candidate.absoluteClose === 'number'
     && typeof candidate.returnValue === 'number'
     && (candidate.ohlcSource === 'return_path' || candidate.ohlcSource === 'endpoint');
 }
