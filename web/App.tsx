@@ -2447,6 +2447,10 @@ type ReplayVersionSummary = ReturnType<typeof replayVersionOutcomeSummary> & {
   index: number;
 };
 
+type ReplayPerformanceSummary = ReturnType<typeof replayVersionPerformanceSummary> & {
+  index: number;
+};
+
 type ModelVersionTableRow = {
   index: number;
   id: string;
@@ -2575,6 +2579,122 @@ function replayCandlesForVersion(version: ModelGroupPromotionVersionPayload | nu
         ohlcSource: point.returnPath ? 'return_path' : 'endpoint',
       };
     });
+}
+
+function monthlyReplayReturns(version: ModelGroupPromotionVersionPayload): Array<{ label: string; value: number }> {
+  return temporalDiagnosticPoints(version, 'net_return_total').sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function sampleStandardDeviation(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1);
+  return Number.isFinite(variance) ? Math.sqrt(variance) : null;
+}
+
+function annualizedReturnFromNav(nav: number | null, months: number): number | null {
+  if (nav === null || months <= 0 || nav <= 0) return null;
+  return nav ** (12 / months) - 1;
+}
+
+function drawdownFromNavPoints(points: Array<{ label: string; value: number }>): number | null {
+  if (!points.length) return null;
+  let peak = 1;
+  let maxDrawdown = 0;
+  for (const point of points) {
+    peak = Math.max(peak, point.value);
+    if (peak > 0) maxDrawdown = Math.min(maxDrawdown, point.value / peak - 1);
+  }
+  return maxDrawdown;
+}
+
+function metricFallback(version: ModelGroupPromotionVersionPayload, keys: string[]): number | null {
+  const economicQuality = scorecardSection(version, 'economic_quality');
+  for (const key of keys) {
+    const value = metricNumber(version.metrics, key) ?? metricNumber(economicQuality, key);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function temporalBenchmarkReturns(version: ModelGroupPromotionVersionPayload): number[] {
+  const temporal = nestedRecord(version.metrics, 'temporal_stability_diagnostics');
+  const benchmarkKeys = ['benchmark_return_total', 'baseline_return_total', 'benchmark_net_return_total', 'market_return_total', 'etf_return_total', 'spy_return_total'];
+  return nestedArray(temporal, 'slices')
+    .sort((left, right) => String(left.month ?? '').localeCompare(String(right.month ?? '')))
+    .map((slice) => {
+      for (const key of benchmarkKeys) {
+        const value = metricNumber(slice, key);
+        if (value !== null) return value;
+      }
+      return null;
+    })
+    .filter((value): value is number => value !== null);
+}
+
+function betaAgainstBenchmark(strategyReturns: number[], benchmarkReturns: number[]): number | null {
+  const count = Math.min(strategyReturns.length, benchmarkReturns.length);
+  if (count < 2) return null;
+  const left = strategyReturns.slice(0, count);
+  const right = benchmarkReturns.slice(0, count);
+  const leftMean = left.reduce((sum, value) => sum + value, 0) / count;
+  const rightMean = right.reduce((sum, value) => sum + value, 0) / count;
+  const covariance = left.reduce((sum, value, index) => sum + (value - leftMean) * (right[index] - rightMean), 0) / (count - 1);
+  const variance = right.reduce((sum, value) => sum + (value - rightMean) ** 2, 0) / (count - 1);
+  return variance > 0 && Number.isFinite(covariance) ? covariance / variance : null;
+}
+
+function replayVersionPerformanceSummary(version: ModelGroupPromotionVersionPayload, index: number) {
+  const returns = monthlyReplayReturns(version);
+  const returnValues = returns.map((point) => point.value);
+  const navPoints = normalizedNavPoints(returns);
+  const nav = navPoints[navPoints.length - 1]?.value ?? null;
+  const months = returns.length;
+  const totalReturn = metricFallback(version, ['net_return_total', 'cost_adjusted_return_total']) ?? (nav === null ? null : nav - 1);
+  const excessReturn = metricFallback(version, ['excess_return_total']);
+  const maxDrawdown = metricFallback(version, ['max_drawdown']) ?? drawdownFromNavPoints(navPoints);
+  const annualizedReturn = metricFallback(version, ['annualized_return', 'annualized_net_return']) ?? annualizedReturnFromNav(nav, months);
+  const monthlyVolatility = sampleStandardDeviation(returnValues);
+  const volatility = metricFallback(version, ['annualized_volatility', 'volatility']) ?? (monthlyVolatility === null ? null : monthlyVolatility * Math.sqrt(12));
+  const downsideValues = returnValues.filter((value) => value < 0);
+  const downsideDeviation = downsideValues.length
+    ? Math.sqrt(downsideValues.reduce((sum, value) => sum + value ** 2, 0) / downsideValues.length) * Math.sqrt(12)
+    : null;
+  const sharpe = metricFallback(version, ['sharpe_ratio', 'sharpe']) ?? (annualizedReturn !== null && volatility && volatility > 0 ? annualizedReturn / volatility : null);
+  const sortino = metricFallback(version, ['sortino_ratio', 'sortino']) ?? (annualizedReturn !== null && downsideDeviation && downsideDeviation > 0 ? annualizedReturn / downsideDeviation : null);
+  const calmar = metricFallback(version, ['calmar_ratio', 'calmar']) ?? (annualizedReturn !== null && maxDrawdown !== null && Math.abs(maxDrawdown) > 0 ? annualizedReturn / Math.abs(maxDrawdown) : null);
+  const beta = metricFallback(version, ['beta', 'market_beta', 'benchmark_beta']) ?? betaAgainstBenchmark(returnValues, temporalBenchmarkReturns(version));
+  const winRate = returnValues.length ? returnValues.filter((value) => value > 0).length / returnValues.length : null;
+  return {
+    id: versionStableId(version, index),
+    label: compactVersionLabel(version, index),
+    target: String(version.target_symbol ?? '').trim().toUpperCase() || 'Not reported',
+    identity: modelIdentity(version),
+    nav,
+    totalReturn,
+    excessReturn,
+    maxDrawdown,
+    annualizedReturn,
+    volatility,
+    sharpe,
+    sortino,
+    calmar,
+    beta,
+    winRate,
+    months,
+  };
+}
+
+function performanceMetricSeries(entries: ReplayVersionEntry[], key: keyof ReturnType<typeof replayVersionPerformanceSummary>): Array<{ label: string; value: number; status?: string | null }> {
+  const points: Array<{ label: string; value: number; status?: string | null }> = [];
+  entries.forEach(({ version, index }) => {
+    const row = replayVersionPerformanceSummary(version, index);
+    const value = row[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      points.push({ label: row.label, value, status: version.decision_status });
+    }
+  });
+  return points;
 }
 
 function replayReturnPathOhlc(slice: Record<string, unknown>): ReplayReturnPathOhlc | null {
@@ -2861,30 +2981,38 @@ function ReplayPerformanceSummaryTable({
   selectedIds: string[];
   onChange: (ids: string[]) => void;
 }) {
-  const rows = entries.map(({ version, index }) => {
-    const summary = replayVersionOutcomeSummary(version, index);
-    const navPoints = normalizedNavPoints(temporalDiagnosticPoints(version, 'net_return_total').sort((left, right) => left.label.localeCompare(right.label)));
-    return {
-      ...summary,
-      index,
-      nav: navPoints[navPoints.length - 1]?.value ?? null,
-    };
-  });
+  const [filter, setFilter] = useState('');
+  const [sort, setSort] = useState<SortState<'label' | 'target' | 'nav' | 'totalReturn' | 'excessReturn' | 'maxDrawdown' | 'annualizedReturn' | 'volatility' | 'sharpe' | 'sortino' | 'calmar' | 'beta' | 'winRate'>>({ key: 'totalReturn', direction: 'desc' });
+  const query = filter.trim().toLowerCase();
+  const rows: ReplayPerformanceSummary[] = entries
+    .map(({ version, index }) => ({ ...replayVersionPerformanceSummary(version, index), index }))
+    .filter((row) => !query || searchText(row.label, row.target, row.identity, row.nav, row.totalReturn, row.excessReturn, row.maxDrawdown, row.annualizedReturn, row.volatility, row.sharpe, row.sortino, row.calmar, row.beta, row.winRate).includes(query))
+    .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.index - right.index);
   return (
     <section className="panel replay-table-panel">
       <div className="panel-heading">Performance Summary</div>
+      <div className="dashboard-table-controls">
+        <label>
+          <span>Filter target/model</span>
+          <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="AAPL, SPY, active…" />
+        </label>
+        <small>Showing {rows.length} of {entries.length}</small>
+      </div>
       <div className="replay-table replay-performance-summary-table">
         <div className="replay-table-row replay-table-head">
-          <span>Series</span>
-          <span>Normalized NAV</span>
-          <span>Total Return</span>
-          <span>Excess</span>
-          <span>Max DD</span>
-          <span>Months</span>
-          <span>Rows</span>
-          <span>Filled</span>
-          <span>Good / Bad</span>
-          <span>Missed</span>
+          <SortableHeader label="Series" column="label" sort={sort} onSort={setSort} />
+          <SortableHeader label="Target" column="target" sort={sort} onSort={setSort} />
+          <SortableHeader label="NAV" column="nav" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Total" column="totalReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Excess" column="excessReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Max DD" column="maxDrawdown" sort={sort} onSort={setSort} />
+          <SortableHeader label="Ann Ret" column="annualizedReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Vol" column="volatility" sort={sort} onSort={setSort} />
+          <SortableHeader label="Sharpe" column="sharpe" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Sortino" column="sortino" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Calmar" column="calmar" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Beta" column="beta" sort={sort} onSort={setSort} />
+          <SortableHeader label="Win" column="winRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         </div>
         {rows.length ? rows.map((row) => {
           const selected = selectedIds.includes(row.id);
@@ -2899,15 +3027,18 @@ function ReplayPerformanceSummaryTable({
               }}
             >
               <strong><i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}</strong>
+              <span>{row.target}</span>
               <span>{formatMetricValue(row.nav, 4)}</span>
-              <span>{formatMetricValue(row.netReturn, 4)}</span>
+              <span>{formatMetricValue(row.totalReturn, 4)}</span>
               <span>{formatMetricValue(row.excessReturn, 4)}</span>
               <span>{formatMetricValue(row.maxDrawdown, 4)}</span>
-              <span>{row.months.toFixed(0)}</span>
-              <span>{row.decisionRows === null ? 'Not reported' : row.decisionRows.toFixed(0)}</span>
-              <span>{row.fillDenominator ? `${row.filled.toFixed(0)}/${row.fillDenominator.toFixed(0)}` : row.filled.toFixed(0)}</span>
-              <span>{row.takenGood.toFixed(0)} / {row.takenBad.toFixed(0)}</span>
-              <span>{row.missedGood.toFixed(0)}</span>
+              <span>{formatMetricValue(row.annualizedReturn, 4)}</span>
+              <span>{formatMetricValue(row.volatility, 4)}</span>
+              <span>{formatMetricValue(row.sharpe, 3)}</span>
+              <span>{formatMetricValue(row.sortino, 3)}</span>
+              <span>{formatMetricValue(row.calmar, 3)}</span>
+              <span>{formatMetricValue(row.beta, 3)}</span>
+              <span>{formatMetricValue(row.winRate, 3)}</span>
             </button>
           );
         }) : <div className="empty-chart compact">No replay performance series published.</div>}
@@ -3057,6 +3188,21 @@ function ReplayNormalizedNavCandles({
   );
 }
 
+function ReplayPerformanceNavChart({ entries }: { entries: ReplayVersionEntry[] }) {
+  if (entries.length <= 1) {
+    return <ReplayNormalizedNavCandles version={entries[0]?.version ?? null} />;
+  }
+  return (
+    <ReplayOverlayChart
+      title="Normalized NAV"
+      series={replayNormalizedNavSeriesForVersions(entries)}
+      yLabel="Normalized NAV"
+      emptyLabel="No replay NAV slices published"
+      referenceValue={1}
+    />
+  );
+}
+
 type ReplayLightweightCandle = CandlestickData & {
   label: string;
   returnValue: number;
@@ -3095,17 +3241,6 @@ function isReplayLightweightCandle(value: unknown): value is ReplayLightweightCa
     && typeof candidate.close === 'number'
     && typeof candidate.returnValue === 'number'
     && (candidate.ohlcSource === 'return_path' || candidate.ohlcSource === 'endpoint');
-}
-
-function ReplayBenchmarkGapPanel() {
-  const pending = ['SPDR sector ETFs', 'Crypto ETFs', 'Layer 1 context', 'Layer 2 anchors'];
-  return (
-    <section className="panel replay-benchmark-panel">
-      <div className="panel-heading">Benchmark Inputs</div>
-      <p className="panel-subtitle">ETF and Layer context comparison series are not yet published in the replay performance read model. They should be normalized to 1.0 before joining this page.</p>
-      <div className="chips">{pending.map((item) => <span className="chip" key={item}>{item}</span>)}</div>
-    </section>
-  );
 }
 
 function replayMonthlyRows(version: ModelGroupPromotionVersionPayload, index: number): ReplayMonthRow[] {
@@ -3330,9 +3465,6 @@ function ReplayPerformanceView({ promotionChart }: { promotionChart: ModelPromot
     });
   }, [defaultIds.join('|'), versionKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
-  const navSeries = replayNormalizedNavSeriesForVersions(selectedEntries);
-  const drawdownSeries = replaySeriesForVersions(selectedEntries, 'max_drawdown', 'raw');
-  const selectedVersion = selectedEntries[0]?.version ?? null;
   return (
     <section className="replay-view">
       <ReplayPerformanceSummaryTable
@@ -3340,16 +3472,15 @@ function ReplayPerformanceView({ promotionChart }: { promotionChart: ModelPromot
         selectedIds={selectedIds}
         onChange={setSelectedIds}
       />
-      <ReplayNormalizedNavCandles version={selectedVersion} />
-      <ReplayOverlayChart title="Normalized NAV Overlay" series={navSeries} yLabel="Normalized NAV" emptyLabel="No replay NAV slices published" referenceValue={1} />
-      <ReplayOverlayChart title="Drawdown Overlay" series={drawdownSeries} yLabel="Max drawdown" emptyLabel="No replay drawdown slices published" />
+      <ReplayPerformanceNavChart entries={selectedEntries} />
       <div className="replay-chart-grid">
-        <MiniMetricBarChart title="Total Return Compare" series={versionMetricSeries(versions, 'net_return_total')} emptyLabel="No replay total return metrics published" />
-        <MiniMetricBarChart title="Max Drawdown Compare" series={versionMetricSeries(versions, 'max_drawdown')} emptyLabel="No replay drawdown metrics published" />
-        <MiniMetricBarChart title="Excess Return Compare" series={versionMetricSeries(versions, 'excess_return_total')} emptyLabel="No replay excess return metrics published" />
-        <SliceDistributionPanel version={selectedVersion} />
+        <MiniMetricBarChart title="Total Return Compare" series={performanceMetricSeries(selectedEntries, 'totalReturn')} emptyLabel="No replay total return metrics published" />
+        <MiniMetricBarChart title="Max Drawdown Compare" series={performanceMetricSeries(selectedEntries, 'maxDrawdown')} emptyLabel="No replay drawdown metrics published" />
+        <MiniMetricBarChart title="Excess Return Compare" series={performanceMetricSeries(selectedEntries, 'excessReturn')} emptyLabel="No replay excess return metrics published" />
+        <MiniMetricBarChart title="Volatility Compare" series={performanceMetricSeries(selectedEntries, 'volatility')} emptyLabel="No replay volatility metrics published" />
+        <MiniMetricBarChart title="Sharpe Compare" series={performanceMetricSeries(selectedEntries, 'sharpe')} emptyLabel="No replay Sharpe metrics published" />
+        <MiniMetricBarChart title="Beta Compare" series={performanceMetricSeries(selectedEntries, 'beta')} emptyLabel="No benchmark beta evidence published" />
       </div>
-      <ReplayBenchmarkGapPanel />
     </section>
   );
 }

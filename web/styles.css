@@ -282,8 +282,8 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-summary-table .replay-table-row.selected { border-color: rgba(125, 211, 252, .45); background: rgba(14, 165, 233, .13); }
 .replay-summary-table strong { display: flex; align-items: center; gap: 8px; }
 .replay-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
-.replay-performance-summary-table { min-width: 1120px; }
-.replay-performance-summary-table .replay-table-row { grid-template-columns: minmax(180px, 1.25fr) repeat(9, minmax(88px, .72fr)); }
+.replay-performance-summary-table { min-width: 1460px; }
+.replay-performance-summary-table .replay-table-row { grid-template-columns: minmax(190px, 1.2fr) minmax(82px, .55fr) repeat(11, minmax(82px, .58fr)); }
 .replay-performance-summary-table .replay-table-row.selected { border-color: rgba(52, 211, 153, .48); background: rgba(6, 78, 59, .20); }
 .replay-performance-summary-table strong { display: flex; align-items: center; gap: 8px; }
 .replay-performance-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
@@ -326,7 +326,6 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-lightweight-legend span { color: #9fb1c7; }
 .replay-lightweight-legend .positive { color: #22ab94; }
 .replay-lightweight-legend .negative { color: #f23645; }
-.replay-benchmark-panel { border-color: rgba(125, 211, 252, .18); background: rgba(15, 23, 42, .32); }
 
 @media (max-width: 1220px) {
   .model-chart-grid, .replay-chart-grid { grid-template-columns: 1fr; }

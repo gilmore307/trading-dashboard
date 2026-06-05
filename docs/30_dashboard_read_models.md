@@ -289,16 +289,17 @@ Replay Performance presentation:
 - Replay Performance initially consumes `model_promotion_posture_summary.group_versions` for historical replay economics because that is where current version-level replay diagnostics are published;
 - published replay group versions must come from the live-flow candidate-policy route: Layer 1/2 base context is only reusable context, while trade candidates must be evidenced by the Layer 2 target-candidate handoff or an explicit reviewed preview override;
 - Performance charts must normalize every strategy, ETF, Layer 1, Layer 2, and context comparison series to `1.0` at the selected start. The replay `25000 USD` initial capital is execution/risk-limit metadata, not the chart scale;
-- full-width normalized NAV and drawdown overlay charts can compare multiple selected versions on one full-history All frame and expose hover values at the current month;
+- Replay Performance owns one normalized NAV chart slot: a single selected series renders as a monthly normalized NAV K-line, while multiple selected series render as normalized NAV lines on one shared chart for readability;
 - monthly normalized NAV K-line uses replay return slices compounded from `1.0`; when a slice publishes `net_return_path_ohlc`, the candle high/low must come from that row-level replay return path rather than from endpoint-only open/close values;
-- performance summary is table-first: series identity, normalized NAV, total return, excess return, drawdown, row counts, fill counts, outcome counts, and missed winners are shown in one selector table;
-- metric comparison charts show total return, drawdown, excess return, and slice/contribution diagnostics when published;
+- performance summary is table-first: series identity, target, normalized NAV, total return, excess return, max drawdown, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and monthly win rate are shown in one selector table;
+- metric comparison charts show total return, drawdown, excess return, volatility, Sharpe, and beta when published;
 - ETF, Layer 1, Layer 2, and sector-anchor comparison series stay absent until a read model publishes them; the dashboard must not fabricate benchmark rows from missing evidence.
 
 Replay Operations presentation:
 
 - Replay Operations consumes the same `replay_run_id`, version scope, time range, and selected month/cursor as Replay Performance when those fields are available;
 - operations version selection focuses the model/run whose component decisions are being inspected;
+- replay slice/contribution distributions belong in Replay Operations because they explain decision flow and component behavior, not headline trading performance;
 - full Monthly Replay detail is a model-scoped detail window, and month clicks route to a historical replay decision-detail table sourced through the read-only dashboard replay decision API;
 - trade-level replay decision detail must remain historical replay evidence with sanitized fields such as timestamp, target/instrument, action/disposition, fill status, score, returns, cost, and reason codes; it must not present broker/account/order mutation controls;
 - future storage work should split large replay payloads into a dedicated replay read model when promotion posture is no longer the narrow canonical home.
