@@ -1465,7 +1465,7 @@ function MiniMetricBarChart({
   const bottomPadding = 54;
   const values = series.map((point) => point.value);
   const minValue = Math.min(0, ...values);
-  const maxValue = Math.max(...values);
+  const maxValue = Math.max(0, ...values);
   const range = maxValue - minValue || 1;
   const barGap = 12;
   const barWidth = Math.max(16, ((width - padding * 2) / series.length) - barGap);
