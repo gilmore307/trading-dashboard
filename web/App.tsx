@@ -3681,6 +3681,19 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const execution = detail.last_execution;
   const blockers = detail.blockers ?? [];
   const receipts = detail.receipt_refs ?? [];
+  const failureRegister = detail.failure_register ?? null;
+  const failureCount = failureRegister?.failure_count ?? 0;
+  const agentReviewRequiredCount = failureRegister?.agent_review_required_count ?? 0;
+  const topFailure = failureRegister?.top_errors?.[0] ?? null;
+  const agentErrors = detail.agent_error_summary ?? [];
+  const latestAgentError = agentErrors[0] ?? null;
+  const repairInterventionStatus = detail.repair_intervention_status ?? null;
+  const latestAgentRepairStatus = latestAgentError
+    ? agentInterventionStatus(latestAgentError.diagnosis_status, latestAgentError.repair_status, latestAgentError.runner_command)
+    : null;
+  const latestAgentErrorRef = latestAgentError?.error_ref ? String(latestAgentError.error_ref) : null;
+  const latestAgentRootCause = latestAgentError ? diagnosticText(latestAgentError.root_cause ?? latestAgentError.summary, '') : '';
+  const latestAgentRetry = latestAgentError?.retry_recommendation ? String(latestAgentError.retry_recommendation) : '';
   const progressView = taskProgressView(task);
   return (
     <div className="task-detail-panel">
@@ -3729,6 +3742,27 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             <strong>{startCase(execution.status)}</strong>
             <small>{execution.return_code === undefined || execution.return_code === null ? 'No return code recorded' : `Return code ${execution.return_code}`}</small>
             {execution.reason ? <small>{execution.reason}</small> : null}
+          </div>
+        ) : null}
+        {failureRegister && failureCount > 0 ? (
+          <div className="task-detail-card wide-detail">
+            <span>Failure register</span>
+            <strong>{failureCount} failed request{failureCount === 1 ? '' : 's'} · {agentReviewRequiredCount} require review</strong>
+            {topFailure?.error_summary ? <small>{topFailure.count ?? failureCount} · {topFailure.error_summary}</small> : null}
+            {failureRegister.latest_updated_at_utc ? <small>Latest update {formatTimestamp(failureRegister.latest_updated_at_utc)}</small> : null}
+          </div>
+        ) : null}
+        {repairInterventionStatus || latestAgentError ? (
+          <div className="task-detail-card wide-detail">
+            <span>Repair intervention</span>
+            <strong>{startCase(repairInterventionStatus ?? latestAgentRepairStatus ?? 'not reported')}</strong>
+            {latestAgentError ? (
+              <small>
+                {[latestAgentErrorRef, latestAgentRepairStatus ? startCase(latestAgentRepairStatus) : null, latestAgentError.handling_status ? startCase(latestAgentError.handling_status) : null].filter(Boolean).join(' · ')}
+              </small>
+            ) : null}
+            {latestAgentRootCause ? <small>{latestAgentRootCause}</small> : null}
+            {latestAgentRetry ? <small>Retry: {startCase(latestAgentRetry)}</small> : null}
           </div>
         ) : null}
         <div className="task-detail-card">

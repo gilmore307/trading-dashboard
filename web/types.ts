@@ -258,6 +258,17 @@ export interface HistoricalTaskDatasetUnitPayload {
   description?: string | null;
 }
 
+export interface HistoricalTaskFailureRegisterPayload {
+  failure_count?: number;
+  agent_review_required_count?: number;
+  status_counts?: Record<string, number>;
+  top_errors?: Array<{
+    count?: number;
+    error_summary?: string | null;
+  }>;
+  latest_updated_at_utc?: string | null;
+}
+
 export interface HistoricalTaskTimelineDetailPayload {
   blockers?: string[];
   receipt_refs?: string[];
@@ -272,6 +283,9 @@ export interface HistoricalTaskTimelineDetailPayload {
     return_code?: number | null;
     reason?: string | null;
   };
+  failure_register?: HistoricalTaskFailureRegisterPayload | null;
+  agent_error_summary?: AgentErrorSummaryPayload[];
+  repair_intervention_status?: string | null;
   worker?: HistoricalTaskWorkerPayload;
 }
 
