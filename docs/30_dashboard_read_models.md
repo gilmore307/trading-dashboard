@@ -29,7 +29,7 @@ storage/06_dashboard_cache/read_models/<contract_type>/latest.json
 
 The WebSocket route sends a snapshot on connect and on `latest.json` changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
 
-The dashboard renders Status, Tasks, Timewheel, Models, Replay Performance, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
+The dashboard renders Status, Tasks, Temporal Explorer, Models, Replay Performance, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -179,9 +179,9 @@ If realtime monitoring has not started, `realtime_signal_summary` should say `no
 
 ### `temporal_explorer_summary`
 
-Purpose: support the Timewheel / Temporal Explorer page.
+Purpose: support the Temporal Explorer page.
 
-Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables, chart cache, execution runtime status, and replay artifact root. The dashboard shows substrate population as a status card above the chart, treats the chart x-axis as the Timewheel, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to Layer 10 accepted event families; ordinary scheduled events, released macro results, and news index rows appear as substrate population/readiness, not chart markers. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
+Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables, chart cache, execution runtime status, and replay artifact root. The dashboard shows substrate population as a status card above the chart, renders the primary chart as a TradingView-style K-line surface, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to Layer 10 accepted event families; ordinary scheduled events, released macro results, and news index rows appear as substrate population/readiness, not chart markers. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
 
 Owner-facing fields:
 
@@ -190,7 +190,7 @@ Owner-facing fields:
 - chart-axis event marker positions and subchart-ready volume/accepted-event-density values;
 - status lanes for market sessions, scheduled events, event results, news index, model event markers, and replay state;
 - event markers for the currently selected time unit;
-- compact chart bars when `chart_ohlcv_cache` is populated;
+- TradingView-style chart bars when `chart_ohlcv_cache` is populated;
 - substrate table statuses.
 
 Hidden by default:
@@ -245,10 +245,11 @@ Group-level fields own active/shadow/retiring/eliminated model refs when those r
 Dashboard presentation:
 
 - Models shows one model-group versions view;
+- no selected model means summary mode with global comparison charts; selecting a model switches the page into focus mode with internal diagnostics for that version;
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
 - group page charts are organized as model statistical-validity families: Ranking / Calibration, Selection Diagnostics, Feature Space, Integrity / Uncertainty, and Temporal Stability;
 - AUROC/ROC, PR-AUC, Brier, calibration, decision-variable schema/coverage, silhouette, PCA, PCoA, data integrity, uncertainty, and temporal AUROC/Brier stability carry the owner-facing model-validity interpretation when published;
-- replay performance overlays, drawdown overlays, threshold utility, cost sensitivity, score-decile return, baseline/no-trade comparisons, economic robustness, trading-distribution slices, trade-level rows, and monthly replay drilldowns live under Replay Performance or Replay Operations rather than Models;
+- replay normalized NAV, performance metrics, threshold utility, cost sensitivity, score-decile return, baseline/no-trade comparisons, economic robustness, trading-distribution slices, trade-level rows, and monthly replay drilldowns live under Replay Performance or Replay Operations rather than Models;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
 Canonical layer map:
@@ -290,6 +291,7 @@ Replay Performance presentation:
 - published replay group versions must come from the live-flow candidate-policy route: Layer 1/2 base context is only reusable context, while trade candidates must be evidenced by the Layer 2 target-candidate handoff or an explicit reviewed preview override;
 - Performance charts must normalize every strategy, ETF, Layer 1, Layer 2, and context comparison series to `1.0` at the selected start. The replay `25000 USD` initial capital is execution/risk-limit metadata, not the chart scale;
 - Replay Performance owns one normalized NAV chart slot: a single selected series renders as a monthly normalized NAV K-line, while multiple selected series render as normalized NAV lines on one shared chart for readability;
+- no selected replay series means summary mode across all published versions; selected replay series mean focus mode over the selected set;
 - monthly normalized NAV K-line uses replay return slices compounded from `1.0`; when a slice publishes `net_return_path_ohlc`, the candle high/low must come from that row-level replay return path rather than from endpoint-only open/close values;
 - performance summary is table-first: series identity, target, normalized NAV, total return, excess return, max drawdown, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and monthly win rate are shown in one selector table;
 - metric comparison charts show total return, drawdown, excess return, volatility, Sharpe, and beta when published;
@@ -298,6 +300,7 @@ Replay Performance presentation:
 Replay Operations presentation:
 
 - Replay Operations consumes the same `replay_run_id`, version scope, time range, and selected month/cursor as Replay Performance when those fields are available;
+- no selected replay model means operations summary mode across all published versions; one selected replay model shows model-focused operational curves and slice distribution; multiple selected replay models show selected-set operations comparison;
 - operations version selection focuses the model/run whose component decisions are being inspected;
 - replay slice/contribution distributions belong in Replay Operations because they explain decision flow and component behavior, not headline trading performance;
 - full Monthly Replay detail is a model-scoped detail window, and month clicks route to a historical replay decision-detail table sourced through the read-only dashboard replay decision API;

@@ -249,6 +249,14 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 
 /* Replay view */
 .replay-view { display: grid; gap: 16px; }
+.selection-mode-panel { min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 15px; border-radius: 14px; border: 1px solid rgba(148, 163, 184, .14); background: rgba(15, 23, 42, .42); }
+.selection-mode-panel.summary { border-color: rgba(125, 211, 252, .18); background: rgba(8, 47, 73, .18); }
+.selection-mode-panel.focus { border-color: rgba(52, 211, 153, .24); background: rgba(6, 78, 59, .18); }
+.selection-mode-panel div { min-width: 0; display: grid; gap: 4px; }
+.selection-mode-panel span { color: #7c8ea5; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; }
+.selection-mode-panel strong { color: #f8fbff; font-size: 13px; overflow-wrap: anywhere; }
+.selection-mode-panel button { border: 1px solid rgba(148, 163, 184, .20); border-radius: 999px; padding: 8px 11px; color: #cbd5e1; background: rgba(2, 6, 23, .42); font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
+.selection-mode-panel button:hover { border-color: rgba(125, 211, 252, .48); color: #e0f2fe; }
 .replay-wide-chart { width: 100%; overflow: hidden; }
 .replay-overlay-chart { width: 100%; min-height: 360px; display: block; overflow: visible; cursor: crosshair; touch-action: none; user-select: none; }
 .replay-overlay-chart.can-pan { cursor: grab; }
@@ -443,7 +451,7 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
   .calendar-event-proof { justify-self: start; text-align: left; }
 }
 
-/* Timewheel / Temporal Explorer */
+/* Temporal Explorer */
 .timewheel-chart-panel { min-height: 240px; }
 .timewheel-chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; margin-bottom: 14px; }
 .frame-switcher { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -462,12 +470,12 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .axis-nudge-controls { display: flex; gap: 8px; }
 .axis-nudge-controls button { border: 1px solid rgba(148, 163, 184, .20); color: #cbd5e1; background: rgba(15, 23, 42, .64); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
 .integrated-timewheel { display: grid; gap: 14px; }
-.temporal-chart-frame { position: relative; min-height: 236px; display: grid; gap: 8px; padding-bottom: 50px; border-radius: 18px; border: 1px solid rgba(148, 163, 184, .14); background: linear-gradient(180deg, rgba(2, 6, 23, .38), rgba(15, 23, 42, .54)); overflow: hidden; }
-.mini-candle-chart { height: 170px; display: flex; align-items: stretch; gap: 4px; padding: 12px 12px 0; overflow: hidden; }
-.mini-candle { width: 7px; min-width: 3px; border-radius: 999px; align-self: flex-start; opacity: .9; }
-.mini-candle.rising { background: linear-gradient(180deg, #86efac, #16a34a); box-shadow: 0 0 16px rgba(34, 197, 94, .18); }
-.mini-candle.falling { background: linear-gradient(180deg, #fda4af, #e11d48); box-shadow: 0 0 16px rgba(225, 29, 72, .18); }
+.temporal-chart-frame { position: relative; min-height: 470px; display: grid; gap: 8px; padding-bottom: 50px; border-radius: 18px; border: 1px solid rgba(148, 163, 184, .14); background: #0f1720; overflow: hidden; }
+.temporal-tradingview-shell { position: relative; min-width: 0; min-height: 420px; background: #0f1720; overflow: hidden; }
+.temporal-tradingview-chart { width: 100%; height: 420px; min-height: 420px; }
+.temporal-tradingview-legend { top: 10px; left: 12px; }
 .event-marker-layer { position: absolute; left: 12px; right: 12px; top: 12px; height: 170px; pointer-events: none; }
+.temporal-tradingview-events { top: 54px; height: 310px; }
 .event-axis-marker { position: absolute; bottom: 4px; width: 7px; height: 28px; border-radius: 999px; background: #7dd3fc; border: 1px solid rgba(224, 242, 254, .76); box-shadow: 0 0 18px rgba(125, 211, 252, .34); transform: translateX(-50%); }
 .timeline-x-axis { position: absolute; left: 12px; right: 12px; bottom: 10px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(70px, 1fr); gap: 8px; align-items: end; overflow: hidden; }
 .timeline-axis-tick { min-width: 0; display: grid; justify-items: center; gap: 4px; color: #8fa2ba; text-align: center; border: 0; background: transparent; padding: 0; cursor: pointer; }

@@ -20,7 +20,7 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 The left sidebar is grouped by user intent:
 
 - General — Status, Definitions, and Diagnostics.
-- Historical Models — Tasks, Data, Models, Replay Performance, Replay Operations, and Timewheel.
+- Historical Models — Tasks, Data, Models, Replay Performance, Replay Operations, and Temporal Explorer.
 - Realtime — Realtime Signals.
 
 ## Page Contracts
@@ -217,6 +217,7 @@ Visible content should include:
 
 - normalized replay net-asset-value series with every displayed strategy, ETF, layer, or context comparison rebased to `1.0` at the selected start;
 - one replay performance chart slot: single-selection views show the monthly normalized NAV K-line using row-path OHLC when the replay read model publishes it, while multi-selection views switch to normalized NAV lines for readability;
+- summary mode when no replay series is selected, focus mode when one or more replay series are selected;
 - strategy, ETF, Layer 1, Layer 2, and sector-anchor performance summary rows when those comparison series are published;
 - trading performance metrics such as total return, excess return, max drawdown, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and monthly win rate when available;
 - metric comparison charts for total return, drawdown, excess return, volatility, Sharpe, and beta when available.
@@ -241,6 +242,7 @@ Visible content should include:
 - traded, skipped, blocked, rejected, and failed decision summaries;
 - component health, coverage, and missing-evidence diagnostics;
 - replay decision slices and contribution distributions by sector/context, asset class, action class, and time bucket when available;
+- summary mode when no replay model is selected, focus mode when one or more replay models are selected;
 - monthly replay operation status;
 - replay source-data readiness and visible gaps.
 
@@ -257,13 +259,14 @@ Hidden by default:
 - raw provider plumbing;
 - dataset internals unless they explain replay gaps.
 
-### Timewheel
+### Temporal Explorer
 
 Purpose: answer “What happened across the historical time axis?”
 
 Visible content should include:
 
 - frame-aligned symbol/frame/center-time controls;
+- a TradingView-style K-line chart over the selected symbol and frame;
 - volume and accepted-event-density subcharts;
 - Layer 10 accepted event markers for the selected time unit.
 

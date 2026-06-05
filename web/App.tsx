@@ -4,8 +4,10 @@ import {
   ColorType,
   createChart,
   CrosshairMode,
+  HistogramSeries,
   LineStyle,
   type CandlestickData,
+  type HistogramData,
   type IChartApi,
   type ISeriesApi,
   type MouseEventParams,
@@ -29,6 +31,7 @@ import type {
   ModelPromotionItemPayload,
   ModelPromotionPostureChartPayload,
   RealtimeSignalChartPayload,
+  TemporalExplorerChartBarPayload,
   TemporalExplorerChartPayload,
   TemporalExplorerEventPayload,
   TemporalExplorerTickPayload,
@@ -97,7 +100,7 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   trading_economics_calendar_source_events: 310,
 };
 
-type ViewId = 'status' | 'tasks' | 'timewheel' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance';
+type ViewId = 'status' | 'tasks' | 'temporal' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance';
 
 type NavItem = { id: ViewId; label: string };
 
@@ -118,7 +121,7 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
       { id: 'models', label: 'Models' },
       { id: 'performance', label: 'Replay Performance' },
       { id: 'replay', label: 'Replay Operations' },
-      { id: 'timewheel', label: 'Timewheel' },
+      { id: 'temporal', label: 'Temporal Explorer' },
     ],
   },
   {
@@ -2697,6 +2700,18 @@ function performanceMetricSeries(entries: ReplayVersionEntry[], key: keyof Retur
   return points;
 }
 
+function replayOutcomeMetricSeries(entries: ReplayVersionEntry[], key: keyof ReturnType<typeof replayVersionOutcomeSummary>): Array<{ label: string; value: number; status?: string | null }> {
+  const points: Array<{ label: string; value: number; status?: string | null }> = [];
+  entries.forEach(({ version, index }) => {
+    const row = replayVersionOutcomeSummary(version, index);
+    const value = row[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      points.push({ label: row.label, value, status: version.decision_status });
+    }
+  });
+  return points;
+}
+
 function replayReturnPathOhlc(slice: Record<string, unknown>): ReplayReturnPathOhlc | null {
   const path = nestedRecord(slice, 'net_return_path_ohlc');
   if (!path) return null;
@@ -2944,7 +2959,7 @@ function ReplayVersionSummarySelector({
                 type="button"
                 onClick={() => {
                   const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
-                  onChange(next.length ? next : [row.id]);
+                  onChange(next);
                 }}
               >
                 <i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}
@@ -3023,7 +3038,7 @@ function ReplayPerformanceSummaryTable({
               type="button"
               onClick={() => {
                 const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
-                onChange(next.length ? next : [row.id]);
+                onChange(next);
               }}
             >
               <strong><i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}</strong>
@@ -3189,7 +3204,7 @@ function ReplayNormalizedNavCandles({
 }
 
 function ReplayPerformanceNavChart({ entries }: { entries: ReplayVersionEntry[] }) {
-  if (entries.length <= 1) {
+  if (entries.length === 1) {
     return <ReplayNormalizedNavCandles version={entries[0]?.version ?? null} />;
   }
   return (
@@ -3200,6 +3215,26 @@ function ReplayPerformanceNavChart({ entries }: { entries: ReplayVersionEntry[] 
       emptyLabel="No replay NAV slices published"
       referenceValue={1}
     />
+  );
+}
+
+function ReplaySelectionModePanel({
+  mode,
+  summary,
+  onClear,
+}: {
+  mode: 'summary' | 'focus';
+  summary: string;
+  onClear?: () => void;
+}) {
+  return (
+    <section className={`selection-mode-panel ${mode}`}>
+      <div>
+        <span>{mode === 'summary' ? 'Summary View' : 'Focus View'}</span>
+        <strong>{summary}</strong>
+      </div>
+      {mode === 'focus' && onClear ? <button type="button" onClick={onClear}>Clear selection</button> : null}
+    </section>
   );
 }
 
@@ -3454,32 +3489,36 @@ function ReplayPerformanceView({ promotionChart }: { promotionChart: ModelPromot
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
-  const defaultIds = versionIds;
   const versionKey = versionIds.join('|');
-  const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
-      const kept = current.filter((id) => valid.has(id));
-      return kept.length ? kept : defaultIds;
+      return current.filter((id) => valid.has(id));
     });
-  }, [defaultIds.join('|'), versionKey]);
+  }, [versionKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
+  const chartEntries = selectedEntries.length ? selectedEntries : entries;
   return (
     <section className="replay-view">
+      <ReplaySelectionModePanel
+        mode={selectedEntries.length ? 'focus' : 'summary'}
+        summary={selectedEntries.length ? `${selectedEntries.length} selected replay series` : `${entries.length} replay series in summary`}
+        onClear={() => setSelectedIds([])}
+      />
       <ReplayPerformanceSummaryTable
         entries={entries}
         selectedIds={selectedIds}
         onChange={setSelectedIds}
       />
-      <ReplayPerformanceNavChart entries={selectedEntries} />
+      <ReplayPerformanceNavChart entries={chartEntries} />
       <div className="replay-chart-grid">
-        <MiniMetricBarChart title="Total Return Compare" series={performanceMetricSeries(selectedEntries, 'totalReturn')} emptyLabel="No replay total return metrics published" />
-        <MiniMetricBarChart title="Max Drawdown Compare" series={performanceMetricSeries(selectedEntries, 'maxDrawdown')} emptyLabel="No replay drawdown metrics published" />
-        <MiniMetricBarChart title="Excess Return Compare" series={performanceMetricSeries(selectedEntries, 'excessReturn')} emptyLabel="No replay excess return metrics published" />
-        <MiniMetricBarChart title="Volatility Compare" series={performanceMetricSeries(selectedEntries, 'volatility')} emptyLabel="No replay volatility metrics published" />
-        <MiniMetricBarChart title="Sharpe Compare" series={performanceMetricSeries(selectedEntries, 'sharpe')} emptyLabel="No replay Sharpe metrics published" />
-        <MiniMetricBarChart title="Beta Compare" series={performanceMetricSeries(selectedEntries, 'beta')} emptyLabel="No benchmark beta evidence published" />
+        <MiniMetricBarChart title="Total Return Compare" series={performanceMetricSeries(chartEntries, 'totalReturn')} emptyLabel="No replay total return metrics published" />
+        <MiniMetricBarChart title="Max Drawdown Compare" series={performanceMetricSeries(chartEntries, 'maxDrawdown')} emptyLabel="No replay drawdown metrics published" />
+        <MiniMetricBarChart title="Excess Return Compare" series={performanceMetricSeries(chartEntries, 'excessReturn')} emptyLabel="No replay excess return metrics published" />
+        <MiniMetricBarChart title="Volatility Compare" series={performanceMetricSeries(chartEntries, 'volatility')} emptyLabel="No replay volatility metrics published" />
+        <MiniMetricBarChart title="Sharpe Compare" series={performanceMetricSeries(chartEntries, 'sharpe')} emptyLabel="No replay Sharpe metrics published" />
+        <MiniMetricBarChart title="Beta Compare" series={performanceMetricSeries(chartEntries, 'beta')} emptyLabel="No benchmark beta evidence published" />
       </div>
     </section>
   );
@@ -3489,23 +3528,31 @@ function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromoti
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
-  const defaultIds = versionIds.slice(0, 1);
   const versionKey = versionIds.join('|');
-  const [selectedIds, setSelectedIds] = useState<string[]>(defaultIds);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [monthlyVersionId, setMonthlyVersionId] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
-      const kept = current.filter((id) => valid.has(id));
-      return kept.length ? kept : defaultIds;
+      return current.filter((id) => valid.has(id));
     });
-  }, [defaultIds.join('|'), versionKey]);
+  }, [versionKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
   const selectedVersion = selectedEntries[0]?.version ?? null;
+  const chartEntries = selectedEntries.length ? selectedEntries : entries;
   const monthlyEntry = entries.find(({ version, index }) => versionStableId(version, index) === monthlyVersionId) ?? null;
   return (
     <section className="replay-view">
+      <ReplaySelectionModePanel
+        mode={selectedEntries.length ? 'focus' : 'summary'}
+        summary={selectedEntries.length === 1 ? `Focused on ${compactVersionLabel(selectedEntries[0].version, selectedEntries[0].index)}` : selectedEntries.length ? `${selectedEntries.length} selected replay models` : `${entries.length} replay models in operations summary`}
+        onClear={() => {
+          setSelectedIds([]);
+          setMonthlyVersionId(null);
+          setSelectedMonth(null);
+        }}
+      />
       <ReplayVersionSummarySelector
         versions={versions}
         selectedIds={selectedIds}
@@ -3515,12 +3562,23 @@ function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromoti
           setSelectedMonth(null);
         }}
       />
-      <div className="replay-chart-grid">
-        <ScoreDecileReturnCurve version={selectedVersion} emptyLabel="Select a replay version with score decile return evidence" />
-        <ThresholdReturnCurve version={selectedVersion} emptyLabel="Select a replay version with threshold return evidence" />
-        <CostSensitivityCurve version={selectedVersion} emptyLabel="Select a replay version with cost sensitivity evidence" />
-        <SliceDistributionPanel version={selectedVersion} />
-      </div>
+      {selectedEntries.length === 1 ? (
+        <div className="replay-chart-grid">
+          <ScoreDecileReturnCurve version={selectedVersion} emptyLabel="Select a replay version with score decile return evidence" />
+          <ThresholdReturnCurve version={selectedVersion} emptyLabel="Select a replay version with threshold return evidence" />
+          <CostSensitivityCurve version={selectedVersion} emptyLabel="Select a replay version with cost sensitivity evidence" />
+          <SliceDistributionPanel version={selectedVersion} />
+        </div>
+      ) : (
+        <div className="replay-chart-grid">
+          <MiniMetricBarChart title="Decision Rows Compare" series={replayOutcomeMetricSeries(chartEntries, 'decisionRows')} emptyLabel="No replay decision row counts published" />
+          <MiniMetricBarChart title="Accepted Compare" series={replayOutcomeMetricSeries(chartEntries, 'accepted')} emptyLabel="No accepted decision counts published" />
+          <MiniMetricBarChart title="Filled Compare" series={replayOutcomeMetricSeries(chartEntries, 'filled')} emptyLabel="No replay fill counts published" />
+          <MiniMetricBarChart title="Taken Good Compare" series={replayOutcomeMetricSeries(chartEntries, 'takenGood')} emptyLabel="No taken-good counts published" />
+          <MiniMetricBarChart title="Avoided Bad Compare" series={replayOutcomeMetricSeries(chartEntries, 'avoidedBad')} emptyLabel="No avoided-bad counts published" />
+          <MiniMetricBarChart title="Missed Good Compare" series={replayOutcomeMetricSeries(chartEntries, 'missedGood')} emptyLabel="No missed-good counts published" />
+        </div>
+      )}
       {monthlyEntry ? (
         <ReplayMonthlyWindow
           entry={monthlyEntry}
@@ -3552,49 +3610,67 @@ function ModelGroupDetail({
   const activeRef = activeModelRef(runtimeChart);
   const activeVersion = versions.find((version) => modelIdentity(version) === 'active') ?? null;
   const selectedVersion = versions.find((version, index) => versionStableId(version, index) === selectedVersionId) ?? null;
-  const diagnosticVersion = selectedVersion ?? activeVersion ?? latestVersionWithDiagnostic(versions, 'pca') ?? latestVersionWithDiagnostic(versions, 'pcoa');
-  const pcaVersion = diagnosticVersion && diagnosticPoints(diagnosticVersion, 'pca').length ? diagnosticVersion : latestVersionWithDiagnostic(versions, 'pca');
-  const pcoaVersion = diagnosticVersion && diagnosticPoints(diagnosticVersion, 'pcoa').length ? diagnosticVersion : latestVersionWithDiagnostic(versions, 'pcoa');
+  const pcaVersion = selectedVersion && diagnosticPoints(selectedVersion, 'pca').length ? selectedVersion : null;
+  const pcoaVersion = selectedVersion && diagnosticPoints(selectedVersion, 'pcoa').length ? selectedVersion : null;
   return (
     <section className="panel model-group-detail-panel">
       <div className="model-group-detail-head">
         <div>
           <div className="panel-heading">0 · Model Group Versions</div>
-          <p className="panel-subtitle">Model-group promotion is version scoped. Select a model row to switch charts from global version comparison into that model's internal diagnostic curves.</p>
+          <p className="panel-subtitle">No selected model means summary comparison. Selecting one model switches the charts into focus diagnostics for that version.</p>
         </div>
         <StatusPill status={`${versions.length} versions`} severity="info" />
       </div>
+      <ReplaySelectionModePanel
+        mode={selectedVersion ? 'focus' : 'summary'}
+        summary={selectedVersion ? `Focused on ${compactVersionLabel(selectedVersion, 0)}` : `${versions.length} model versions in summary`}
+        onClear={() => setSelectedVersionId(null)}
+      />
       <ActiveModelEvidence activeVersion={activeVersion} activeRef={activeRef} />
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <ExcludedPromotionEvidencePanel exclusions={exclusions} />
       <IdentityDistribution versions={versions} />
-      <EvaluationDisagreementPanel version={selectedVersion ?? diagnosticVersion} />
-      <ModelScorecardSection title="Ranking / Calibration" subtitle="Prediction sorting and probability quality; AUROC is diagnostic, not the hard promotion gate.">
-        {selectedVersion ? (
-          <RocCurveChart version={selectedVersion} emptyLabel="ROC curve not published" />
-        ) : (
+      {selectedVersion ? (
+        <>
+          <EvaluationDisagreementPanel version={selectedVersion} />
+          <ModelScorecardSection title="Ranking / Calibration" subtitle="Focused prediction sorting and probability quality for the selected model.">
+            <RocCurveChart version={selectedVersion} emptyLabel="ROC curve not published" />
+            <AdaptiveDiagnosticChart title="Brier" globalSeries={[]} selectedVersion={selectedVersion} selectedKind="monthly_brier" emptyLabel="Brier series not published" />
+            <AdaptiveDiagnosticChart title="Calibration" globalSeries={[]} selectedVersion={selectedVersion} selectedKind="calibration" emptyLabel="Calibration series not published" />
+            <BrierDecompositionChart version={selectedVersion} />
+          </ModelScorecardSection>
+          <ModelScorecardSection title="Selection Diagnostics" subtitle="Decision-variable schema and label coverage used for model review; trading-distribution slices live under Replay Operations.">
+            <DecisionVariableAuditPanel version={selectedVersion} />
+          </ModelScorecardSection>
+          <ModelScorecardSection title="Feature Space" subtitle="Feature-space separation views for the selected model.">
+            <AdaptiveDiagnosticChart title="Silhouette" globalSeries={[]} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
+            <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCA diagnostics not published" />
+            <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCoA diagnostics not published" />
+          </ModelScorecardSection>
+          <ModelScorecardSection title="Integrity / Uncertainty" subtitle="Focused model evidence quality checks that do not depend on replay economics.">
+            <DataIntegrityPanel version={selectedVersion} />
+          </ModelScorecardSection>
+          <ModelScorecardSection title="Temporal Stability" subtitle="Fold-month stability tests for the selected model.">
+            <TemporalDiagnosticCurve title="Monthly AUROC" version={selectedVersion} metricKey="auroc" emptyLabel="Monthly AUROC diagnostics not published" />
+            <TemporalDiagnosticCurve title="Monthly Brier" version={selectedVersion} metricKey="brier_score" emptyLabel="Monthly Brier diagnostics not published" />
+          </ModelScorecardSection>
+        </>
+      ) : (
+        <>
+          <ModelScorecardSection title="Ranking / Calibration Summary" subtitle="Global model-validity comparison across every published model version.">
           <MiniMetricBarChart title="AUROC · Global Compare" series={versionMetricSeries(versions, 'auroc')} emptyLabel="AUROC series not published" />
-        )}
-        <MiniMetricBarChart title="PR-AUC · Global Compare" series={versionMetricSeries(versions, 'pr_auc')} emptyLabel="PR-AUC series not published" />
-        <AdaptiveDiagnosticChart title="Brier" globalSeries={versionMetricSeries(versions, 'brier_score')} selectedVersion={selectedVersion} selectedKind="monthly_brier" emptyLabel="Brier series not published" />
-        <AdaptiveDiagnosticChart title="Calibration" globalSeries={versionMetricSeries(versions, 'ece')} selectedVersion={selectedVersion} selectedKind="calibration" emptyLabel="Calibration series not published" />
-        <BrierDecompositionChart version={selectedVersion ?? diagnosticVersion} />
-      </ModelScorecardSection>
-      <ModelScorecardSection title="Selection Diagnostics" subtitle="Decision-variable schema and label coverage used for model review; trading-distribution slices live under Replay.">
-        <DecisionVariableAuditPanel version={selectedVersion ?? diagnosticVersion} />
-      </ModelScorecardSection>
-      <ModelScorecardSection title="Feature Space" subtitle="Feature-space separation views for model evidence; replay outcome slices live under Replay.">
-        <AdaptiveDiagnosticChart title="Silhouette" globalSeries={versionMetricSeries(versions, 'silhouette_outcome_label')} selectedVersion={selectedVersion} selectedKind="silhouette" emptyLabel="Silhouette series not published" />
-        <FeatureScatterChart title="PCA Feature Space" version={pcaVersion} diagnosticKey="pca" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCA diagnostics not published" />
-        <FeatureScatterChart title="PCoA Distance Space" version={pcoaVersion} diagnosticKey="pcoa" groupKey={scatterGroupKey} onGroupKeyChange={setScatterGroupKey} emptyLabel="PCoA diagnostics not published" />
-      </ModelScorecardSection>
-      <ModelScorecardSection title="Integrity / Uncertainty" subtitle="Model evidence quality checks that do not depend on replay economics.">
-        <DataIntegrityPanel version={selectedVersion ?? diagnosticVersion} />
-      </ModelScorecardSection>
-      <ModelScorecardSection title="Temporal Stability" subtitle="Fold-month stability tests for model statistical quality.">
-        <TemporalDiagnosticCurve title="Monthly AUROC" version={selectedVersion ?? diagnosticVersion} metricKey="auroc" emptyLabel="Monthly AUROC diagnostics not published" />
-        <TemporalDiagnosticCurve title="Monthly Brier" version={selectedVersion ?? diagnosticVersion} metricKey="brier_score" emptyLabel="Monthly Brier diagnostics not published" />
-      </ModelScorecardSection>
+            <MiniMetricBarChart title="PR-AUC · Global Compare" series={versionMetricSeries(versions, 'pr_auc')} emptyLabel="PR-AUC series not published" />
+            <MiniMetricBarChart title="Brier · Global Compare" series={versionMetricSeries(versions, 'brier_score')} emptyLabel="Brier series not published" />
+            <MiniMetricBarChart title="ECE · Global Compare" series={versionMetricSeries(versions, 'ece')} emptyLabel="ECE series not published" />
+          </ModelScorecardSection>
+          <ModelScorecardSection title="Feature / Integrity Summary" subtitle="Global feature-space and quality summary. Select a model row to inspect PCA, PCoA, schema coverage, and monthly stability.">
+            <MiniMetricBarChart title="Silhouette · Global Compare" series={versionMetricSeries(versions, 'silhouette_outcome_label')} emptyLabel="Silhouette series not published" />
+            <MiniMetricBarChart title="Raw Rows · Global Compare" series={versionMetricSeries(versions, 'raw_row_count')} emptyLabel="Raw row counts not published" />
+            <MiniMetricBarChart title="Evaluated Rows · Global Compare" series={versionMetricSeries(versions, 'evaluated_row_count')} emptyLabel="Evaluated row counts not published" />
+            <MiniMetricBarChart title="Validation Exclusions · Global Compare" series={versionMetricSeries(versions, 'validation_row_excluded_count')} emptyLabel="Validation exclusion counts not published" />
+          </ModelScorecardSection>
+        </>
+      )}
     </section>
   );
 }
@@ -4451,6 +4527,183 @@ function temporalPositionPercent(value?: string | null, start?: string | null, e
   return Math.max(0, Math.min(100, ((at - startAt) / (endAt - startAt)) * 100));
 }
 
+type TemporalLightweightCandle = CandlestickData & {
+  label: string;
+  volume: number;
+};
+
+function temporalBarTime(bar: TemporalExplorerChartBarPayload): CandlestickData['time'] {
+  const parsed = Date.parse(bar.bucket_start);
+  return Math.floor((Number.isFinite(parsed) ? parsed : Date.now()) / 1000) as CandlestickData['time'];
+}
+
+function toTemporalLightweightCandle(bar: TemporalExplorerChartBarPayload): TemporalLightweightCandle {
+  return {
+    time: temporalBarTime(bar),
+    label: formatTimestamp(bar.bucket_start),
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    close: bar.close,
+    volume: bar.volume ?? 0,
+  };
+}
+
+function isTemporalLightweightCandle(value: unknown): value is TemporalLightweightCandle {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<TemporalLightweightCandle>;
+  return typeof candidate.label === 'string'
+    && typeof candidate.open === 'number'
+    && typeof candidate.high === 'number'
+    && typeof candidate.low === 'number'
+    && typeof candidate.close === 'number';
+}
+
+function TemporalTradingViewChart({
+  symbol,
+  timeframe,
+  bars,
+  events,
+  viewportStart,
+  viewportEnd,
+}: {
+  symbol: string;
+  timeframe: string;
+  bars: TemporalExplorerChartBarPayload[];
+  events: TemporalExplorerEventPayload[];
+  viewportStart: string;
+  viewportEnd: string;
+}) {
+  const chartData = useMemo(() => bars.slice(-180).map(toTemporalLightweightCandle), [bars]);
+  const volumeData = useMemo<HistogramData[]>(() => chartData.map((bar) => ({
+    time: bar.time,
+    value: bar.volume,
+    color: bar.close >= bar.open ? 'rgba(34, 171, 148, .42)' : 'rgba(242, 54, 69, .42)',
+  })), [chartData]);
+  const candleByTime = useMemo(() => new Map(chartData.map((candle) => [chartTimeKey(candle.time), candle])), [chartData]);
+  const chartRef = useRef<HTMLDivElement | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const [hoveredCandle, setHoveredCandle] = useState<TemporalLightweightCandle | null>(null);
+
+  useEffect(() => {
+    const container = chartRef.current;
+    if (!container || !chartData.length) return undefined;
+
+    const chart: IChartApi = createChart(container, {
+      autoSize: true,
+      layout: {
+        background: { type: ColorType.Solid, color: '#0f1720' },
+        textColor: '#8b9bb0',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        attributionLogo: true,
+      },
+      grid: {
+        vertLines: { color: 'rgba(148, 163, 184, .10)' },
+        horzLines: { color: 'rgba(148, 163, 184, .14)' },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: 'rgba(209, 213, 219, .48)', style: LineStyle.LargeDashed, labelVisible: false },
+        horzLine: { color: 'rgba(209, 213, 219, .48)', style: LineStyle.LargeDashed, labelVisible: true },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(148, 163, 184, .18)',
+        scaleMargins: { top: 0.06, bottom: 0.26 },
+      },
+      timeScale: {
+        borderColor: 'rgba(148, 163, 184, .18)',
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      localization: {
+        priceFormatter: (price: number) => price.toFixed(2),
+      },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false,
+      },
+      handleScale: {
+        axisPressedMouseMove: true,
+        mouseWheel: true,
+        pinch: true,
+      },
+    });
+
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: '#22ab94',
+      downColor: '#f23645',
+      borderUpColor: '#22ab94',
+      borderDownColor: '#f23645',
+      wickUpColor: '#22ab94',
+      wickDownColor: '#f23645',
+      priceLineVisible: true,
+      lastValueVisible: true,
+    });
+    seriesRef.current = candleSeries;
+    candleSeries.setData(chartData);
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume',
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+    volumeSeries.setData(volumeData);
+    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    chart.timeScale().fitContent();
+
+    const handleCrosshairMove = (event: MouseEventParams) => {
+      const item = seriesRef.current ? event.seriesData.get(seriesRef.current) : null;
+      const timeMatch = event.time === undefined ? null : candleByTime.get(chartTimeKey(event.time));
+      setHoveredCandle(timeMatch ?? (isTemporalLightweightCandle(item) ? item : null));
+    };
+    chart.subscribeCrosshairMove(handleCrosshairMove);
+
+    const resizeObserver = new ResizeObserver(() => chart.timeScale().fitContent());
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+      chart.unsubscribeCrosshairMove(handleCrosshairMove);
+      seriesRef.current = null;
+      chart.remove();
+    };
+  }, [candleByTime, chartData, volumeData]);
+
+  if (!chartData.length) {
+    return <div className="empty-chart compact">{symbol} {timeframe} chart cache is empty for this viewport.</div>;
+  }
+
+  const latest = chartData[chartData.length - 1];
+  const legend = hoveredCandle ?? latest;
+  return (
+    <div className="temporal-tradingview-shell">
+      <div className="replay-lightweight-legend temporal-tradingview-legend">
+        <strong>{symbol} · {timeframe}</strong>
+        <span>{legend.label}</span>
+        <span>O {legend.open.toFixed(2)}</span>
+        <span>H {legend.high.toFixed(2)}</span>
+        <span>L {legend.low.toFixed(2)}</span>
+        <span>C {legend.close.toFixed(2)}</span>
+        <span>V {legend.volume.toFixed(0)}</span>
+      </div>
+      <div ref={chartRef} className="temporal-tradingview-chart" role="img" aria-label={`${symbol} ${timeframe} TradingView style chart`} />
+      <div className="event-marker-layer temporal-tradingview-events" aria-hidden="true">
+        {events.slice(0, 160).map((event) => (
+          <span
+            className="event-axis-marker"
+            key={`${event.lane}-${event.event_id}`}
+            style={{ left: `${temporalPositionPercent(event.event_time, viewportStart, viewportEnd)}%` }}
+            title={`${formatTimestamp(event.event_time)} · ${event.title}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PlaceholderView({ title }: { title: string }) {
   return (
     <section className="panel placeholder-view">
@@ -4462,7 +4715,7 @@ function PlaceholderView({ title }: { title: string }) {
 
 function contractForView(view: ViewId): string {
   if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
-  if (view === 'timewheel') return TEMPORAL_EXPLORER_SUMMARY;
+  if (view === 'temporal') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   if (view === 'models') return MODEL_LAYER_READINESS;
   if (view === 'replay' || view === 'performance') return MODEL_PROMOTION_POSTURE;
@@ -4587,7 +4840,7 @@ function App() {
   const activeContractType = contractForView(activeView);
   const activeReadModel = activeView === 'status' || activeView === 'data'
     ? currentStatusModel
-    : activeView === 'timewheel'
+    : activeView === 'temporal'
       ? temporalExplorerModel
     : activeView === 'realtime'
       ? realtimeModel
@@ -4830,12 +5083,8 @@ function App() {
     const selectedTickEvents = selectedTick ? eventForTick(events, selectedTick) : [];
     const rightLanes = temporalExplorerChart.right_lanes ?? [];
     const substrate = temporalExplorerChart.substrate_status ?? {};
-    const closeValues = chartBars.map((bar) => bar.close).filter((value) => Number.isFinite(value));
     const volumeValues = chartBars.map((bar) => bar.volume ?? 0).filter((value) => Number.isFinite(value));
-    const minClose = closeValues.length ? Math.min(...closeValues) : 0;
-    const maxClose = closeValues.length ? Math.max(...closeValues) : 0;
     const maxVolume = Math.max(...volumeValues, 1);
-    const closeRange = Math.max(maxClose - minClose, 1);
     const maxTickEvents = Math.max(...ticks.map((tick) => tick.event_count ?? 0), 1);
     const shiftCenter = (offset: number) => setSelectedTemporalCenter((current) => shiftTemporalCenter(current ?? activeCenter, activeFrame, offset));
     return (
@@ -4902,37 +5151,14 @@ function App() {
               shiftCenter(event.deltaY > 0 ? 1 : -1);
             }}
           >
-            {chartBars.length ? (
-              <div className="mini-candle-chart">
-                {chartBars.slice(-90).map((bar) => {
-                  const closePosition = ((bar.close - minClose) / closeRange) * 78;
-                  const openPosition = ((bar.open - minClose) / closeRange) * 78;
-                  const top = 86 - Math.max(closePosition, openPosition);
-                  const height = Math.max(Math.abs(closePosition - openPosition), 3);
-                  const rising = bar.close >= bar.open;
-                  return (
-                    <span
-                      className={rising ? 'mini-candle rising' : 'mini-candle falling'}
-                      key={`${bar.symbol}-${bar.timeframe}-${bar.bucket_start}`}
-                      style={{ height: `${height}%`, marginTop: `${top}%` }}
-                      title={`${formatTimestamp(bar.bucket_start)} ${bar.open} -> ${bar.close}`}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="empty-chart compact">{activeSymbol} {activeChartTimeframe} chart cache is empty for this viewport.</div>
-            )}
-            <div className="event-marker-layer" aria-hidden="true">
-              {events.slice(0, 160).map((event) => (
-                <span
-                  className="event-axis-marker"
-                  key={`${event.lane}-${event.event_id}`}
-                  style={{ left: `${temporalPositionPercent(event.event_time, viewportStart, viewportEnd)}%` }}
-                  title={`${formatTimestamp(event.event_time)} · ${event.title}`}
-                />
-              ))}
-            </div>
+            <TemporalTradingViewChart
+              symbol={activeSymbol}
+              timeframe={activeChartTimeframe}
+              bars={chartBars}
+              events={events}
+              viewportStart={viewportStart}
+              viewportEnd={viewportEnd}
+            />
             <div className="timeline-x-axis">
               {ticks.map((tick) => (
                 <button
@@ -5008,7 +5234,7 @@ function App() {
 
   const renderMainView = () => {
     if (activeView === 'status') return renderCurrentStatusView();
-    if (activeView === 'timewheel') return renderTemporalExplorerView();
+    if (activeView === 'temporal') return renderTemporalExplorerView();
     if (activeView === 'data') return <DataExplorerView />;
     if (activeView === 'performance') return <ReplayPerformanceView promotionChart={modelPromotionChart} />;
     if (activeView === 'replay') return <ReplayOperationsView promotionChart={modelPromotionChart} />;
@@ -5053,8 +5279,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'timewheel' ? 'Temporal Explorer' : activeView === 'performance' ? 'Replay Performance' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'timewheel' ? 'Timewheel / Dashboard' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'temporal' ? 'Temporal Explorer' : activeView === 'performance' ? 'Replay Performance' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'temporal' ? 'Temporal Explorer / Dashboard' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);
