@@ -4,7 +4,7 @@ Executable dashboard helper entrypoints live here. Scripts may import `src/`; `s
 
 ## Read-model helpers
 
-- `read_models/read_latest_dashboard_read_model.py` reads one accepted storage-hosted dashboard read-model `latest.json` file and prints a UI-ready JSON view.
+- `read_models/read_latest_dashboard_read_model.py` reads one accepted storage-hosted dashboard read-model current file and prints a UI-ready JSON view.
 
 Example:
 

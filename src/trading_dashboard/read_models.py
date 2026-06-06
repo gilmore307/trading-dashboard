@@ -1,7 +1,7 @@
 """Read adapters for storage-hosted dashboard read models.
 
 The dashboard consumes compact owner-facing summaries from trading-storage.  This
-module intentionally reads only accepted ``latest.json`` read-model files and
+module intentionally reads only accepted current read-model files and
 projects them into UI-ready dictionaries.  It does not query raw component
 internals, call providers, activate models, submit broker orders, or mutate
 accounts.
@@ -105,10 +105,10 @@ def _safe_contract_type(contract_type: str) -> str:
 
 
 def latest_read_model_path(storage_root: Path, contract_type: str) -> Path:
-    """Return the accepted storage-hosted latest path for a read-model contract."""
+    """Return the accepted storage-hosted current path for a read-model contract."""
 
     contract_type = _safe_contract_type(contract_type)
-    return Path(storage_root) / "06_dashboard_cache" / "read_models" / contract_type / "latest.json"
+    return Path(storage_root) / "06_dashboard_cache" / "read_models" / f"{contract_type}.json"
 
 
 def _expect_list(payload: Mapping[str, Any], field: str) -> list[Any]:
@@ -125,7 +125,7 @@ def _adapt_payload(payload: Mapping[str, Any], *, expected_contract_type: str, l
     contract_type = _safe_contract_type(str(payload["contract_type"]))
     if contract_type != expected_contract_type:
         raise DashboardReadModelAdapterError(
-            f"latest payload contract_type {contract_type!r} does not match expected {expected_contract_type!r}"
+            f"current payload contract_type {contract_type!r} does not match expected {expected_contract_type!r}"
         )
     schema_version = payload["schema_version"]
     if not isinstance(schema_version, int) or schema_version < 1:
@@ -164,15 +164,15 @@ def read_dashboard_read_model_latest(
     *,
     storage_root: Path = DEFAULT_STORAGE_ROOT,
 ) -> DashboardReadModelView:
-    """Read and adapt one storage-hosted dashboard read-model latest snapshot."""
+    """Read and adapt one storage-hosted dashboard read-model current file."""
 
     contract_type = _safe_contract_type(contract_type)
     latest_path = latest_read_model_path(Path(storage_root), contract_type)
     if not latest_path.exists():
-        raise DashboardReadModelAdapterError(f"dashboard read-model latest file does not exist: {latest_path}")
+        raise DashboardReadModelAdapterError(f"dashboard read-model current file does not exist: {latest_path}")
     payload = json.loads(latest_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise DashboardReadModelAdapterError("dashboard read-model latest payload must be a JSON object")
+        raise DashboardReadModelAdapterError("dashboard read-model current payload must be a JSON object")
     return _adapt_payload(payload, expected_contract_type=contract_type, latest_path=latest_path)
 
 

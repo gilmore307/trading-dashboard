@@ -27,7 +27,7 @@ The current implementation is a read-only storage-hosted dashboard over accepted
 Read-model files are read from the accepted storage route:
 
 ```text
-storage/06_dashboard_cache/read_models/<contract_type>/latest.json
+storage/06_dashboard_cache/read_models/<contract_type>.json
 ```
 
 The Data page is the narrow read-only exception for allowlisted source, feature, and main model-output tables through `/api/data/tables` and `/api/data/query`. The dashboard does not create workflow controls, provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes. `src/` owns reusable Python adapters, `web/` owns the browser UI, `scripts/` owns executable entrypoints, and `tests/` owns verification; `scripts/` may import `src/`, but `src/` must not import `scripts/`.

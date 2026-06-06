@@ -15,7 +15,7 @@ This file defines the intended component workflow for `trading-dashboard`.
 ## Primary Flow
 
 ```text
-storage/06_dashboard_cache/read_models/<contract_type>/latest.json -> /api/read-models/<contract_type>/latest and /ws/read-models/<contract_type>/latest -> read-only dashboard views
+storage/06_dashboard_cache/read_models/<contract_type>.json -> /api/read-models/<contract_type>/latest and /ws/read-models/<contract_type>/latest -> read-only dashboard views
 ```
 
 The read-only Data page uses `/api/data/tables` and `/api/data/query` for explicitly allowlisted source, feature, and main model-output tables.

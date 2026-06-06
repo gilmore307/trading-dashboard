@@ -17,7 +17,7 @@ raw internal evidence -> upstream/component aggregation -> trading-storage mater
 `trading-storage` materializes dashboard read models under the accepted storage route:
 
 ```text
-storage/06_dashboard_cache/read_models/<contract_type>/latest.json
+storage/06_dashboard_cache/read_models/<contract_type>.json
 ```
 
 `trading-dashboard` reads those summaries directly through the Vite HTTP and WebSocket routes:
@@ -27,7 +27,7 @@ storage/06_dashboard_cache/read_models/<contract_type>/latest.json
 /ws/read-models/<contract_type>/latest
 ```
 
-The WebSocket route sends a snapshot on connect and on `latest.json` changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
+The WebSocket route sends the current read model on connect and on current-file changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
 
 The dashboard renders Status, Tasks, Temporal Explorer, Models, Replay Performance, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 

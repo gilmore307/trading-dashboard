@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read a storage-hosted dashboard read-model latest snapshot."""
+"""Read a storage-hosted dashboard read-model current file."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from trading_dashboard.read_models import DEFAULT_STORAGE_ROOT, read_dashboard_r
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Read one storage-hosted dashboard read-model latest.json file.")
+    parser = argparse.ArgumentParser(description="Read one storage-hosted dashboard read-model current file.")
     parser.add_argument("contract_type")
     parser.add_argument("--storage-root", type=Path, default=DEFAULT_STORAGE_ROOT)
     args = parser.parse_args(argv)

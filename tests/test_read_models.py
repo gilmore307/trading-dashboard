@@ -43,7 +43,7 @@ def sample_payload(**overrides):
 
 
 def write_latest(storage_root: Path, payload: dict) -> Path:
-    latest = storage_root / "06_dashboard_cache" / "read_models" / payload["contract_type"] / "latest.json"
+    latest = storage_root / "06_dashboard_cache" / "read_models" / f"{payload['contract_type']}.json"
     latest.parent.mkdir(parents=True, exist_ok=True)
     latest.write_text(json.dumps(payload), encoding="utf-8")
     return latest
@@ -80,7 +80,7 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
 
         self.assertEqual(
             path,
-            storage_root / "06_dashboard_cache/read_models/execution_realtime_trading_runtime_status/latest.json",
+            storage_root / "06_dashboard_cache/read_models/execution_realtime_trading_runtime_status.json",
         )
 
     def test_accepts_temporal_explorer_summary_contract_path(self):
@@ -90,7 +90,7 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
 
         self.assertEqual(
             path,
-            storage_root / "06_dashboard_cache/read_models/temporal_explorer_summary/latest.json",
+            storage_root / "06_dashboard_cache/read_models/temporal_explorer_summary.json",
         )
 
     def test_rejects_missing_latest_file(self):
@@ -101,7 +101,7 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
     def test_rejects_contract_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
             storage_root = Path(tmp)
-            latest = storage_root / "06_dashboard_cache" / "read_models" / HISTORICAL_TASK_PROGRESS_CONTRACT / "latest.json"
+            latest = storage_root / "06_dashboard_cache" / "read_models" / f"{HISTORICAL_TASK_PROGRESS_CONTRACT}.json"
             latest.parent.mkdir(parents=True, exist_ok=True)
             latest.write_text(
                 json.dumps(sample_payload(contract_type="current_system_status_summary")),

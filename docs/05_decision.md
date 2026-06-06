@@ -194,7 +194,7 @@ Semantic ownership does not move to storage: task/scheduler/promotion summary se
 - Dashboard implementation should request/consume storage-hosted summaries rather than raw component internals.
 
 
-## D008 - Dashboard read adapter consumes storage latest files
+## D008 - Dashboard read adapter consumes storage current files
 
 Date: 2026-05-12
 Status: Accepted
@@ -205,18 +205,18 @@ Status: Accepted
 
 ### Decision
 
-The dashboard read adapter reads storage-hosted dashboard read-model `latest.json` files:
+The dashboard read adapter reads storage-hosted dashboard read-model current files:
 
 - importable module: `src/trading_dashboard/read_models.py`;
 - executable helper: `scripts/read_models/read_latest_dashboard_read_model.py`;
-- accepted storage route: `storage/06_dashboard_cache/read_models/<contract_type>/latest.json`.
+- accepted storage route: `storage/06_dashboard_cache/read_models/<contract_type>.json`.
 
-The adapter reads only accepted `storage/06_dashboard_cache/read_models/<contract_type>/latest.json` summaries, validates the common dashboard envelope shape, and projects the payload into a UI-ready dictionary. It does not query raw manager/model/data/execution/storage internals and does not perform provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.
+The adapter reads only accepted `storage/06_dashboard_cache/read_models/<contract_type>.json` summaries, validates the common dashboard envelope shape, and projects the payload into a UI-ready dictionary. It does not query raw manager/model/data/execution/storage internals and does not perform provider calls, manager dispatch, model activation, broker execution, account mutation, or storage writes.
 
 ### Consequences
 
 - Future UI/runtime pages should consume this adapter boundary or a successor with the same storage-hosted read-model discipline.
-- Missing `latest.json` is surfaced as a read-adapter error rather than silently fabricating dashboard values.
+- Missing current read-model files are surfaced as read-adapter errors rather than silently fabricating dashboard values.
 - Additional dashboard contracts can reuse the adapter after their semantic producer and storage materialization path are accepted.
 
 ## D009 - Website runtime is read-only over storage read models
@@ -232,7 +232,7 @@ The read-model pipeline is concrete enough for a visible product that follows th
 
 The website/runtime uses Vite + React + TypeScript and keeps page content read-only.
 
-Dashboard pages consume read models through `/api/read-models/<contract_type>/latest` and `/ws/read-models/<contract_type>/latest`, backed by `trading-storage/storage/06_dashboard_cache/read_models/<contract_type>/latest.json`. The left navigation is the only page-switching entry point; main content stays informational, while manual refresh, read-only WebSocket streaming, HTTP fallback polling, and in-view diagnostic expansion remain read-only controls.
+Dashboard pages consume read models through `/api/read-models/<contract_type>/latest` and `/ws/read-models/<contract_type>/latest`, backed by `trading-storage/storage/06_dashboard_cache/read_models/<contract_type>.json`. The left navigation is the only page-switching entry point; main content stays informational, while manual refresh, read-only WebSocket streaming, HTTP fallback polling, and in-view diagnostic expansion remain read-only controls.
 
 ### Consequences
 

@@ -58,12 +58,12 @@ function canonicalContractType(contractType: string): string {
 }
 
 function latestReadModelPath(contractType: string): string {
-  return path.join(storageRoot(), '06_dashboard_cache', 'read_models', canonicalContractType(contractType), 'latest.json');
+  return path.join(storageRoot(), '06_dashboard_cache', 'read_models', `${canonicalContractType(contractType)}.json`);
 }
 
 function validateReadModelPayload(payload: unknown, expectedContractType: string): Record<string, unknown> {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('dashboard read-model latest payload must be a JSON object');
+    throw new Error('dashboard read-model current payload must be a JSON object');
   }
   const record = payload as Record<string, unknown>;
   const missing = REQUIRED_READ_MODEL_FIELDS.filter((field) => !(field in record));
@@ -71,7 +71,7 @@ function validateReadModelPayload(payload: unknown, expectedContractType: string
     throw new Error(`missing required dashboard read-model fields: ${missing.join(', ')}`);
   }
   if (canonicalContractType(String(record.contract_type)) !== expectedContractType) {
-    throw new Error(`latest payload contract_type does not match expected ${expectedContractType}`);
+    throw new Error(`current payload contract_type does not match expected ${expectedContractType}`);
   }
   if (!Number.isInteger(record.schema_version) || Number(record.schema_version) < 1) {
     throw new Error('schema_version must be a positive integer');
@@ -418,7 +418,7 @@ function attachDashboardReadModelApi(server: ViteDevServer | PreviewServer): voi
       res.statusCode = 404;
       res.setHeader('content-type', 'application/json; charset=utf-8');
       res.end(JSON.stringify({
-        error: error instanceof Error ? error.message : 'dashboard read-model latest.json not found',
+        error: error instanceof Error ? error.message : 'dashboard read-model current file not found',
         contract_type: match[1],
       }));
     }

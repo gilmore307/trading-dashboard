@@ -11,7 +11,7 @@
 The accepted read-model input route is:
 
 ```text
-storage/06_dashboard_cache/read_models/<contract_type>/latest.json
+storage/06_dashboard_cache/read_models/<contract_type>.json
   -> /api/read-models/<contract_type>/latest
   -> /ws/read-models/<contract_type>/latest
   -> read-only dashboard presentation
