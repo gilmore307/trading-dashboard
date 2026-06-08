@@ -311,6 +311,7 @@ type DiagnosticSummaryItem = {
   detail: string;
   severity: DiagnosticSeverity;
   handlingStatus: DiagnosticHandlingStatus;
+  agentInterventionStatus?: string | null;
   errorRef?: string | null;
   occurredAt?: string | null;
 };
@@ -3992,6 +3993,7 @@ function collectDiagnosticSummary(
       detail: `${rootCause}${retry}`,
       severity: diagnosticSeverityFromValue(error.dashboard_severity ?? error.severity),
       handlingStatus: agentHandlingStatus(error),
+      agentInterventionStatus: repairStatus,
       occurredAt: error.occurred_at_utc ?? error.created_at_utc,
     });
   });
@@ -4497,10 +4499,12 @@ function DiagnosticsSummaryView({
               <span>Severity</span>
               <span>Error / status</span>
               <span>Occurred</span>
+              <span>Codex Repair</span>
               <span>Handling</span>
             </div>
             {filteredItems.map((item) => {
               const errorNumber = diagnosticReference(item);
+              const interventionStatus = item.agentInterventionStatus ? startCase(item.agentInterventionStatus) : 'Not involved';
               return (
               <div className={`diagnostic-table-row diagnostic-${item.severity}`} key={item.id} role="row">
                 <code>{errorNumber}</code>
@@ -4510,6 +4514,7 @@ function DiagnosticsSummaryView({
                   <small>{item.category} · {item.status} · {item.detail}</small>
                 </div>
                 <span>{item.occurredAt ? formatTimestamp(item.occurredAt) : 'Not recorded'}</span>
+                <span>{interventionStatus}</span>
                 <span>{handlingStatusLabel(item.handlingStatus)}</span>
               </div>
               );

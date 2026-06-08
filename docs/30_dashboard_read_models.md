@@ -146,7 +146,7 @@ Owner-facing fields:
 - ready/pending/failed counts;
 - latest attached stage-coverage counts when the storage refresh wrapper can locate a manager coverage artifact;
 - latest stage-execution status, return code, failure reason, and stdout/stderr/receipt evidence refs when available;
-- sanitized agent-error summary rows from the server error catalog, preserving permanent `ERR-*` refs and exposing diagnosis status, repair status, handling status, retry recommendation, and bounded root-cause text;
+- sanitized agent-error summary rows from the server error catalog, preserving permanent `ERR-*` refs and exposing diagnosis status, repair status, Codex/agent auto-repair intervention state, handling status, retry recommendation, and bounded root-cause text;
 - service runtime, scheduler lock, provider posture, and terminal-complete gates;
 - blocker category;
 - next expected system action;

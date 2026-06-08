@@ -565,7 +565,7 @@ Diagnostics should support quick agent-facing follow-up, not act as a raw refere
 
 ### Decision
 
-Diagnostics defaults to unresolved rows and provides filters for type, current handling status, and severity. Severity filter cards cover All, Critical, Errors, Warnings, and Notices after the type/status filters are applied. The table includes user-facing error number (`ERR-000001` style), severity, category/status/detail, occurred time, and handling state (`Open`, `Awaiting retry`, `Manual review`, `Closed`, or `No action needed`). For manager agent-error rows, the permanent `ERR-*` ref comes from the server error catalog and must never be regenerated from current UI sort order or filtered row index. Non-catalog diagnostics use non-ERR stable display refs. Issue/evidence/read-model plumbing is hidden from the page because error handling happens through the agent conversation, not the website.
+Diagnostics defaults to unresolved rows and provides filters for type, current handling status, and severity. Severity filter cards cover All, Critical, Errors, Warnings, and Notices after the type/status filters are applied. The table includes user-facing error number (`ERR-000001` style), severity, category/status/detail, occurred time, Codex/agent auto-repair intervention state, and handling state (`Open`, `Awaiting retry`, `Manual review`, `Closed`, or `No action needed`). For manager agent-error rows, the permanent `ERR-*` ref comes from the server error catalog and must never be regenerated from current UI sort order or filtered row index. Non-catalog diagnostics use non-ERR stable display refs. Issue/evidence/read-model plumbing is hidden from the page because error handling happens through the agent conversation, not the website.
 
 ### Consequences
 

@@ -373,7 +373,7 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .diagnostic-filter-card small { display: block; margin-top: 6px; color: #8fa2ba; line-height: 1.35; }
 .diagnostics-summary-panel { margin-bottom: 18px; }
 .diagnostic-table { display: grid; gap: 8px; overflow-x: auto; }
-.diagnostic-table-row { display: grid; grid-template-columns: minmax(120px, .55fr) 92px minmax(280px, 1.6fr) minmax(150px, .8fr) 150px; align-items: center; gap: 12px; min-width: 900px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
+.diagnostic-table-row { display: grid; grid-template-columns: minmax(120px, .55fr) 92px minmax(280px, 1.6fr) minmax(150px, .8fr) minmax(130px, .65fr) 150px; align-items: center; gap: 12px; min-width: 1060px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 14px; background: rgba(15, 23, 42, .45); }
 .diagnostic-table-head { color: #7c8ea5; font-size: 11px; text-transform: uppercase; letter-spacing: .10em; font-weight: 900; background: rgba(2, 6, 23, .42); }
 .diagnostic-table-row code { color: #bae6fd; background: rgba(2, 6, 23, .38); border: 1px solid rgba(148, 163, 184, .12); border-radius: 9px; padding: 5px 7px; overflow-wrap: anywhere; }
 .diagnostic-table-main { display: grid; gap: 4px; min-width: 0; }
