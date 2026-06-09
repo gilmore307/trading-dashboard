@@ -390,6 +390,8 @@ function agentInterventionStatus(diagnosisStatus: unknown, repairStatus: unknown
   if (repair === 'repaired') return reviewed ? `${runnerLabel} repaired` : 'Repair recorded';
   if (repair === 'superseded') return 'Superseded by current route';
   if (repair === 'not_supported') return reviewed ? `${runnerLabel} reviewed · Not supported` : 'Not supported';
+  if (repair === 'blocked') return reviewed ? `${runnerLabel} repair blocked` : 'Repair blocked';
+  if (repair === 'failed') return reviewed ? `${runnerLabel} repair failed` : 'Repair failed';
   if (repair === 'queued') return `${runnerLabel} queued`;
   if (repair === 'agent_call_failed') return `${runnerLabel} call failed`;
   if (repair === 'repair_attempted') return `${runnerLabel} attempted repair`;
