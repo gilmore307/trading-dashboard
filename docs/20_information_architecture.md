@@ -172,8 +172,8 @@ Subpages:
 - Layer 6 — Dynamic Risk Policy
 - Layer 7 — Position Projection
 - Layer 8 — Underlying Action
-- Layer 9 — Trading Guidance / Option Expression
-- Layer 10 — Event Risk Governor / Event Intelligence Overlay
+- M05 — Trading Guidance / Option Expression
+- M06 — Event Risk Governor / Event Intelligence Overlay
 
 The model-group page owns:
 
@@ -268,7 +268,7 @@ Visible content should include:
 - frame-aligned symbol/frame/center-time controls;
 - a TradingView-style K-line chart over the selected symbol and frame;
 - volume and accepted-event-density subcharts;
-- Layer 10 accepted event markers for the selected time unit.
+- M06 accepted event markers for the selected time unit.
 
 Hidden by default:
 

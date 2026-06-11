@@ -101,13 +101,13 @@ The dashboard calendar route is a Temporal Explorer, not a raw event browser. Th
 
 ### Decision
 
-Add a read-only Temporal Explorer page backed by `temporal_explorer_summary` from `trading-storage`. The primary chart is a TradingView-style K-line surface: selected frame, Layer 10 accepted event markers, visible tick labels, and center time all live around the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, substrate status cards, symbol/frame/center-time selectors, selected-unit event details, and chart-cache status. The former narrow event-calendar summary is no longer part of the public dashboard surface.
+Add a read-only Temporal Explorer page backed by `temporal_explorer_summary` from `trading-storage`. The primary chart is a TradingView-style K-line surface: selected frame, M06 accepted event markers, visible tick labels, and center time all live around the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, substrate status cards, symbol/frame/center-time selectors, selected-unit event details, and chart-cache status. The former narrow event-calendar summary is no longer part of the public dashboard surface.
 
 ### Consequences
 
 - Dashboard Temporal Explorer reads `/api/read-models/temporal_explorer_summary/latest` and `/ws/read-models/temporal_explorer_summary/latest`.
 - The page performs no provider calls, SQL writes, model activation, broker execution, or account mutation.
-- Early closes, chart bars, replay state, model event markers, and Layer 10 accepted event markers remain visible gaps until accepted source producers populate them. Scheduled events, event results, and news index rows may be populated substrate tables without becoming chart markers.
+- Early closes, chart bars, replay state, model event markers, and M06 accepted event markers remain visible gaps until accepted source producers populate them. Scheduled events, event results, and news index rows may be populated substrate tables without becoming chart markers.
 
 
 ## D005 - Dashboard is an owner-facing summary, not an internal maintenance console

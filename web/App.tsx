@@ -593,7 +593,7 @@ function taskOptionRank(value: string): number {
   const layerMatch = /^layer_(\d{2})_/u.exec(value);
   if (layerMatch) return Number(layerMatch[1]);
   if (value === 'model_group.replay') return 100;
-  if (value === 'model_group.model_10_event_risk_governor') return 110;
+  if (value === 'model_group.model_06_residual_event_governance') return 110;
   if (value === 'model_group.evaluation') return 120;
   if (value === 'model_group.promotion') return 130;
   if (value === 'model_group.maintenance') return 140;
@@ -5323,7 +5323,7 @@ function App() {
         </section>
         <section className="panel temporal-events-panel">
           <div className="panel-heading">Event Markers</div>
-          <p className="panel-subtitle">Showing only the selected {activeFrame} unit. Markers require Layer 10 accepted event-family status.</p>
+          <p className="panel-subtitle">Showing only the selected {activeFrame} unit. Markers require M06 accepted event-family status.</p>
           {selectedTickEvents.length ? (
             <div className="temporal-event-stack">
               {selectedTickEvents.map((event) => (
@@ -5341,7 +5341,7 @@ function App() {
               ))}
             </div>
           ) : (
-            <div className="empty-chart compact">No Layer 10 accepted event markers for {selectedTick?.label ?? 'the selected time unit'}.</div>
+            <div className="empty-chart compact">No M06 accepted event markers for {selectedTick?.label ?? 'the selected time unit'}.</div>
           )}
         </section>
       </>
