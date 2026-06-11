@@ -451,13 +451,13 @@ Chentong asked that Status and Task filter choices appear in time/process order 
 
 ### Decision
 
-Task List filter options are ordered by domain sequence. Months sort chronologically, layers sort numerically, statuses sort by task timeline posture (`Past`, terminal exceptions, `Now`, then `Future`), and task/work types sort by the historical workflow order: data acquisition, feature generation, model generation, model evaluation, promotion review preparation, then maintenance. Unknown future values remain visible after the known sequence.
+Task List filter options are ordered by domain sequence. Months sort chronologically, layers sort numerically, statuses sort by task timeline posture (`Past`, terminal exceptions, `Now`, then `Future`), and task choices sort model-numbered work such as M01-M10 before model-group lifecycle work such as replay, evaluation, promotion, and maintenance. Generic workflow task types still sort by historical workflow order after those model-specific choices: data acquisition, feature generation, model generation, model evaluation, promotion review preparation, then maintenance. Unknown future values remain visible after the known sequence.
 
 ### Consequences
 
 - Operators can scan filters in the same order as the historical workflow.
 - The default Status filter remains `Now`; only the dropdown option order changes.
-- New task/work-type values should be assigned an explicit order when they become first-class workflow phases.
+- New model-numbered or task/work-type values should be assigned an explicit order when they become first-class workflow phases.
 
 ## D019 - Dashboard web service is presentation-only
 

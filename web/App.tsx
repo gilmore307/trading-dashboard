@@ -591,13 +591,17 @@ function taskStateOptionRank(value: string): number {
 
 function taskOptionRank(value: string): number {
   const layerMatch = /^layer_(\d{2})_/u.exec(value);
-  if (layerMatch) return Number(layerMatch[1]);
-  if (value === 'model_group.replay') return 100;
-  if (value === 'model_group.model_06_residual_event_governance') return 110;
-  if (value === 'model_group.evaluation') return 120;
-  if (value === 'model_group.promotion') return 130;
-  if (value === 'model_group.maintenance') return 140;
-  return WORK_TYPE_FILTER_ORDER[value] ?? Number.MAX_SAFE_INTEGER;
+  if (layerMatch) return Number(layerMatch[1]) * 10;
+  const modelMatch = /^model_(\d{2})(?:[_.]|$)/u.exec(value);
+  if (modelMatch) return Number(modelMatch[1]) * 10;
+  const modelGroupLayerMatch = /^model_group\.model_(\d{2})(?:[_.]|$)/u.exec(value);
+  if (modelGroupLayerMatch) return Number(modelGroupLayerMatch[1]) * 10 + 1;
+  if (value === 'model_group.replay') return 1000;
+  if (value === 'model_group.evaluation') return 1010;
+  if (value === 'model_group.promotion') return 1020;
+  if (value === 'model_group.maintenance') return 1030;
+  const workTypeRank = WORK_TYPE_FILTER_ORDER[value];
+  return workTypeRank === undefined ? Number.MAX_SAFE_INTEGER : 2000 + workTypeRank;
 }
 
 function targetOptionRank(value: string): number {
