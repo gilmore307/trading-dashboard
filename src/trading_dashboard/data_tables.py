@@ -54,9 +54,9 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="event_risk_governor_events",
-        label="trading_data.m06_residual_event_governance_data_acquisition",
+        label="trading_data.model_06_residual_event_governance_data_acquisition",
         schema="trading_data",
-        table="m06_residual_event_governance_data_acquisition",
+        table="model_06_residual_event_governance_data_acquisition",
         description="Downloaded/normalized event rows used by the event-risk-governor source.",
         default_sort="event_time",
         default_direction="desc",
@@ -151,9 +151,9 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
     ),
     DataTableSpec(
         table_id="event_risk_governor_features",
-        label="trading_data.m06_residual_event_governance_feature_generation",
+        label="trading_data.model_06_residual_event_governance_feature_generation",
         schema="trading_data",
-        table="m06_residual_event_governance_feature_generation",
+        table="model_06_residual_event_governance_feature_generation",
         description="Generated event-risk-governor feature payloads derived from downloaded event rows.",
         default_sort="event_id",
     ),
@@ -170,7 +170,7 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
 
 _TABLE_BY_ID = {table.table_id: table for table in ALLOWED_TABLES}
 _LAYERED_TABLE_RE = re.compile(r"^(source|feature|model)_(\d{2})_")
-_NUMBERED_STAGE_TABLE_RE = re.compile(r"^m(\d{2})_.*_(data_acquisition|feature_generation|model_generation)$")
+_NUMBERED_STAGE_TABLE_RE = re.compile(r"^(?:m|model_)(\d{2})_.*_(data_acquisition|feature_generation|model_generation)$")
 _SURFACE_ORDER = {"source": 0, "feature": 1, "model": 2}
 _STAGE_SURFACE_ORDER = {"data_acquisition": 0, "feature_generation": 1, "model_generation": 2}
 MAX_LIMIT = 200
@@ -190,13 +190,13 @@ def database_url(explicit: str | None = None) -> str:
 
 
 def _catalog_sort_key(table: DataTableSpec) -> tuple[int, int, str]:
-    match = _LAYERED_TABLE_RE.match(table.table)
-    if not match:
-        numbered_match = _NUMBERED_STAGE_TABLE_RE.match(table.label.split(".", 1)[-1])
-        if not numbered_match:
-            return (99, 99, table.label)
+    numbered_match = _NUMBERED_STAGE_TABLE_RE.match(table.label.split(".", 1)[-1])
+    if numbered_match:
         layer, surface = numbered_match.groups()
         return (int(layer), _STAGE_SURFACE_ORDER[surface], table.label)
+    match = _LAYERED_TABLE_RE.match(table.table)
+    if not match:
+        return (99, 99, table.label)
     surface, layer = match.groups()
     return (int(layer), _SURFACE_ORDER[surface], table.label)
 

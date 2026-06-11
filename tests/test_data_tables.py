@@ -46,8 +46,8 @@ class DataTablesTest(unittest.TestCase):
         self.assertEqual(labels["target_state_model_output"], "trading_model.model_02_target_state")
         self.assertEqual(labels["unified_decision_model_output"], "trading_model.model_04_unified_decision")
         self.assertEqual(labels["option_expression_model_output"], "trading_model.model_05_option_expression")
-        self.assertEqual(labels["event_risk_governor_events"], "trading_data.m06_residual_event_governance_data_acquisition")
-        self.assertEqual(labels["event_risk_governor_features"], "trading_data.m06_residual_event_governance_feature_generation")
+        self.assertEqual(labels["event_risk_governor_events"], "trading_data.model_06_residual_event_governance_data_acquisition")
+        self.assertEqual(labels["event_risk_governor_features"], "trading_data.model_06_residual_event_governance_feature_generation")
         self.assertEqual(labels["event_risk_governor_model_output"], "trading_model.model_06_residual_event_governance")
 
     def test_catalog_keeps_compatible_physical_query_tables_until_migration_lands(self) -> None:
