@@ -27,18 +27,14 @@ class DataTablesTest(unittest.TestCase):
                 "market_regime_model_output",
                 "sector_context_features",
                 "sector_context_model_output",
+                "target_state_model_output",
                 "target_state_bars_quotes",
                 "target_state_features",
-                "target_state_model_output",
-                "event_failure_risk_model_output",
-                "alpha_confidence_model_output",
+                "unified_decision_model_output",
                 "option_expression_model_output",
                 "event_risk_governor_events",
                 "event_risk_governor_features",
-                "dynamic_risk_policy_model_output",
                 "event_risk_governor_model_output",
-                "position_projection_model_output",
-                "underlying_action_model_output",
             ],
         )
 
@@ -47,11 +43,12 @@ class DataTablesTest(unittest.TestCase):
         self.assertEqual(labels["market_regime_bars"], "trading_data.m01_market_regime_data_acquisition")
         self.assertEqual(labels["market_regime_features"], "trading_data.m01_market_regime_feature_generation")
         self.assertEqual(labels["market_regime_model_output"], "trading_model.m01_market_regime_model_generation")
-        self.assertEqual(labels["target_state_model_output"], "trading_model.m03_target_state_vector_model_generation")
-        self.assertEqual(labels["option_expression_model_output"], "trading_model.m05_option_expression_model_generation")
+        self.assertEqual(labels["target_state_model_output"], "trading_model.model_02_target_state")
+        self.assertEqual(labels["unified_decision_model_output"], "trading_model.model_04_unified_decision")
+        self.assertEqual(labels["option_expression_model_output"], "trading_model.model_05_option_expression")
         self.assertEqual(labels["event_risk_governor_events"], "trading_data.m06_residual_event_governance_data_acquisition")
         self.assertEqual(labels["event_risk_governor_features"], "trading_data.m06_residual_event_governance_feature_generation")
-        self.assertEqual(labels["event_risk_governor_model_output"], "trading_model.m06_residual_event_governance_model_generation")
+        self.assertEqual(labels["event_risk_governor_model_output"], "trading_model.model_06_residual_event_governance")
 
     def test_catalog_keeps_compatible_physical_query_tables_until_migration_lands(self) -> None:
         physical_tables = {row["table_id"]: f"{row['schema']}.{row['table']}" for row in table_catalog()}

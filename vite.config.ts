@@ -206,7 +206,7 @@ function replayDecisionReasonCodes(row: Record<string, unknown>): string[] {
   const candidates = [
     row.reason_codes,
     row.decision_reason_codes,
-    nestedValue(row, 'model_layer_diagnostics', 'model_08_underlying_action', 'reason_codes'),
+    nestedValue(row, 'model_layer_diagnostics', 'model_06_residual_event_governance', 'reason_codes'),
   ];
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) return candidate.map((item) => String(item)).filter(Boolean).slice(0, 8);
