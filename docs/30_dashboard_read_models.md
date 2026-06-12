@@ -29,7 +29,7 @@ storage/06_dashboard_cache/read_models/<contract_type>.json
 
 The WebSocket route sends the current read model on connect and on current-file changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
 
-The dashboard renders Status, Tasks, Temporal Explorer, Models, Replay Performance, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
+The dashboard renders Status, Tasks, Temporal Explorer, Models, Replay Performance, Replay Decisions, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -249,7 +249,7 @@ Dashboard presentation:
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
 - group page charts are organized as model statistical-validity families: Ranking / Calibration, Selection Diagnostics, Feature Space, Integrity / Uncertainty, and Temporal Stability;
 - AUROC/ROC, PR-AUC, Brier, calibration, decision-variable schema/coverage, silhouette, PCA, PCoA, data integrity, uncertainty, and temporal AUROC/Brier stability carry the owner-facing model-validity interpretation when published;
-- replay normalized NAV, performance metrics, threshold utility, cost sensitivity, score-decile return, baseline/no-trade comparisons, economic robustness, trading-distribution slices, trade-level rows, and monthly replay drilldowns live under Replay Performance or Replay Operations rather than Models;
+- replay normalized NAV, performance metrics, threshold utility, cost sensitivity, score-decile return, baseline/no-trade comparisons, economic robustness, trading-distribution slices, trade-level rows, and monthly replay drilldowns live under Replay Performance or Replay Decisions rather than Models;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
 Canonical layer map:
@@ -297,14 +297,15 @@ Replay Performance presentation:
 - metric comparison charts show total return, drawdown, excess return, volatility, Sharpe, and beta when published;
 - ETF, Layer 1, Layer 2, and sector-anchor comparison series stay absent until a read model publishes them; the dashboard must not fabricate benchmark rows from missing evidence.
 
-Replay Operations presentation:
+Replay Decisions presentation:
 
-- Replay Operations consumes the same `replay_run_id`, version scope, time range, and selected month/cursor as Replay Performance when those fields are available;
-- no selected replay model means operations summary mode across all published versions; one selected replay model shows model-focused operational curves and slice distribution; multiple selected replay models show selected-set operations comparison;
-- operations version selection focuses the model/run whose component decisions are being inspected;
-- replay slice/contribution distributions belong in Replay Operations because they explain decision flow and component behavior, not headline trading performance;
+- Replay Decisions consumes the same `replay_run_id`, version scope, time range, and selected month/cursor as Replay Performance when those fields are available;
+- no selected replay model means decision summary mode across all published versions; one selected replay model shows model-focused decision curves, slice distribution, and monthly decision rows; multiple selected replay models show selected-set decision comparison;
+- decision version selection focuses the model/run whose component decisions are being inspected;
+- replay slice/contribution distributions belong in Replay Decisions because they explain decision flow and component behavior, not headline trading performance;
 - full Monthly Replay detail is a model-scoped detail window, and month clicks route to a historical replay decision-detail table sourced through the read-only dashboard replay decision API;
-- trade-level replay decision detail must remain historical replay evidence with sanitized fields such as timestamp, target/instrument, action/disposition, fill status, score, returns, cost, and reason codes; it must not present broker/account/order mutation controls;
+- trade-level replay decision detail must remain historical replay evidence with sanitized fields such as timestamp, target/instrument, action/disposition, fill status, score, returns, cost, reason codes, and component/model decision trace; it must not present broker/account/order mutation controls;
+- Replay Operations owns execution graph health, operation status, source readiness, and missing-evidence diagnostics rather than decision-result attribution;
 - future storage work should split large replay payloads into a dedicated replay read model when promotion posture is no longer the narrow canonical home.
 
 ### `registry_dictionary_profile`

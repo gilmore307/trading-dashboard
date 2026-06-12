@@ -2442,6 +2442,7 @@ type ReplayMonthRow = {
 
 type ReplayDecisionDetailRow = {
   row_index?: number;
+  decision_id?: string | null;
   timestamp?: string | null;
   target_ref?: string | null;
   instrument_type?: string | null;
@@ -2454,6 +2455,18 @@ type ReplayDecisionDetailRow = {
   baseline_return?: number | null;
   cost?: number | null;
   net_return?: number | null;
+  reason_codes?: string[];
+  decision_trace?: ReplayDecisionTraceStep[];
+};
+
+type ReplayDecisionTraceStep = {
+  component_id?: string | null;
+  component_label?: string | null;
+  decision?: string | null;
+  status?: string | null;
+  score?: number | null;
+  side?: string | null;
+  action?: string | null;
   reason_codes?: string[];
 };
 
@@ -3364,6 +3377,51 @@ function replayMonthlyRows(version: ModelGroupPromotionVersionPayload, index: nu
     });
 }
 
+function replayDecisionTraceLabel(step: ReplayDecisionTraceStep): string {
+  const label = step.component_label ?? step.component_id ?? 'Component';
+  const decision = step.decision ?? step.action ?? step.status ?? 'reported';
+  const score = typeof step.score === 'number' && Number.isFinite(step.score) ? ` ${step.score.toFixed(3)}` : '';
+  return `${label}: ${startCase(decision)}${score}`;
+}
+
+function ReplayComponentDecisionSummary({ rows }: { rows: ReplayDecisionDetailRow[] }) {
+  const counts = new Map<string, { label: string; count: number; decisions: Map<string, number> }>();
+  for (const row of rows) {
+    for (const step of row.decision_trace ?? []) {
+      const key = String(step.component_id ?? step.component_label ?? 'unknown_component');
+      const label = step.component_label ?? startCase(key);
+      const decision = startCase(step.decision ?? step.action ?? step.status ?? 'reported');
+      const existing = counts.get(key) ?? { label, count: 0, decisions: new Map<string, number>() };
+      existing.count += 1;
+      existing.decisions.set(decision, (existing.decisions.get(decision) ?? 0) + 1);
+      counts.set(key, existing);
+    }
+  }
+  const entries = [...counts.entries()]
+    .map(([key, value]) => ({ key, ...value }))
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
+  if (!entries.length) return null;
+  return (
+    <section className="replay-component-summary">
+      <div className="model-chart-title">Component Decision Summary</div>
+      <div className="replay-component-grid">
+        {entries.map((entry) => {
+          const topDecisions = [...entry.decisions.entries()]
+            .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+            .slice(0, 3);
+          return (
+            <div className="replay-component-card" key={entry.key}>
+              <strong>{entry.label}</strong>
+              <span>{entry.count} row decisions</span>
+              <small>{topDecisions.map(([decision, count]) => `${decision} ${count}`).join(' · ')}</small>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ReplayDecisionDetailTable({
   versionId,
   month,
@@ -3377,7 +3435,7 @@ function ReplayDecisionDetailTable({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
-  const [sort, setSort] = useState<SortState<'timestamp' | 'target_ref' | 'instrument_type' | 'action' | 'disposition' | 'fill_status' | 'score' | 'net_return' | 'realized_return' | 'cost' | 'reason_codes'>>({ key: 'timestamp', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'timestamp' | 'decision_id' | 'target_ref' | 'instrument_type' | 'action' | 'disposition' | 'fill_status' | 'score' | 'net_return' | 'realized_return' | 'cost' | 'reason_codes' | 'decision_trace'>>({ key: 'timestamp', direction: 'asc' });
   useEffect(() => {
     if (!month) {
       setPayload(null);
@@ -3405,11 +3463,14 @@ function ReplayDecisionDetailTable({
   const rows = payload?.rows ?? [];
   const query = filter.trim().toLowerCase();
   const displayedRows = rows
-    .filter((row) => !query || searchText(row.timestamp, row.target_ref, row.instrument_type, row.action, row.disposition, row.fill_status, row.score, row.net_return, row.realized_return, row.cost, row.reason_codes).includes(query))
+    .filter((row) => !query || searchText(row.timestamp, row.decision_id, row.target_ref, row.instrument_type, row.action, row.disposition, row.fill_status, row.score, row.net_return, row.realized_return, row.cost, row.reason_codes, row.decision_trace?.map(replayDecisionTraceLabel)).includes(query))
     .sort((left, right) => {
-      const leftValue = sort.key === 'reason_codes' ? (left.reason_codes ?? []).join(', ') : left[sort.key];
-      const rightValue = sort.key === 'reason_codes' ? (right.reason_codes ?? []).join(', ') : right[sort.key];
-      return compareSortValues(leftValue, rightValue, sort.direction);
+      const sortValue = (row: ReplayDecisionDetailRow): string | number | null | undefined => {
+        if (sort.key === 'reason_codes') return (row.reason_codes ?? []).join(', ');
+        if (sort.key === 'decision_trace') return (row.decision_trace ?? []).map(replayDecisionTraceLabel).join(', ');
+        return row[sort.key];
+      };
+      return compareSortValues(sortValue(left), sortValue(right), sort.direction);
     });
   return (
     <section className="replay-trade-detail-panel">
@@ -3426,6 +3487,7 @@ function ReplayDecisionDetailTable({
       {error ? <div className="empty-chart compact">{error}</div> : null}
       {!loading && !error && rows.length ? (
         <>
+        <ReplayComponentDecisionSummary rows={rows} />
         <div className="dashboard-table-controls">
           <label>
             <span>Filter</span>
@@ -3437,6 +3499,7 @@ function ReplayDecisionDetailTable({
           <div className="replay-table replay-decision-table">
             <div className="replay-table-row replay-table-head">
               <SortableHeader label="Time" column="timestamp" sort={sort} onSort={setSort} />
+              <SortableHeader label="Decision" column="decision_id" sort={sort} onSort={setSort} />
               <SortableHeader label="Target" column="target_ref" sort={sort} onSort={setSort} />
               <SortableHeader label="Type" column="instrument_type" sort={sort} onSort={setSort} />
               <SortableHeader label="Action" column="action" sort={sort} onSort={setSort} />
@@ -3447,10 +3510,12 @@ function ReplayDecisionDetailTable({
               <SortableHeader label="Realized" column="realized_return" sort={sort} onSort={setSort} defaultDirection="desc" />
               <SortableHeader label="Cost" column="cost" sort={sort} onSort={setSort} defaultDirection="desc" />
               <SortableHeader label="Reasons" column="reason_codes" sort={sort} onSort={setSort} />
+              <SortableHeader label="Trace" column="decision_trace" sort={sort} onSort={setSort} />
             </div>
             {displayedRows.length ? displayedRows.map((row, index) => (
               <div className="replay-table-row" key={`${row.timestamp ?? 'row'}-${index}`}>
                 <strong>{row.timestamp ?? 'No timestamp'}</strong>
+                <span>{row.decision_id ?? `Row ${row.row_index ?? index + 1}`}</span>
                 <span>{row.target_ref ?? 'Unknown'}</span>
                 <span>{startCase(row.instrument_type ?? 'unknown')}</span>
                 <span>{startCase(row.action ?? 'unknown')}</span>
@@ -3461,6 +3526,7 @@ function ReplayDecisionDetailTable({
                 <span>{formatMetricValue(row.realized_return ?? null, 4)}</span>
                 <span>{formatMetricValue(row.cost ?? null, 4)}</span>
                 <span>{row.reason_codes?.length ? row.reason_codes.map(startCase).join(', ') : 'None'}</span>
+                <span>{row.decision_trace?.length ? row.decision_trace.map(replayDecisionTraceLabel).slice(0, 5).join(' · ') : 'No trace'}</span>
               </div>
             )) : <div className="empty-chart compact">No replay decisions match the current filter.</div>}
           </div>

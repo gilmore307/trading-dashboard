@@ -214,11 +214,107 @@ function replayDecisionReasonCodes(row: Record<string, unknown>): string[] {
   return [];
 }
 
+function stringList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (value && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).flatMap(stringList);
+  }
+  return value === null || value === undefined || value === '' ? [] : [String(value)];
+}
+
+function replayTraceStep(
+  componentId: string,
+  component_label: string,
+  decision: unknown,
+  fields: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const normalizedDecision = stringOrNull(decision);
+  const reasonCodes = stringList(fields.reason_codes).slice(0, 8);
+  const hardGateReasonCodes = stringList(fields.hard_gate_reason_codes).slice(0, 8);
+  const status = stringOrNull(fields.status ?? fields.alpha_gate_status ?? fields.resolved_event_failure_risk_status);
+  const score = numberOrNull(fields.score ?? fields.resolved_alpha_score ?? nestedValue(fields, 'dominant_horizon_scores', 'action_confidence_score'));
+  const side = stringOrNull(fields.side ?? fields.resolved_action_side);
+  const action = stringOrNull(fields.action ?? fields.resolved_underlying_action_type);
+  if (!normalizedDecision && !status && score === null && !side && !action && !reasonCodes.length && !hardGateReasonCodes.length) {
+    return null;
+  }
+  return {
+    component_id: componentId,
+    component_label,
+    decision: normalizedDecision,
+    status,
+    score,
+    side,
+    action,
+    reason_codes: [...reasonCodes, ...hardGateReasonCodes].slice(0, 8),
+  };
+}
+
+function replayDecisionTrace(row: Record<string, unknown>): Record<string, unknown>[] {
+  const diagnostics = recordValue(row, 'model_layer_diagnostics');
+  if (!diagnostics || typeof diagnostics !== 'object' || Array.isArray(diagnostics)) return [];
+  const diagnosticRecord = diagnostics as Record<string, unknown>;
+  const trace = [
+    replayTraceStep(
+      'component_02_entry',
+      'C02 Entry',
+      stringOrNull(row.decision_status ?? row.status),
+      {
+        status: row.entry_threshold_calibration_status,
+        score: row.prediction_score,
+        action: row.decision_action ?? row.action,
+        reason_codes: row.decision_reason_codes ?? row.reason_codes,
+      },
+    ),
+    replayTraceStep(
+      'model_05_alpha_confidence',
+      'M05 Alpha Confidence',
+      nestedValue(diagnosticRecord, 'model_05_alpha_confidence', 'alpha_gate_status'),
+      recordValue(diagnosticRecord, 'model_05_alpha_confidence') as Record<string, unknown> ?? {},
+    ),
+    replayTraceStep(
+      'model_04_unified_decision',
+      'M04 Unified Decision',
+      nestedValue(diagnosticRecord, 'model_04_unified_decision', 'resolved_underlying_action_type'),
+      recordValue(diagnosticRecord, 'model_04_unified_decision') as Record<string, unknown> ?? {},
+    ),
+    replayTraceStep(
+      'model_04_event_failure_risk',
+      'M04 Event Failure Risk',
+      nestedValue(diagnosticRecord, 'model_04_event_failure_risk', 'resolved_event_failure_risk_status'),
+      recordValue(diagnosticRecord, 'model_04_event_failure_risk') as Record<string, unknown> ?? {},
+    ),
+    replayTraceStep(
+      'model_06_residual_event_governance',
+      'M06 Residual Event Governance',
+      nestedValue(diagnosticRecord, 'model_06_residual_event_governance', 'decision_status'),
+      recordValue(diagnosticRecord, 'model_06_residual_event_governance') as Record<string, unknown> ?? {},
+    ),
+  ].filter((step): step is Record<string, unknown> => Boolean(step));
+  const evidenceChain = Array.isArray(row.model_evidence_chain) ? row.model_evidence_chain.map(String) : [];
+  const existing = new Set(trace.map((step) => String(step.component_id)));
+  for (const componentId of evidenceChain) {
+    if (existing.has(componentId)) continue;
+    trace.push({
+      component_id: componentId,
+      component_label: componentId.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+      decision: 'evidence_used',
+      status: 'referenced',
+      score: null,
+      side: null,
+      action: null,
+      reason_codes: [],
+    });
+  }
+  return trace;
+}
+
 function sanitizeReplayDecisionRow(row: Record<string, unknown>, index: number): Record<string, unknown> {
   const realized = numberOrNull(row.net_return) ?? numberOrNull(row.realized_return) ?? numberOrNull(row.candidate_return);
   const cost = numberOrNull(row.cost) ?? numberOrNull(row.trading_cost) ?? 0;
   return {
     row_index: index,
+    decision_id: stringOrNull(row.decision_id),
     timestamp: stringOrNull(row.timestamp ?? row.decision_timestamp),
     target_ref: stringOrNull(row.target_ref ?? row.target_symbol),
     instrument_type: replayInstrumentType(row),
@@ -232,6 +328,7 @@ function sanitizeReplayDecisionRow(row: Record<string, unknown>, index: number):
     cost,
     net_return: realized === null ? null : realized - cost,
     reason_codes: replayDecisionReasonCodes(row),
+    decision_trace: replayDecisionTrace(row),
   };
 }
 

@@ -124,7 +124,7 @@ Chentong clarified that the website exists to summarize system, model, signal, a
 The dashboard primary navigation is grouped by user intent:
 
 - General — Status, Definitions, and Diagnostics.
-- Historical Models — Tasks, Data, Models, Replay Performance, Replay Operations, and Temporal Explorer.
+- Historical Models — Tasks, Data, Models, Replay Performance, Replay Decisions, Replay Operations, and Temporal Explorer.
 - Realtime — Realtime Signals and Trading Performance.
 
 The dashboard should be simple, clear, chart-first, and text-light. Internal artifacts, manifests, ready-signal rows, request payloads, daemon internals, raw logs, and model intermediate products are hidden by default. They may appear only in advanced diagnostic drilldowns when needed to explain a visible owner-facing issue.
