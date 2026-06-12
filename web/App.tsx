@@ -100,7 +100,7 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   trading_economics_calendar_source_events: 310,
 };
 
-type ViewId = 'status' | 'tasks' | 'temporal' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance';
+type ViewId = 'status' | 'tasks' | 'temporal' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance' | 'decisions';
 
 type NavItem = { id: ViewId; label: string };
 
@@ -120,6 +120,7 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
       { id: 'data', label: 'Data' },
       { id: 'models', label: 'Models' },
       { id: 'performance', label: 'Replay Performance' },
+      { id: 'decisions', label: 'Replay Decisions' },
       { id: 'replay', label: 'Replay Operations' },
       { id: 'temporal', label: 'Temporal Explorer' },
     ],
@@ -2954,7 +2955,7 @@ function replayVersionOutcomeSummary(version: ModelGroupPromotionVersionPayload,
   };
 }
 
-function ReplayVersionSummarySelector({
+function ReplayDecisionVersionSelector({
   versions,
   selectedIds,
   onChange,
@@ -2975,7 +2976,7 @@ function ReplayVersionSummarySelector({
     .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.index - right.index);
   return (
     <section className="panel replay-table-panel">
-      <div className="panel-heading">Replay Model Selector</div>
+      <div className="panel-heading">Replay Decision Model Selector</div>
       <div className="dashboard-table-controls">
         <label>
           <span>Filter</span>
@@ -3585,7 +3586,7 @@ function ReplayPerformanceView({ promotionChart }: { promotionChart: ModelPromot
   );
 }
 
-function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
+function ReplayDecisionsView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
@@ -3614,7 +3615,7 @@ function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromoti
           setSelectedMonth(null);
         }}
       />
-      <ReplayVersionSummarySelector
+      <ReplayDecisionVersionSelector
         versions={versions}
         selectedIds={selectedIds}
         onChange={setSelectedIds}
@@ -3651,6 +3652,52 @@ function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromoti
           }}
         />
       ) : null}
+    </section>
+  );
+}
+
+function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
+  const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const operationReadyCount = versions.filter((version) => {
+    const metrics = version.metrics ?? {};
+    return Boolean(
+      nestedRecord(metrics, 'component_health_diagnostics')
+      ?? nestedRecord(metrics, 'replay_operation_diagnostics')
+      ?? nestedRecord(metrics, 'source_data_readiness'),
+    );
+  }).length;
+  return (
+    <section className="replay-view">
+      <ReplaySelectionModePanel
+        mode="summary"
+        summary={`${versions.length} replay models · ${operationReadyCount} with operation diagnostics`}
+      />
+      <section className="panel replay-operations-placeholder">
+        <div className="panel-heading">Replay Operation Evidence</div>
+        <p className="panel-subtitle">Decision summaries, score/threshold/cost diagnostics, slice distributions, and raw decision rows now live under Replay Decisions.</p>
+        <div className="metric-grid three">
+          <MetricCard label="Replay models" value={versions.length} hint="Published model-group replay versions" />
+          <MetricCard label="Operation diagnostics" value={operationReadyCount} hint="Component operation evidence with current read model fields" />
+          <MetricCard label="Decision evidence" value="Moved" hint="Use Replay Decisions for component decision drilldown" />
+        </div>
+        {operationReadyCount ? (
+          <div className="replay-operation-list">
+            {versions.map((version, index) => {
+              const metrics = version.metrics ?? {};
+              const diagnostics = nestedRecord(metrics, 'replay_operation_diagnostics') ?? nestedRecord(metrics, 'component_health_diagnostics') ?? nestedRecord(metrics, 'source_data_readiness');
+              if (!diagnostics) return null;
+              return (
+                <div className="replay-operation-row" key={versionStableId(version, index)}>
+                  <strong>{compactVersionLabel(version, index)}</strong>
+                  <span>{startCase(String(diagnostics.status ?? version.decision_status ?? 'reported'))}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="empty-chart compact">No replay operation timeline, component health, or source-readiness diagnostics are published in the current read model.</div>
+        )}
+      </section>
     </section>
   );
 }
@@ -5357,6 +5404,7 @@ function App() {
     if (activeView === 'temporal') return renderTemporalExplorerView();
     if (activeView === 'data') return <DataExplorerView />;
     if (activeView === 'performance') return <ReplayPerformanceView promotionChart={modelPromotionChart} />;
+    if (activeView === 'decisions') return <ReplayDecisionsView promotionChart={modelPromotionChart} />;
     if (activeView === 'replay') return <ReplayOperationsView promotionChart={modelPromotionChart} />;
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
@@ -5404,8 +5452,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'temporal' ? 'Temporal Explorer' : activeView === 'performance' ? 'Replay Performance' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'temporal' ? 'Temporal Explorer / Dashboard' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'temporal' ? 'Temporal Explorer' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'temporal' ? 'Temporal Explorer / Dashboard' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);

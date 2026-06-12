@@ -327,6 +327,11 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-decision-table { min-width: 1320px; }
 .replay-decision-table .replay-table-row { grid-template-columns: minmax(190px, 1.1fr) minmax(76px, .5fr) minmax(82px, .52fr) minmax(120px, .7fr) minmax(105px, .65fr) minmax(105px, .65fr) repeat(4, minmax(86px, .55fr)) minmax(220px, 1.2fr); }
 .replay-decision-table .replay-table-head { position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 18px rgba(2, 6, 23, .22); }
+.replay-operations-placeholder { display: grid; gap: 14px; }
+.replay-operation-list { display: grid; gap: 8px; }
+.replay-operation-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); color: #cbd5e1; font-size: 12px; font-weight: 820; }
+.replay-operation-row strong { color: #f8fbff; overflow-wrap: anywhere; }
+.replay-operation-row span { color: #7dd3fc; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 900; }
 .replay-lightweight-chart-shell { position: relative; min-width: 0; min-height: 420px; border-radius: 8px; overflow: hidden; background: #0f1720; }
 .replay-lightweight-chart { width: 100%; height: 420px; min-height: 420px; }
 .replay-lightweight-legend { position: absolute; top: 10px; left: 12px; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: calc(100% - 24px); padding: 7px 9px; border: 1px solid rgba(148, 163, 184, .18); border-radius: 8px; background: rgba(15, 23, 32, .86); color: #d8e2ef; font-size: 12px; font-weight: 850; pointer-events: none; }

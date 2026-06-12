@@ -20,7 +20,7 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 The left sidebar is grouped by user intent:
 
 - General — Status, Definitions, and Diagnostics.
-- Historical Models — Tasks, Data, Models, Replay Performance, Replay Operations, and Temporal Explorer.
+- Historical Models — Tasks, Data, Models, Replay Performance, Replay Decisions, Replay Operations, and Temporal Explorer.
 - Realtime — Realtime Signals.
 
 ## Page Contracts
@@ -239,9 +239,7 @@ Visible content should include:
 
 - C01-C07 decision timelines and summaries;
 - Layer 1-10 input/output summaries where available;
-- traded, skipped, blocked, rejected, and failed decision summaries;
 - component health, coverage, and missing-evidence diagnostics;
-- replay decision slices and contribution distributions by sector/context, asset class, action class, and time bucket when available;
 - summary mode when no replay model is selected, focus mode when one or more replay models are selected;
 - monthly replay operation status;
 - replay source-data readiness and visible gaps.
@@ -256,8 +254,28 @@ Preferred visuals:
 Hidden by default:
 
 - model statistical validity metrics such as AUROC;
+- raw decision rows;
+- decision-result attribution and score/threshold/cost diagnostics;
 - raw provider plumbing;
 - dataset internals unless they explain replay gaps.
+
+### Replay Decisions
+
+Purpose: answer “Which concrete decisions did each replay component make, and where did those decisions begin to fail?”
+
+Visible content should include:
+
+- replay model decision selector with role, performance context, decision row count, accepted/fill counts, and taken/avoided/missed outcome counts;
+- decision-result comparison charts for row count, accepted, filled, taken-good, avoided-bad, and missed-good evidence;
+- score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics for the focused replay model;
+- monthly replay decision window with return, drawdown, cumulative result, and row-count context;
+- inspectable raw replay decision rows with timestamp, target, instrument type, action, disposition, fill status, score, realized return, cost, net return, and reason codes.
+
+Hidden by default:
+
+- normalized NAV and professional performance metrics, which belong under Replay Performance;
+- replay source-data readiness, component health, and execution graph diagnostics, which belong under Replay Operations;
+- model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure.
 
 ### Temporal Explorer
 

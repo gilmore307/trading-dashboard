@@ -623,10 +623,30 @@ Chentong clarified that Models should focus on model behavior, validity, statist
 
 ### Decision
 
-Add dedicated Replay Performance and Replay Operations pages. Replay Performance owns headline trading performance, normalized NAV, and professional performance metrics; Replay Operations owns replay decision flow, cost sensitivity, slice distribution, monthly replay detail, and trade-outcome inspection. No selection means summary mode across published replay versions. Selecting one model switches into focus mode; selecting multiple models keeps the page focused on the selected comparison set. Models keeps model-group comparison, promotion identity, ranking/calibration, decision-variable diagnostics, feature-space plots, layer-level acceptance thresholds, and runtime coefficient/feature-importance tables.
+Add dedicated Replay Performance, Replay Decisions, and Replay Operations pages. Replay Performance owns headline trading performance, normalized NAV, and professional performance metrics. Replay Decisions owns replay decision flow, cost sensitivity, slice distribution, monthly replay detail, concrete decision rows, and trade-outcome inspection. Replay Operations owns replay execution graph, component health, operation status, source readiness, and missing-evidence diagnostics. No selection means summary mode across published replay versions. Selecting one model switches into focus mode; selecting multiple models keeps the page focused on the selected comparison set. Models keeps model-group comparison, promotion identity, ranking/calibration, decision-variable diagnostics, feature-space plots, layer-level acceptance thresholds, and runtime coefficient/feature-importance tables.
 
 ### Consequences
 
 - Replay charts and tables are historical replay evidence only; the dashboard still performs no model activation, broker action, or account/position mutation.
 - Detailed replay economics should not be duplicated back into Models.
+- Concrete replay decisions and decision-result attribution should not be duplicated back into Replay Operations.
 - A dedicated replay read model may replace the current `model_promotion_posture_summary` consumption once replay payloads outgrow promotion posture.
+
+## D029 - Replay Decisions owns concrete replay decision drilldown
+
+Date: 2026-06-12
+Status: Accepted
+
+### Context
+
+After all folds finished, most model results were poor. Chentong needs to locate where the failure begins by inspecting every concrete decision each component made, not only aggregate replay performance.
+
+### Decision
+
+Add a dedicated Replay Decisions page under Historical Models. It uses the same replay summary/focus structure as the other replay pages and owns decision-model selection, accepted/fill/taken/avoided/missed summaries, score-decile return, threshold-return, cost-sensitivity, decision-slice diagnostics, monthly decision windows, and raw replay decision rows from `/api/replay-decisions`. Replay Operations no longer owns these decision-specific surfaces; it remains reserved for replay execution graph, component health, operation status, source-readiness, and missing-evidence diagnostics when those fields are published.
+
+### Consequences
+
+- Poor fold/model behavior can be traced from aggregate decision summaries down to month-level and row-level decisions in one page.
+- Replay Performance stays focused on economic curves and professional performance metrics.
+- Replay Operations no longer duplicates decision rows or decision-result attribution.

@@ -17,7 +17,7 @@ tests/       First-party dashboard adapter tests.
 web/         Vite/React browser UI for accepted read-model summaries.
 ```
 
-The current implementation is a read-only storage-hosted dashboard over accepted read-model summaries. The Vite/React UI renders Status, Tasks, Temporal Explorer, Data, Models, Replay Performance, Replay Operations, Realtime Signals, and Diagnostics through direct HTTP/WebSocket latest-summary routes:
+The current implementation is a read-only storage-hosted dashboard over accepted read-model summaries. The Vite/React UI renders Status, Tasks, Temporal Explorer, Data, Models, Replay Performance, Replay Decisions, Replay Operations, Realtime Signals, and Diagnostics through direct HTTP/WebSocket latest-summary routes:
 
 ```text
 /api/read-models/<contract_type>/latest
