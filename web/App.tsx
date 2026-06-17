@@ -64,6 +64,8 @@ const SERVICE_LABELS: Record<string, string> = {
   'trading-data-te-calendar-refresh.service': 'Trading Economics Calendar Worker',
   'trading-data-calendar-maintenance.timer': 'Trading Data Calendar Maintenance Schedule',
   'trading-data-calendar-maintenance.service': 'Trading Data Calendar Maintenance Worker',
+  'trading-data-te-release-fetch.timer': 'Trading Economics Release Fetch Schedule',
+  'trading-data-te-release-fetch.service': 'Trading Economics Release Fetcher',
 };
 
 const BACKGROUND_SERVICE_DISPLAY_ORDER: Record<string, number> = {
@@ -75,10 +77,12 @@ const BACKGROUND_SERVICE_DISPLAY_ORDER: Record<string, number> = {
   'trading-data-te-calendar-refresh.service': 60,
   'trading-data-calendar-maintenance.timer': 70,
   'trading-data-calendar-maintenance.service': 80,
-  'trading-execution-realtime-monitor-loop.service': 90,
-  'trading-execution-realtime-runtime-check.path': 100,
-  'trading-execution-realtime-runtime-check.timer': 110,
-  'trading-execution-realtime-runtime-check.service': 120,
+  'trading-data-te-release-fetch.timer': 90,
+  'trading-data-te-release-fetch.service': 100,
+  'trading-execution-realtime-monitor-loop.service': 110,
+  'trading-execution-realtime-runtime-check.path': 120,
+  'trading-execution-realtime-runtime-check.timer': 130,
+  'trading-execution-realtime-runtime-check.service': 140,
 };
 
 const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
