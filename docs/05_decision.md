@@ -643,10 +643,30 @@ After all folds finished, most model results were poor. Chentong needs to locate
 
 ### Decision
 
-Add a dedicated Replay Decisions page under Historical Models. It uses the same replay summary/focus structure as the other replay pages and owns decision-model selection, accepted/fill/taken/avoided/missed summaries, score-decile return, threshold-return, cost-sensitivity, decision-slice diagnostics, monthly decision windows, and raw replay decision rows from `/api/replay-decisions`. Replay Operations no longer owns these decision-specific surfaces; it remains reserved for replay execution graph, component health, operation status, source-readiness, and missing-evidence diagnostics when those fields are published.
+Add a dedicated Replay Decisions page under Historical Models. It uses the same replay summary/focus structure as the other replay pages and owns decision-version selection, accepted/fill/taken/avoided/missed summaries, score-decile return, threshold-return, cost-sensitivity, decision-slice diagnostics, monthly decision windows, and raw replay decision rows from `/api/replay-decisions`. Replay Operations no longer owns these decision-specific surfaces; it remains reserved for replay execution graph, component health, operation status, source-readiness, and missing-evidence diagnostics when those fields are published.
 
 ### Consequences
 
 - Poor fold/model behavior can be traced from aggregate decision summaries down to month-level and row-level decisions in one page.
 - Replay Performance stays focused on economic curves and professional performance metrics.
 - Replay Operations no longer duplicates decision rows or decision-result attribution.
+
+## D030 - Replay Decisions is component-first with model evidence pivots
+
+Date: 2026-06-17
+Status: Accepted
+
+### Context
+
+Replay Decisions needed a clearer decomposition rule: it could either drill primarily through each replay/runtime component decision or through each model layer decision. A model-layer-first page would duplicate Models, blur model validity with replay execution behavior, and hide execution failures such as expression, sizing, gate, fill, or cost decisions that occur after model output is produced.
+
+### Decision
+
+Replay Decisions uses replay/runtime component decisions as the primary hierarchy. Each row should be inspectable as a component trace: component identity, component decision/action/status, score when reported, reason codes, and downstream outcome. Model layer, model surface, and model output references are secondary evidence fields that support filtering, pivoting, and drill-through to Models, but they do not define the primary page structure.
+
+### Consequences
+
+- Replay Decisions answers where the replay execution decision chain began to diverge or fail.
+- Models remains the owner for model validity, promotion posture, layer-level diagnostics, feature-space evidence, and statistical metrics.
+- Replay decision payloads should publish stable component IDs and model evidence refs together so the UI can answer both "which component decided this?" and "which model output did that component consume?"
+- Component runtime health and graph readiness remain under Replay Operations.

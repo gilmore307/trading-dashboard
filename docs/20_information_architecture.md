@@ -240,7 +240,7 @@ Visible content should include:
 - C01-C07 decision timelines and summaries;
 - Layer 1-10 input/output summaries where available;
 - component health, coverage, and missing-evidence diagnostics;
-- summary mode when no replay model is selected, focus mode when one or more replay models are selected;
+- summary mode when no replay version is selected, focus mode when one or more replay versions are selected;
 - monthly replay operation status;
 - replay source-data readiness and visible gaps.
 
@@ -265,17 +265,20 @@ Purpose: answer “Which concrete decisions did each replay component make, and 
 
 Visible content should include:
 
-- replay model decision selector with role, performance context, decision row count, accepted/fill counts, and taken/avoided/missed outcome counts;
+- replay decision-version selector with role, performance context, decision row count, accepted/fill counts, and taken/avoided/missed outcome counts;
 - decision-result comparison charts for row count, accepted, filled, taken-good, avoided-bad, and missed-good evidence;
-- score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics for the focused replay model;
+- score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics for the focused replay version;
 - monthly replay decision window with return, drawdown, cumulative result, and row-count context;
-- inspectable raw replay decision rows with timestamp, target, instrument type, action, disposition, fill status, score, realized return, cost, net return, and reason codes.
+- component-first decision trace summaries for the runtime/replay components that made or reported each decision;
+- model-layer, model-surface, and model-output evidence references as secondary filters and pivots inside the component trace;
+- inspectable raw replay decision rows with timestamp, target, instrument type, action, disposition, fill status, score, realized return, cost, net return, reason codes, component trace, and model evidence refs.
 
 Hidden by default:
 
 - normalized NAV and professional performance metrics, which belong under Replay Performance;
 - replay source-data readiness, component health, and execution graph diagnostics, which belong under Replay Operations;
-- model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure.
+- model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure;
+- model-layer-first drilldowns, which belong under Models unless the user is filtering decision provenance by a consumed model output.
 
 ### Temporal Explorer
 

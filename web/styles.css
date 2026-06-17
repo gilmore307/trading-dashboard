@@ -329,9 +329,13 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-component-card strong { color: #f8fbff; font-size: 12px; overflow-wrap: anywhere; }
 .replay-component-card span { color: #7dd3fc; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
 .replay-component-card small { color: #8fa2ba; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+.replay-evidence-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.replay-evidence-card { min-width: 0; display: grid; gap: 5px; padding: 10px 11px; border-radius: 12px; background: rgba(20, 83, 45, .18); border: 1px solid rgba(74, 222, 128, .14); }
+.replay-evidence-card strong { color: #dcfce7; font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.replay-evidence-card span { color: #86efac; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
 .replay-decision-table-wrap { min-width: 0; overflow: auto; }
-.replay-decision-table { min-width: 1740px; }
-.replay-decision-table .replay-table-row { grid-template-columns: minmax(190px, 1.05fr) minmax(150px, .85fr) minmax(76px, .42fr) minmax(82px, .45fr) minmax(120px, .62fr) minmax(105px, .58fr) minmax(105px, .58fr) repeat(4, minmax(82px, .48fr)) minmax(220px, 1.05fr) minmax(310px, 1.45fr); }
+.replay-decision-table { min-width: 2020px; }
+.replay-decision-table .replay-table-row { grid-template-columns: minmax(190px, 1.05fr) minmax(150px, .85fr) minmax(76px, .42fr) minmax(82px, .45fr) minmax(120px, .62fr) minmax(105px, .58fr) minmax(105px, .58fr) repeat(4, minmax(82px, .48fr)) minmax(220px, 1.05fr) minmax(280px, 1.22fr) minmax(310px, 1.45fr); }
 .replay-decision-table .replay-table-head { position: sticky; top: 0; z-index: 3; box-shadow: 0 10px 18px rgba(2, 6, 23, .22); }
 .replay-operations-placeholder { display: grid; gap: 14px; }
 .replay-operation-list { display: grid; gap: 8px; }
@@ -356,6 +360,7 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
   .model-group-detail-head, .model-version-row { flex-direction: column; }
   .replay-detail-window { inset: 8px; }
   .replay-detail-grid { grid-template-columns: 1fr; overflow: auto; }
+  .replay-evidence-grid { grid-template-columns: 1fr; }
   .dashboard-table-controls { grid-template-columns: 1fr; }
   .dashboard-table-controls small { justify-self: start; }
 }

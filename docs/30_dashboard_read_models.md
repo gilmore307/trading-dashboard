@@ -300,11 +300,13 @@ Replay Performance presentation:
 Replay Decisions presentation:
 
 - Replay Decisions consumes the same `replay_run_id`, version scope, time range, and selected month/cursor as Replay Performance when those fields are available;
-- no selected replay model means decision summary mode across all published versions; one selected replay model shows model-focused decision curves, slice distribution, and monthly decision rows; multiple selected replay models show selected-set decision comparison;
-- decision version selection focuses the model/run whose component decisions are being inspected;
+- no selected replay version means decision summary mode across all published versions; one selected replay version shows focused decision curves, slice distribution, and monthly decision rows; multiple selected replay versions show selected-set decision comparison;
+- decision version selection focuses the version/run whose component decisions are being inspected;
 - replay slice/contribution distributions belong in Replay Decisions because they explain decision flow and component behavior, not headline trading performance;
 - full Monthly Replay detail is a model-scoped detail window, and month clicks route to a historical replay decision-detail table sourced through the read-only dashboard replay decision API;
-- trade-level replay decision detail must remain historical replay evidence with sanitized fields such as timestamp, target/instrument, action/disposition, fill status, score, returns, cost, reason codes, and component/model decision trace; it must not present broker/account/order mutation controls;
+- trade-level replay decision detail must remain historical replay evidence with sanitized fields such as timestamp, target/instrument, action/disposition, fill status, score, returns, cost, reason codes, and component decision trace; it must not present broker/account/order mutation controls;
+- `decision_trace` is component-first: each step should identify the replay/runtime `component_id`, label, action/decision/status, score when reported, and reason codes;
+- model provenance stays secondary to the component trace through `model_layer`, `model_surface`, `model_output_ref`, or `evidence_refs` fields on either the row or trace step, so the dashboard can filter and pivot by consumed model evidence without turning Replay Decisions into a model-layer page;
 - Replay Operations owns execution graph health, operation status, source readiness, and missing-evidence diagnostics rather than decision-result attribution;
 - future storage work should split large replay payloads into a dedicated replay read model when promotion posture is no longer the narrow canonical home.
 

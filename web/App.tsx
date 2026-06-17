@@ -2460,6 +2460,10 @@ type ReplayDecisionDetailRow = {
   cost?: number | null;
   net_return?: number | null;
   reason_codes?: string[];
+  model_layer?: string | null;
+  model_surface?: string | null;
+  model_output_ref?: string | null;
+  evidence_refs?: ReplayDecisionEvidenceRef[];
   decision_trace?: ReplayDecisionTraceStep[];
 };
 
@@ -2471,6 +2475,22 @@ type ReplayDecisionTraceStep = {
   score?: number | null;
   side?: string | null;
   action?: string | null;
+  reason_codes?: string[];
+  model_layer?: string | null;
+  model_surface?: string | null;
+  model_output_ref?: string | null;
+  evidence_refs?: ReplayDecisionEvidenceRef[];
+};
+
+type ReplayDecisionEvidenceRef = {
+  model_layer?: string | null;
+  model_surface?: string | null;
+  model_output_ref?: string | null;
+  evidence_ref?: string | null;
+  input_ref?: string | null;
+  ref?: string | null;
+  status?: string | null;
+  score?: number | null;
   reason_codes?: string[];
 };
 
@@ -2993,17 +3013,17 @@ function ReplayDecisionVersionSelector({
     .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.index - right.index);
   return (
     <section className="panel replay-table-panel">
-      <div className="panel-heading">Replay Decision Model Selector</div>
+      <div className="panel-heading">Replay Decision Version Selector</div>
       <div className="dashboard-table-controls">
         <label>
           <span>Filter</span>
-          <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter models…" />
+          <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter versions..." />
         </label>
         <small>Showing {rows.length} of {versions.length}</small>
       </div>
       <div className="replay-table replay-summary-table">
         <div className="replay-table-row replay-table-head">
-          <SortableHeader label="Model" column="label" sort={sort} onSort={setSort} />
+          <SortableHeader label="Version" column="label" sort={sort} onSort={setSort} />
           <SortableHeader label="Role" column="identity" sort={sort} onSort={setSort} />
           <SortableHeader label="Performance" column="netReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Excess" column="excessReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
@@ -3050,7 +3070,7 @@ function ReplayDecisionVersionSelector({
               )}
             </div>
           );
-        }) : <div className="empty-chart compact">No replay models match the current filter.</div>}
+        }) : <div className="empty-chart compact">No replay versions match the current filter.</div>}
       </div>
     </section>
   );
@@ -3388,6 +3408,32 @@ function replayDecisionTraceLabel(step: ReplayDecisionTraceStep): string {
   return `${label}: ${startCase(decision)}${score}`;
 }
 
+function replayDecisionEvidenceRefLabel(ref: ReplayDecisionEvidenceRef): string {
+  const source = [ref.model_layer, ref.model_surface].filter(Boolean).join(' / ');
+  const identity = ref.model_output_ref ?? ref.evidence_ref ?? ref.input_ref ?? ref.ref ?? '';
+  const score = typeof ref.score === 'number' && Number.isFinite(ref.score) ? ` score ${ref.score.toFixed(3)}` : '';
+  const status = ref.status ? ` ${startCase(ref.status)}` : '';
+  const reasons = ref.reason_codes?.length ? ` ${ref.reason_codes.map(startCase).join(', ')}` : '';
+  return [source, identity].filter(Boolean).join(' -> ') + status + score + reasons;
+}
+
+function replayDecisionStepEvidenceLabels(step: ReplayDecisionTraceStep): string[] {
+  const direct = [step.model_layer, step.model_surface, step.model_output_ref].filter(Boolean).join(' -> ');
+  return [direct, ...(step.evidence_refs ?? []).map(replayDecisionEvidenceRefLabel)]
+    .map((label) => label.trim())
+    .filter(Boolean);
+}
+
+function replayDecisionRowEvidenceLabels(row: ReplayDecisionDetailRow): string[] {
+  const direct = [row.model_layer, row.model_surface, row.model_output_ref].filter(Boolean).join(' -> ');
+  const labels = [
+    direct,
+    ...(row.evidence_refs ?? []).map(replayDecisionEvidenceRefLabel),
+    ...(row.decision_trace ?? []).flatMap(replayDecisionStepEvidenceLabels),
+  ].map((label) => label.trim()).filter(Boolean);
+  return [...new Set(labels)];
+}
+
 function ReplayComponentDecisionSummary({ rows }: { rows: ReplayDecisionDetailRow[] }) {
   const counts = new Map<string, { label: string; count: number; decisions: Map<string, number> }>();
   for (const row of rows) {
@@ -3426,6 +3472,32 @@ function ReplayComponentDecisionSummary({ rows }: { rows: ReplayDecisionDetailRo
   );
 }
 
+function ReplayDecisionEvidenceSummary({ rows }: { rows: ReplayDecisionDetailRow[] }) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    for (const label of replayDecisionRowEvidenceLabels(row)) {
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+  }
+  const entries = [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 6);
+  if (!entries.length) return null;
+  return (
+    <section className="replay-component-summary">
+      <div className="model-chart-title">Model Evidence Pivot</div>
+      <div className="replay-evidence-grid">
+        {entries.map(([label, count]) => (
+          <div className="replay-evidence-card" key={label}>
+            <strong>{label}</strong>
+            <span>{count} linked decisions</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ReplayDecisionDetailTable({
   versionId,
   month,
@@ -3439,7 +3511,7 @@ function ReplayDecisionDetailTable({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('');
-  const [sort, setSort] = useState<SortState<'timestamp' | 'decision_id' | 'target_ref' | 'instrument_type' | 'action' | 'disposition' | 'fill_status' | 'score' | 'net_return' | 'realized_return' | 'cost' | 'reason_codes' | 'decision_trace'>>({ key: 'timestamp', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'timestamp' | 'decision_id' | 'target_ref' | 'instrument_type' | 'action' | 'disposition' | 'fill_status' | 'score' | 'net_return' | 'realized_return' | 'cost' | 'reason_codes' | 'evidence_refs' | 'decision_trace'>>({ key: 'timestamp', direction: 'asc' });
   useEffect(() => {
     if (!month) {
       setPayload(null);
@@ -3467,10 +3539,11 @@ function ReplayDecisionDetailTable({
   const rows = payload?.rows ?? [];
   const query = filter.trim().toLowerCase();
   const displayedRows = rows
-    .filter((row) => !query || searchText(row.timestamp, row.decision_id, row.target_ref, row.instrument_type, row.action, row.disposition, row.fill_status, row.score, row.net_return, row.realized_return, row.cost, row.reason_codes, row.decision_trace?.map(replayDecisionTraceLabel)).includes(query))
+    .filter((row) => !query || searchText(row.timestamp, row.decision_id, row.target_ref, row.instrument_type, row.action, row.disposition, row.fill_status, row.score, row.net_return, row.realized_return, row.cost, row.reason_codes, replayDecisionRowEvidenceLabels(row), row.decision_trace?.map(replayDecisionTraceLabel)).includes(query))
     .sort((left, right) => {
       const sortValue = (row: ReplayDecisionDetailRow): string | number | null | undefined => {
         if (sort.key === 'reason_codes') return (row.reason_codes ?? []).join(', ');
+        if (sort.key === 'evidence_refs') return replayDecisionRowEvidenceLabels(row).join(', ');
         if (sort.key === 'decision_trace') return (row.decision_trace ?? []).map(replayDecisionTraceLabel).join(', ');
         return row[sort.key];
       };
@@ -3492,10 +3565,11 @@ function ReplayDecisionDetailTable({
       {!loading && !error && rows.length ? (
         <>
         <ReplayComponentDecisionSummary rows={rows} />
+        <ReplayDecisionEvidenceSummary rows={rows} />
         <div className="dashboard-table-controls">
           <label>
             <span>Filter</span>
-            <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter decisions…" />
+            <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter decisions, components, or model refs..." />
           </label>
           <small>Showing {displayedRows.length} of {rows.length}</small>
         </div>
@@ -3514,6 +3588,7 @@ function ReplayDecisionDetailTable({
               <SortableHeader label="Realized" column="realized_return" sort={sort} onSort={setSort} defaultDirection="desc" />
               <SortableHeader label="Cost" column="cost" sort={sort} onSort={setSort} defaultDirection="desc" />
               <SortableHeader label="Reasons" column="reason_codes" sort={sort} onSort={setSort} />
+              <SortableHeader label="Evidence" column="evidence_refs" sort={sort} onSort={setSort} />
               <SortableHeader label="Trace" column="decision_trace" sort={sort} onSort={setSort} />
             </div>
             {displayedRows.length ? displayedRows.map((row, index) => (
@@ -3530,6 +3605,7 @@ function ReplayDecisionDetailTable({
                 <span>{formatMetricValue(row.realized_return ?? null, 4)}</span>
                 <span>{formatMetricValue(row.cost ?? null, 4)}</span>
                 <span>{row.reason_codes?.length ? row.reason_codes.map(startCase).join(', ') : 'None'}</span>
+                <span>{replayDecisionRowEvidenceLabels(row).length ? replayDecisionRowEvidenceLabels(row).slice(0, 4).join(' · ') : 'No model evidence ref'}</span>
                 <span>{row.decision_trace?.length ? row.decision_trace.map(replayDecisionTraceLabel).slice(0, 5).join(' · ') : 'No trace'}</span>
               </div>
             )) : <div className="empty-chart compact">No replay decisions match the current filter.</div>}
@@ -3678,7 +3754,7 @@ function ReplayDecisionsView({ promotionChart }: { promotionChart: ModelPromotio
     <section className="replay-view">
       <ReplaySelectionModePanel
         mode={selectedEntries.length ? 'focus' : 'summary'}
-        summary={selectedEntries.length === 1 ? `Focused on ${compactVersionLabel(selectedEntries[0].version, selectedEntries[0].index)}` : selectedEntries.length ? `${selectedEntries.length} selected replay models` : `${entries.length} replay models in operations summary`}
+        summary={selectedEntries.length === 1 ? `Focused on ${compactVersionLabel(selectedEntries[0].version, selectedEntries[0].index)}` : selectedEntries.length ? `${selectedEntries.length} selected replay versions` : `${entries.length} replay versions in decision summary`}
         onClear={() => {
           setSelectedIds([]);
           setMonthlyVersionId(null);
@@ -3740,13 +3816,13 @@ function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromoti
     <section className="replay-view">
       <ReplaySelectionModePanel
         mode="summary"
-        summary={`${versions.length} replay models · ${operationReadyCount} with operation diagnostics`}
+        summary={`${versions.length} replay versions · ${operationReadyCount} with operation diagnostics`}
       />
       <section className="panel replay-operations-placeholder">
         <div className="panel-heading">Replay Operation Evidence</div>
         <p className="panel-subtitle">Decision summaries, score/threshold/cost diagnostics, slice distributions, and raw decision rows now live under Replay Decisions.</p>
         <div className="metric-grid three">
-          <MetricCard label="Replay models" value={versions.length} hint="Published model-group replay versions" />
+          <MetricCard label="Replay versions" value={versions.length} hint="Published model-group replay versions" />
           <MetricCard label="Operation diagnostics" value={operationReadyCount} hint="Component operation evidence with current read model fields" />
           <MetricCard label="Decision evidence" value="Moved" hint="Use Replay Decisions for component decision drilldown" />
         </div>
