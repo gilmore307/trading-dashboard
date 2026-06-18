@@ -286,7 +286,7 @@ function replayDecisionTrace(row: Record<string, unknown>): Record<string, unkno
     ),
     replayTraceStep(
       'model_06_residual_event_governance',
-      'M06 Residual Event Governance',
+      'M06 Event Risk Governor',
       nestedValue(diagnosticRecord, 'model_06_residual_event_governance', 'decision_status'),
       recordValue(diagnosticRecord, 'model_06_residual_event_governance') as Record<string, unknown> ?? {},
     ),

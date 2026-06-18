@@ -569,6 +569,9 @@ const WORK_TYPE_FILTER_ORDER: Record<string, number> = {
   data_acquisition: 10,
   feature_generation: 20,
   model_generation: 30,
+  replay: 40,
+  replay_review: 42,
+  model_06_event_risk_governor: 45,
   model_evaluation: 40,
   promotion_review: 50,
   promotion_review_preparation: 50,
@@ -599,12 +602,14 @@ function taskOptionRank(value: string): number {
   if (layerMatch) return Number(layerMatch[1]) * 10;
   const modelMatch = /^model_(\d{2})(?:[_.]|$)/u.exec(value);
   if (modelMatch) return Number(modelMatch[1]) * 10;
-  const modelGroupLayerMatch = /^model_group\.model_(\d{2})(?:[_.]|$)/u.exec(value);
-  if (modelGroupLayerMatch) return Number(modelGroupLayerMatch[1]) * 10 + 1;
   if (value === 'model_group.replay') return 1000;
-  if (value === 'model_group.evaluation') return 1010;
-  if (value === 'model_group.promotion') return 1020;
-  if (value === 'model_group.maintenance') return 1030;
+  if (value === 'model_group.replay_review') return 1010;
+  if (value === 'model_group.model_06_event_risk_governor') return 1020;
+  if (value === 'model_group.evaluation') return 1030;
+  if (value === 'model_group.promotion') return 1040;
+  if (value === 'model_group.maintenance') return 1050;
+  const modelGroupLayerMatch = /^model_group\.model_(\d{2})(?:[_.]|$)/u.exec(value);
+  if (modelGroupLayerMatch) return 1000 + Number(modelGroupLayerMatch[1]) * 10;
   const workTypeRank = WORK_TYPE_FILTER_ORDER[value];
   return workTypeRank === undefined ? Number.MAX_SAFE_INTEGER : 2000 + workTypeRank;
 }
