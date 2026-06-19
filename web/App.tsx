@@ -42,7 +42,7 @@ const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
 const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
 const TEMPORAL_EXPLORER_SUMMARY = 'temporal_explorer_summary';
-const MODEL_LAYER_READINESS = 'model_layer_readiness_summary';
+const MODEL_READINESS = 'model_readiness_summary';
 const MODEL_PROMOTION_POSTURE = 'model_promotion_posture_summary';
 const EXECUTION_RUNTIME_STATUS = 'execution_realtime_trading_runtime_status';
 
@@ -5035,7 +5035,7 @@ function contractForView(view: ViewId): string {
   if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
   if (view === 'temporal') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
-  if (view === 'models') return MODEL_LAYER_READINESS;
+  if (view === 'models') return MODEL_READINESS;
   if (view === 'replay' || view === 'performance') return MODEL_PROMOTION_POSTURE;
   return HISTORICAL_TASK_PROGRESS;
 }
@@ -5062,7 +5062,7 @@ function App() {
     if (payload.contract_type === HISTORICAL_TASK_PROGRESS) setHistoricalModel(payload);
     if (payload.contract_type === REALTIME_SIGNAL_SUMMARY) setRealtimeModel(payload);
     if (payload.contract_type === TEMPORAL_EXPLORER_SUMMARY) setTemporalExplorerModel(payload);
-    if (payload.contract_type === MODEL_LAYER_READINESS) setModelLayerModel(payload);
+    if (payload.contract_type === MODEL_READINESS) setModelLayerModel(payload);
     if (payload.contract_type === MODEL_PROMOTION_POSTURE) setModelPromotionModel(payload);
     if (payload.contract_type === EXECUTION_RUNTIME_STATUS) setExecutionRuntimeModel(payload);
     setReadModelErrors((previous) => {
@@ -5112,11 +5112,11 @@ function App() {
     void loadReadModel(HISTORICAL_TASK_PROGRESS, controller.signal);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY, controller.signal);
     void loadReadModel(EXECUTION_RUNTIME_STATUS, controller.signal);
-    void loadOptionalReadModel(MODEL_LAYER_READINESS, controller.signal);
+    void loadOptionalReadModel(MODEL_READINESS, controller.signal);
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE, controller.signal);
     const liveContracts = new Set<string>();
     const contracts = [CURRENT_SYSTEM_STATUS, TEMPORAL_EXPLORER_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY, EXECUTION_RUNTIME_STATUS];
-    const optionalContracts = [MODEL_LAYER_READINESS, MODEL_PROMOTION_POSTURE];
+    const optionalContracts = [MODEL_READINESS, MODEL_PROMOTION_POSTURE];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         liveContracts.add(contractType);
@@ -5612,7 +5612,7 @@ function App() {
     void loadReadModel(TEMPORAL_EXPLORER_SUMMARY);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY);
     void loadReadModel(EXECUTION_RUNTIME_STATUS);
-    void loadOptionalReadModel(MODEL_LAYER_READINESS);
+    void loadOptionalReadModel(MODEL_READINESS);
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE);
   };
 

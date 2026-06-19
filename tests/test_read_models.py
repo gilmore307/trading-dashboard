@@ -24,10 +24,10 @@ def sample_payload(**overrides):
         "source_system": "trading-manager",
         "status": "running",
         "severity": "info",
-        "summary": "Historical scheduler is running at Layer 1 data acquisition.",
+        "summary": "Historical scheduler is running at M01 data acquisition.",
         "chart_payload": {
             "current_month": "2016-01",
-            "active_stage": "layer_01_market_regime.data_acquisition",
+            "active_stage": "model_01_market_context.data_acquisition",
             "progress_percent": 12.5,
             "stage_counts": {"succeeded": 1, "pending": 7},
         },
@@ -61,7 +61,7 @@ class DashboardReadModelAdapterTests(unittest.TestCase):
         self.assertEqual(view.status, "running")
         self.assertEqual(view.chart_payload["progress_percent"], 12.5)
         self.assertEqual(view.latest_path, latest)
-        self.assertEqual(view.as_dict()["summary"], "Historical scheduler is running at Layer 1 data acquisition.")
+        self.assertEqual(view.as_dict()["summary"], "Historical scheduler is running at M01 data acquisition.")
 
     def test_rejects_unsafe_contract_type(self):
         with tempfile.TemporaryDirectory() as tmp:

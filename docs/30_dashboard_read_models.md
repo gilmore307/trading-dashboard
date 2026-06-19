@@ -56,7 +56,7 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 
 ## Dashboard Read-Model Contracts
 
-The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_layer_readiness_summary`, and `model_promotion_posture_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
+The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_readiness_summary`, and `model_promotion_posture_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
 
 ### `current_system_status_summary`
 
@@ -139,7 +139,7 @@ Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_
 
 Owner-facing fields:
 
-- task timeline listing past, current, and future child-task rows at `fold/period + layer + phase` granularity, with canonical phase labels such as data acquisition, feature generation, model generation, model evaluation, Promotion Review, and maintenance; historical training rows use the fold as the public task period and expose month child partitions in detail instead of projecting fold source/feature work into separate month rows; model-group replay rows keep the training fold as a `YYYY-foldN` period such as `2016-fold1` and expose exact training/replay windows separately in detail; fold rows whose full month span is not complete are capped until that fold's final calendar month has completed in `America/New_York`, so the current incomplete fold is not exposed as a Ready task; public task numbers are continuous row sequence numbers assigned after chronological fold, layer, and workflow-stage sorting, while `task_uid` remains the durable progress/evidence identity; the dashboard groups this timeline by period/fold, filters it by period/layer/status/task type/target, orders filter choices by chronological/workflow sequence rather than label alphabetization, puts model-numbered task choices such as M01-M10 before model-group lifecycle choices such as replay, evaluation, promotion, and maintenance, defaults to current `Now` work, and can expand each row using sanitized detail fields including generated, started, ended, and status-updated timestamps when available; worker identity remains internal execution detail and is not shown or used as a Tasks filter because a fold can run through multiple provider or ingest lanes; task progress is shown from real evidence such as row counts, replay/month counts, elapsed/expected time, stage coverage, or active progress files under manager runtime; fold data-acquisition progress aggregates source-month request coverage across the six-month fold, and post-replay M06 progress counts replay failure-attribution units rather than a single receipt; when an active progress file only proves that a stage process has started, the row exposes task-type-specific 0/1 stage progress instead of estimating an arbitrary percentage;
+- task timeline listing past, current, and future child-task rows at `fold/period + layer + phase` granularity, with canonical phase labels such as data acquisition, feature generation, model generation, model evaluation, Promotion Review, and maintenance; historical training rows use the fold as the public task period and expose month child partitions in detail instead of projecting fold source/feature work into separate month rows; model-group replay rows keep the training fold as a `YYYY-foldN` period such as `2016-fold1` and expose exact training/replay windows separately in detail; fold rows whose full month span is not complete are capped until that fold's final calendar month has completed in `America/New_York`, so the current incomplete fold is not exposed as a Ready task; public task numbers are continuous row sequence numbers assigned after chronological fold, layer, and workflow-stage sorting, while `task_uid` remains the durable progress/evidence identity; the dashboard groups this timeline by period/fold, filters it by period/layer/status/task type/target, orders filter choices by chronological/workflow sequence rather than label alphabetization, puts model-numbered task choices such as M01-M06 before model-group lifecycle choices such as replay, evaluation, promotion, and maintenance, defaults to current `Now` work, and can expand each row using sanitized detail fields including generated, started, ended, and status-updated timestamps when available; worker identity remains internal execution detail and is not shown or used as a Tasks filter because a fold can run through multiple provider or ingest lanes; task progress is shown from real evidence such as row counts, replay/month counts, elapsed/expected time, stage coverage, or active progress files under manager runtime; fold data-acquisition progress aggregates source-month request coverage across the six-month fold, and post-replay M06 progress counts replay failure-attribution units rather than a single receipt; when an active progress file only proves that a stage process has started, the row exposes task-type-specific 0/1 stage progress instead of estimating an arbitrary percentage;
 - current period, which can be one month or a training fold such as `2016-fold1`;
 - active public task from the task timeline; internal scheduler stage ids remain diagnostic fields and must not redefine owner-facing Evaluation semantics;
 - progress percentage;
@@ -226,7 +226,7 @@ Hidden by default:
 - secret paths or provider credentials;
 - model activation internals.
 
-### `model_layer_readiness_summary`
+### `model_readiness_summary`
 
 Purpose: support the Models page model-group versions view.
 
@@ -252,22 +252,18 @@ Dashboard presentation:
 - replay normalized NAV, performance metrics, threshold utility, cost sensitivity, score-decile return, baseline/no-trade comparisons, economic robustness, trading-distribution slices, trade-level rows, and monthly replay drilldowns live under Replay Performance or Replay Decisions rather than Models;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
-Canonical layer map:
+Canonical model map:
 
-| Layer | Name | Conceptual output |
+| Model | Name | Conceptual output |
 |---|---|---|
-| 1 | Market Regime | `market_context_state` |
-| 2 | Sector Context | `sector_context_state` |
-| 3 | Target State Vector | `target_context_state` |
-| 4 | Event Failure Risk | `event_failure_risk_vector` |
-| 5 | Alpha Confidence | `alpha_confidence_vector` |
-| 6 | Dynamic Risk Policy | `dynamic_risk_policy_state` |
-| 7 | Position Projection | `position_projection_vector` |
-| 8 | Underlying Action | `underlying_action_plan` / `underlying_action_vector` |
-| 9 | Trading Guidance / Option Expression | `trading_guidance_record` plus optional `option_expression_plan` / `expression_vector` |
-| 10 | Event Risk Governor / Event Intelligence Overlay | `event_risk_intervention` / event-adjusted risk guidance |
+| M01 | Background Context | `market_context_state`, `sector_context_state` |
+| M02 | Target State | `target_context_state` |
+| M03 | Event State | `event_state_vector` |
+| M04 | Unified Decision | `unified_decision_vector` |
+| M05 | Option Expression | `option_expression_plan` |
+| M06 | Residual Event Governance | `residual_event_governance_state` |
 
-The accepted current layer map remains the model-stack reference, but the current Models tab does not expose layer pages in the primary navigation.
+The accepted current model map remains the model-stack reference, but the current Models tab does not expose component-model pages in the primary navigation.
 
 ### `model_promotion_posture_summary`
 
@@ -288,14 +284,14 @@ The dashboard must not activate models. It only reports promotion posture.
 Replay Performance presentation:
 
 - Replay Performance initially consumes `model_promotion_posture_summary.group_versions` for historical replay economics because that is where current version-level replay diagnostics are published;
-- published replay group versions must come from the live-flow candidate-policy route: Layer 1/2 base context is only reusable context, while trade candidates must be evidenced by the Layer 2 target-candidate handoff or an explicit reviewed preview override;
-- Performance charts must normalize every strategy, ETF, Layer 1, Layer 2, and context comparison series to `1.0` at the selected start. The replay `25000 USD` initial capital is execution/risk-limit metadata, not the chart scale;
+- published replay group versions must come from the live-flow candidate-policy route: M01/M02 base context is only reusable context, while trade candidates must be evidenced by the M02 target-candidate handoff or an explicit reviewed preview override;
+- Performance charts must normalize every strategy, ETF, M01, M02, and context comparison series to `1.0` at the selected start. The replay `25000 USD` initial capital is execution/risk-limit metadata, not the chart scale;
 - Replay Performance owns one normalized NAV chart slot: a single selected series renders as a monthly normalized NAV K-line, while multiple selected series render as normalized NAV lines on one shared chart for readability;
 - no selected replay series means summary mode across all published versions; selected replay series mean focus mode over the selected set;
 - monthly normalized NAV K-line uses replay return slices compounded from `1.0`; when a slice publishes `net_return_path_ohlc`, the candle high/low must come from that row-level replay return path rather than from endpoint-only open/close values;
 - performance summary is table-first: series identity, target, normalized NAV, total return, excess return, max drawdown, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and monthly win rate are shown in one selector table;
 - metric comparison charts show total return, drawdown, excess return, volatility, Sharpe, and beta when published;
-- ETF, Layer 1, Layer 2, and sector-anchor comparison series stay absent until a read model publishes them; the dashboard must not fabricate benchmark rows from missing evidence.
+- ETF, M01, M02, and sector-anchor comparison series stay absent until a read model publishes them; the dashboard must not fabricate benchmark rows from missing evidence.
 
 Replay Decisions presentation:
 

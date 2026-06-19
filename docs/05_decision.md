@@ -355,12 +355,12 @@ Chentong clarified that the Tasks page should answer what work is being performe
 
 ### Decision
 
-The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, layer, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model evaluation presentation: tab `0` is the model-group pipeline and owns version comparison, promotion identity, ranking/calibration, decision-variable, and feature-space diagnostics; tabs `1`-`10` show individual component models through chart/table-first evidence dossiers covering model claim, required evidence, validity status, model specification, and optimization targets. Historical replay economics move to Replay. Task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
+The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, model, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model evaluation presentation: tab `0` is the model-group pipeline and owns version comparison, promotion identity, ranking/calibration, decision-variable, and feature-space diagnostics; tabs `M01`-`M06` show individual component models through chart/table-first evidence dossiers covering model claim, required evidence, validity status, model specification, and optimization targets. Historical replay economics move to Replay. Task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
 
 ### Consequences
 
 - Tasks is list-first and operational-stage-first.
-- Models consumes `model_layer_readiness_summary` and `model_promotion_posture_summary` for model-group version comparison, promotion identity, ranking/calibration, decision-variable, and feature-space diagnostics. `execution_realtime_trading_runtime_status` may identify a group active pointer. Layer subtabs are not part of the current dashboard route.
+- Models consumes `model_readiness_summary` and `model_promotion_posture_summary` for model-group version comparison, promotion identity, ranking/calibration, decision-variable, and feature-space diagnostics. `execution_realtime_trading_runtime_status` may identify a group active pointer. Model subtabs are not part of the current dashboard route.
 - Dashboard remains read-only and consumes storage-hosted summaries rather than workflow checkpoint internals directly.
 
 ## D016 - Task list defaults to current work and exposes filters
@@ -451,7 +451,7 @@ Chentong asked that Status and Task filter choices appear in time/process order 
 
 ### Decision
 
-Task List filter options are ordered by domain sequence. Months sort chronologically, layers sort numerically, statuses sort by task timeline posture (`Past`, terminal exceptions, `Now`, then `Future`), and task choices sort model-numbered work such as M01-M10 before model-group lifecycle work such as replay, evaluation, promotion, and maintenance. Generic workflow task types still sort by historical workflow order after those model-specific choices: data acquisition, feature generation, model generation, model evaluation, promotion review preparation, then maintenance. Unknown future values remain visible after the known sequence.
+Task List filter options are ordered by domain sequence. Months sort chronologically, layers sort numerically, statuses sort by task timeline posture (`Past`, terminal exceptions, `Now`, then `Future`), and task choices sort model-numbered work such as M01-M06 before model-group lifecycle work such as replay, evaluation, promotion, and maintenance. Generic workflow task types still sort by historical workflow order after those model-specific choices: data acquisition, feature generation, model generation, model evaluation, promotion review preparation, then maintenance. Unknown future values remain visible after the known sequence.
 
 ### Consequences
 
@@ -485,11 +485,11 @@ Status: Accepted
 
 ### Context
 
-Layer 3 and later historical model stages are target-specific, but the Task List only emphasized period, layer, and workflow phase. Status also labeled the free-disk metric as `Storage`, which could be mistaken for total disk, storage service health, or storage lifecycle status. Runtime throughput labels such as `Window`, `Peak burst`, and `Idle / blocked` were also too terse for owner-facing interpretation.
+M02 and later historical model stages are target-specific, but the Task List only emphasized period, layer, and workflow phase. Status also labeled the free-disk metric as `Storage`, which could be mistaken for total disk, storage service health, or storage lifecycle status. Runtime throughput labels such as `Window`, `Peak burst`, and `Idle / blocked` were also too terse for owner-facing interpretation.
 
 ### Decision
 
-Task List rows for target-specific Layer 3+ work show the selected target symbol and include a Target filter. Status labels the disk-space card as `Available Storage`. Runtime throughput cards use fuller labels: `Peak completions`, `Observation window`, and `Idle/blocked decisions`.
+Task List rows for target-specific M02+ work show the selected target symbol and include a Target filter. Status labels the disk-space card as `Available Storage`. Runtime throughput cards use fuller labels: `Peak completions`, `Observation window`, and `Idle/blocked decisions`.
 
 ### Consequences
 
@@ -523,7 +523,7 @@ Status: Accepted
 
 ### Context
 
-The task timeline can span thousands of child tasks across historical months and six-month model folds. Plain dropdowns are workable for low-cardinality dimensions such as Layer and Status, but Month and Target become slow to scan as history and target universes grow. Rendering every filtered row at once also wastes browser work when operators choose broad filters such as all months/all statuses.
+The task timeline can span thousands of child tasks across historical months and six-month model folds. Plain dropdowns are workable for low-cardinality dimensions such as Model and Status, but Month and Target become slow to scan as history and target universes grow. Rendering every filtered row at once also wastes browser work when operators choose broad filters such as all months/all statuses.
 
 ### Decision
 

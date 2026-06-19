@@ -164,14 +164,14 @@ Purpose: answer “How are model-group versions evolving, which versions are act
 Subpages:
 
 - 0 — Model Group Versions
-- Layer 1 — Market Regime
-- Layer 2 — Sector Context
-- Layer 3 — Target State Vector
-- Layer 4 — Event Failure Risk
-- Layer 5 — Alpha Confidence
-- Layer 6 — Dynamic Risk Policy
-- Layer 7 — Position Projection
-- Layer 8 — Underlying Action
+- M01 — Market Regime
+- M02 — Sector Context
+- M02 — Target State Vector
+- M03 event-state — Event Failure Risk
+- M04 decision — Alpha Confidence
+- M04 risk — Dynamic Risk Policy
+- M04 decision — Position Projection
+- M04 decision — Underlying Action
 - M05 — Trading Guidance / Option Expression
 - M06 — Event Risk Governor / Event Intelligence Overlay
 
@@ -182,14 +182,14 @@ The model-group page owns:
 - version metric charts such as AUROC, excess return, drawdown, PCA, and PCoA when published;
 - promotion decision table rows with fold identity, decision, agent recommendation, and metric values.
 
-Layer pages own:
+Model pages own:
 
 - model family and objective;
-- layer role in the model group;
+- model role in the model group;
 - optimization target, loss pressure, and regularization goal;
 - published component versions when available.
 - key parameters or configuration summaries;
-- layer role in the pipeline.
+- model role in the pipeline.
 
 Preferred visuals:
 
@@ -218,7 +218,7 @@ Visible content should include:
 - normalized replay net-asset-value series with every displayed strategy, ETF, layer, or context comparison rebased to `1.0` at the selected start;
 - one replay performance chart slot: single-selection views show the monthly normalized NAV K-line using row-path OHLC when the replay read model publishes it, while multi-selection views switch to normalized NAV lines for readability;
 - summary mode when no replay series is selected, focus mode when one or more replay series are selected;
-- strategy, ETF, Layer 1, Layer 2, and sector-anchor performance summary rows when those comparison series are published;
+- strategy, ETF, M01, M02, and sector-anchor performance summary rows when those comparison series are published;
 - trading performance metrics such as total return, excess return, max drawdown, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and monthly win rate when available;
 - metric comparison charts for total return, drawdown, excess return, volatility, Sharpe, and beta when available.
 
@@ -238,7 +238,7 @@ Purpose: answer “Did the replay execution graph and model components behave no
 Visible content should include:
 
 - C01-C07 decision timelines and summaries;
-- Layer 1-10 input/output summaries where available;
+- M01-M06 input/output summaries where available;
 - component health, coverage, and missing-evidence diagnostics;
 - summary mode when no replay version is selected, focus mode when one or more replay versions are selected;
 - monthly replay operation status;
