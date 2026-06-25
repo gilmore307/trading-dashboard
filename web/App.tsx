@@ -575,6 +575,165 @@ function runtimeActivitySamples(activity?: HistoricalRuntimeActivityPayload | nu
   return targets.length ? `Sample targets ${targets.slice(0, 6).join(', ')}` : '';
 }
 
+function taskRuntimeStatusLabel(task: HistoricalTaskTimelineItemPayload): string {
+  const status = String(task.status || '').toLowerCase();
+  if (status === 'running') return 'Running';
+  if (status === 'blocked') return 'Waiting';
+  if (status === 'ready') return 'Ready';
+  if (status === 'failed') return 'Failed';
+  return startCase(task.status || task.task_state || 'current');
+}
+
+function taskLivePeriod(task: HistoricalTaskTimelineItemPayload): string {
+  const unit = task.detail?.dataset_unit;
+  if (unit?.start_month && unit?.end_month) return `${unit.start_month} to ${unit.end_month}`;
+  return monthLabel(task.month);
+}
+
+function taskLiveScope(task: HistoricalTaskTimelineItemPayload): string {
+  const parts = [
+    taskLivePeriod(task),
+    taskTargetSymbol(task) ? `Target ${taskTargetSymbol(task)}` : null,
+    task.worker_label || task.worker_id || null,
+  ].filter(Boolean) as string[];
+  return parts.join(' · ');
+}
+
+function taskProgressLine(task: HistoricalTaskTimelineItemPayload): string | null {
+  const progress = taskProgressView(task);
+  if (!progress.label && !progress.hint) return null;
+  return progress.hint ? `${progress.label} · ${progress.hint}` : progress.label;
+}
+
+function taskExecutionLines(task: HistoricalTaskTimelineItemPayload): string[] {
+  const execution = task.detail?.last_execution ?? null;
+  return [
+    execution?.reason ? `Latest execution ${startCase(execution.status)} · ${execution.reason}` : null,
+    execution && execution.return_code !== undefined && execution.return_code !== null ? `Latest return code ${execution.return_code}` : null,
+  ].filter(Boolean) as string[];
+}
+
+function taskBlockingLines(task: HistoricalTaskTimelineItemPayload): string[] {
+  const blockers = task.detail?.blockers ?? [];
+  return [
+    task.reason || null,
+    blockers.length ? `Waiting on ${blockers.slice(0, 3).map(startCase).join(', ')}${blockers.length > 3 ? ` +${blockers.length - 3}` : ''}` : null,
+  ].filter(Boolean) as string[];
+}
+
+function taskLiveDetails(task: HistoricalTaskTimelineItemPayload, ...extraLines: Array<string | null | undefined>): string[] {
+  const lines = [
+    taskLiveScope(task),
+    ...extraLines,
+    taskProgressLine(task),
+    ...taskBlockingLines(task),
+    ...taskExecutionLines(task),
+  ].filter(Boolean) as string[];
+  return Array.from(new Set(lines));
+}
+
+function taskLiveActivityByKind(task: HistoricalTaskTimelineItemPayload): HistoricalRuntimeActivityPayload {
+  const status = taskRuntimeStatusLabel(task);
+  const stageType = String(task.stage_type || '');
+  const taskId = String(task.task_id || '');
+  const target = taskTargetSymbol(task);
+  const base = {
+    updated_at_utc: task.status_updated_at_utc ?? task.updated_at_utc ?? task.started_at_utc ?? null,
+    progress_label: taskProgressView(task).label,
+    progress_hint: taskProgressView(task).hint,
+    sample_targets: target ? [target] : [],
+  };
+
+  if (taskId === 'model_group.replay') {
+    return {
+      ...base,
+      activity_type: 'model_group_replay',
+      activity_label: `Replay ${status}`,
+      activity_summary: [`Replay ${status}`, taskLivePeriod(task), 'executing historical decisions'].join(' · '),
+      activity_details: taskLiveDetails(task, 'Keeps monthly replay continuous across calendar boundaries.'),
+    };
+  }
+  if (taskId === 'model_group.replay_review') {
+    return {
+      ...base,
+      activity_type: 'model_group_replay_review',
+      activity_label: `Replay Review ${status}`,
+      activity_summary: [`Replay Review ${status}`, taskLivePeriod(task), 'auditing decision funnel'].join(' · '),
+      activity_details: taskLiveDetails(task, 'Reviews selection, direction, stock path, option expression, execution, and settlement.'),
+    };
+  }
+  if (taskId === 'model_group.model_06_event_risk_governor') {
+    return {
+      ...base,
+      activity_type: 'event_risk_governor',
+      activity_label: `Event Governor ${status}`,
+      activity_summary: [`Event Governor ${status}`, taskLivePeriod(task), 'checking residual event risk'].join(' · '),
+      activity_details: taskLiveDetails(task, 'Consumes post-replay review evidence before event-risk governance.'),
+    };
+  }
+  if (taskId === 'model_group.evaluation' || stageType === 'model_evaluation') {
+    return {
+      ...base,
+      activity_type: 'model_evaluation',
+      activity_label: `Evaluation ${status}`,
+      activity_summary: [`Evaluation ${status}`, taskLivePeriod(task), 'scoring benchmark and guardrails'].join(' · '),
+      activity_details: taskLiveDetails(task, 'Checks replay metrics, guardrails, incumbent comparison, and uncertainty.'),
+    };
+  }
+  if (taskId === 'model_group.promotion' || stageType === 'promotion_review') {
+    return {
+      ...base,
+      activity_type: 'promotion_review',
+      activity_label: `Promotion Review ${status}`,
+      activity_summary: [`Promotion Review ${status}`, taskLivePeriod(task), 'deciding model lifecycle posture'].join(' · '),
+      activity_details: taskLiveDetails(task, 'Checks fixed benchmark, blinded comparison, uncertainty, and shadow readiness.'),
+    };
+  }
+  if (taskId === 'model_group.maintenance' || stageType === 'maintenance') {
+    return {
+      ...base,
+      activity_type: 'maintenance',
+      activity_label: `Maintenance ${status}`,
+      activity_summary: [`Maintenance ${status}`, taskLivePeriod(task), 'reconciling readiness artifacts'].join(' · '),
+      activity_details: taskLiveDetails(task, 'Publishes readiness, guardrail, and lifecycle-maintenance records.'),
+    };
+  }
+  if (stageType === 'data_acquisition') {
+    return {
+      ...base,
+      activity_type: 'data_acquisition',
+      activity_label: `Data Acquisition ${status}`,
+      activity_summary: [`Data Acquisition ${status}`, taskLivePeriod(task), task.task_label].join(' · '),
+      activity_details: taskLiveDetails(task, 'Acquires or verifies point-in-time source coverage before feature work.'),
+    };
+  }
+  if (stageType === 'feature_generation') {
+    return {
+      ...base,
+      activity_type: 'feature_generation',
+      activity_label: `Feature Generation ${status}`,
+      activity_summary: [`Feature Generation ${status}`, taskLivePeriod(task), task.task_label].join(' · '),
+      activity_details: taskLiveDetails(task, 'Materializes model-ready features from accepted source evidence.'),
+    };
+  }
+  if (stageType === 'model_training' || stageType === 'model_generation' || stageType === 'model_task') {
+    return {
+      ...base,
+      activity_type: 'model_generation',
+      activity_label: `Model Build ${status}`,
+      activity_summary: [`Model Build ${status}`, taskLivePeriod(task), task.task_label].join(' · '),
+      activity_details: taskLiveDetails(task, 'Trains, evaluates, or packages the model layer for the current fold.'),
+    };
+  }
+  return {
+    ...base,
+    activity_type: 'task_runtime_status',
+    activity_label: `${startCase(stageType || 'Task')} ${status}`,
+    activity_summary: [`${startCase(stageType || 'Task')} ${status}`, taskLivePeriod(task), task.task_label].join(' · '),
+    activity_details: taskLiveDetails(task),
+  };
+}
+
 function runtimeActivityDetailLines(activity?: HistoricalRuntimeActivityPayload | null): string[] {
   if (!activity) return [];
   const lines = [
@@ -592,32 +751,7 @@ function derivedTaskLiveActivity(task: HistoricalTaskTimelineItemPayload): Histo
   const isCurrentTask = task.task_state === 'current';
   const isRuntimeVisible = isCurrentTask || task.status === 'running';
   if (!isRuntimeVisible) return null;
-  const progress = taskProgressView(task);
-  const execution = task.detail?.last_execution ?? null;
-  const target = taskTargetSymbol(task);
-  const status = String(task.status || '').toLowerCase();
-  const label = status === 'running'
-    ? 'Task running'
-    : status === 'blocked'
-      ? 'Task waiting'
-      : status === 'ready'
-        ? 'Task ready'
-        : 'Current task';
-  const details = [
-    task.reason || null,
-    execution?.reason ? `Latest execution ${startCase(execution.status)} · ${execution.reason}` : null,
-    execution && execution.return_code !== undefined && execution.return_code !== null ? `Latest return code ${execution.return_code}` : null,
-  ].filter(Boolean) as string[];
-  return {
-    activity_type: 'task_runtime_status',
-    activity_label: label,
-    activity_summary: [label, monthLabel(task.month), task.task_label].filter(Boolean).join(' · '),
-    activity_details: details,
-    progress_label: progress.label,
-    progress_hint: progress.hint,
-    sample_targets: target ? [target] : [],
-    updated_at_utc: task.status_updated_at_utc ?? task.updated_at_utc ?? task.started_at_utc ?? null,
-  };
+  return taskLiveActivityByKind(task);
 }
 
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
