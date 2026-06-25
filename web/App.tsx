@@ -4588,7 +4588,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             {taskTargetMetaLabel(task) ? <span>{taskTargetMetaLabel(task)}</span> : null}
             <span>{startCase(task.stage_type)}</span>
             <span>{startCase(task.status)}</span>
-            {task.status_updated_at_utc || task.updated_at_utc ? <span>Status updated {formatTimestamp((task.status_updated_at_utc ?? task.updated_at_utc) || undefined)}</span> : null}
+            <span>Runtime {taskRuntimeText(task)}</span>
           </div>
           <div className={`task-row-progress${progress.hasEvidence ? '' : ' inferred'}${progress.failed ? ' failed' : ''}`}>
             <div className="task-row-progress-copy">
