@@ -102,12 +102,18 @@ export interface StageCoveragePayload {
   unit_label?: string | null;
   expected_count?: number;
   ready_count?: number;
+  active_count?: number;
+  current_count?: number;
+  active_month?: string | null;
+  current_month?: string | null;
+  active_time_pointer?: string | null;
   pending_count?: number;
   failed_count?: number;
   accepted_failed_count?: number;
   can_unlock_downstream?: boolean;
   progress_source?: string | null;
   progress_basis?: string | null;
+  progress_display_basis?: string | null;
   covered_partition_count?: number;
   expected_partition_count?: number;
   updated_at_utc?: string | null;

@@ -1064,8 +1064,10 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
   }
   const expected = Math.max(0, progress.expected_count ?? 0);
   const ready = Math.max(0, progress.ready_count ?? 0);
+  const active = Math.max(0, progress.active_count ?? progress.current_count ?? ready);
+  const displayCount = Math.max(ready, active);
   const failedCount = Math.max(0, progress.failed_count ?? 0);
-  const percent = expected > 0 ? (Math.min(ready, expected) / expected) * 100 : 0;
+  const percent = expected > 0 ? (Math.min(displayCount, expected) / expected) * 100 : 0;
   const unitLabel = progress.unit_label || 'units';
   const updated = progress.updated_at_utc ? ` · Updated ${formatTimestamp(progress.updated_at_utc)}` : '';
   const source = progress.progress_source ? ` · ${startCase(progress.progress_source)}` : '';
@@ -1073,10 +1075,14 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
     ? ` · Partitions ${progress.covered_partition_count ?? 0}/${progress.expected_partition_count}`
     : '';
   const basis = progress.progress_basis ? ` · ${progress.progress_basis}` : '';
+  const cursorMonth = progress.active_month || progress.current_month || null;
+  const cursor = cursorMonth ? ` · Current ${cursorMonth}` : '';
+  const completed = displayCount > ready ? ` · Completed ${ready}/${expected}` : '';
+  const displayBasis = progress.progress_display_basis ? ` · ${progress.progress_display_basis}` : '';
   return {
     percent: Math.max(0, Math.min(100, percent)),
-    label: `${formatPercent(percent)} · ${ready}/${expected} ${unitLabel}`,
-    hint: `Pending ${progress.pending_count ?? 0} · Failed ${failedCount} · Accepted skips ${progress.accepted_failed_count ?? 0}${partitions}${source}${updated}${basis}`,
+    label: `${formatPercent(percent)} · ${displayCount}/${expected} ${unitLabel}${cursor}`,
+    hint: `Pending ${progress.pending_count ?? 0} · Failed ${failedCount} · Accepted skips ${progress.accepted_failed_count ?? 0}${completed}${partitions}${source}${updated}${basis}${displayBasis}`,
     hasEvidence: true,
     failed: failedCount > 0 || String(progress.status || task.status || '').toLowerCase() === 'failed',
   };
