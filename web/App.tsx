@@ -575,6 +575,51 @@ function runtimeActivitySamples(activity?: HistoricalRuntimeActivityPayload | nu
   return targets.length ? `Sample targets ${targets.slice(0, 6).join(', ')}` : '';
 }
 
+function runtimeActivityDetailLines(activity?: HistoricalRuntimeActivityPayload | null): string[] {
+  if (!activity) return [];
+  const lines = [
+    runtimeActivityMetrics(activity).join(' · '),
+    activity.progress_label && activity.progress_hint ? `${activity.progress_label} · ${activity.progress_hint}` : activity.progress_label,
+    ...(activity.activity_details ?? []),
+    runtimeActivitySamples(activity),
+  ].filter(Boolean) as string[];
+  return Array.from(new Set(lines));
+}
+
+function derivedTaskLiveActivity(task: HistoricalTaskTimelineItemPayload): HistoricalRuntimeActivityPayload | null {
+  const explicitActivity = task.detail?.runtime_activity ?? null;
+  if (explicitActivity) return explicitActivity;
+  const isCurrentTask = task.task_state === 'current';
+  const isRuntimeVisible = isCurrentTask || task.status === 'running';
+  if (!isRuntimeVisible) return null;
+  const progress = taskProgressView(task);
+  const execution = task.detail?.last_execution ?? null;
+  const target = taskTargetSymbol(task);
+  const status = String(task.status || '').toLowerCase();
+  const label = status === 'running'
+    ? 'Task running'
+    : status === 'blocked'
+      ? 'Task waiting'
+      : status === 'ready'
+        ? 'Task ready'
+        : 'Current task';
+  const details = [
+    task.reason || null,
+    execution?.reason ? `Latest execution ${startCase(execution.status)} · ${execution.reason}` : null,
+    execution && execution.return_code !== undefined && execution.return_code !== null ? `Latest return code ${execution.return_code}` : null,
+  ].filter(Boolean) as string[];
+  return {
+    activity_type: 'task_runtime_status',
+    activity_label: label,
+    activity_summary: [label, monthLabel(task.month), task.task_label].filter(Boolean).join(' · '),
+    activity_details: details,
+    progress_label: progress.label,
+    progress_hint: progress.hint,
+    sample_targets: target ? [target] : [],
+    updated_at_utc: task.status_updated_at_utc ?? task.updated_at_utc ?? task.started_at_utc ?? null,
+  };
+}
+
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
   const target = taskTargetSymbol(task);
   if (target) return target;
@@ -4009,9 +4054,8 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const latestAgentRootCause = latestAgentError ? diagnosticText(latestAgentError.root_cause ?? latestAgentError.summary, '') : '';
   const latestAgentRetry = latestAgentError?.retry_recommendation ? String(latestAgentError.retry_recommendation) : '';
   const progressView = taskProgressView(task);
-  const runtimeActivity = detail.runtime_activity ?? null;
-  const runtimeMetrics = runtimeActivityMetrics(runtimeActivity);
-  const runtimeSamples = runtimeActivitySamples(runtimeActivity);
+  const runtimeActivity = derivedTaskLiveActivity(task);
+  const runtimeDetailLines = runtimeActivityDetailLines(runtimeActivity);
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -4038,8 +4082,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
           <div className="task-detail-card wide-detail live-activity-card">
             <span>Live activity</span>
             <strong>{runtimeActivitySummary(runtimeActivity)}</strong>
-            {runtimeMetrics.length ? <small>{runtimeMetrics.join(' · ')}</small> : null}
-            {runtimeSamples ? <small>{runtimeSamples}</small> : null}
+            {runtimeDetailLines.map((line) => <small key={line}>{line}</small>)}
             {runtimeActivity.required_next_step ? <small>Next {startCase(runtimeActivity.required_next_step)}</small> : null}
             {runtimeActivity.updated_at_utc ? <small>Updated {formatTimestamp(runtimeActivity.updated_at_utc)}</small> : null}
           </div>
@@ -4370,7 +4413,8 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     const taskKey = taskRowKey(task);
     const isExpanded = expandedTasks.has(taskKey);
     const progress = taskProgressView(task);
-    const runtimeActivity = task.detail?.runtime_activity ?? null;
+    const runtimeActivity = derivedTaskLiveActivity(task);
+    const runtimeDetailLine = runtimeActivityDetailLines(runtimeActivity)[0] ?? runtimeActivitySamples(runtimeActivity);
     return (
       <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
         <div className="task-index">{task.task_number ?? task.sequence}</div>
@@ -4401,7 +4445,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             <div className="task-live-activity">
               <span>Live</span>
               <strong>{runtimeActivitySummary(runtimeActivity)}</strong>
-              <small>{runtimeActivityMetrics(runtimeActivity).join(' · ') || runtimeActivitySamples(runtimeActivity)}</small>
+              {runtimeDetailLine ? <small>{runtimeDetailLine}</small> : null}
             </div>
           ) : null}
           {task.reason ? <div className="task-reason">{task.reason}</div> : null}

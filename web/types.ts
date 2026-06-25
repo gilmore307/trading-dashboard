@@ -277,6 +277,9 @@ export interface HistoricalRuntimeActivityPayload {
   activity_type?: string | null;
   activity_label?: string | null;
   activity_summary?: string | null;
+  activity_details?: string[];
+  progress_label?: string | null;
+  progress_hint?: string | null;
   replay_time_pointer?: string | null;
   source_missing_count?: number | null;
   source_ready_count?: number | null;
