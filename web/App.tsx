@@ -5404,17 +5404,21 @@ function App() {
     }));
     const fallbackIntervalId = window.setInterval(() => {
       sockets.forEach((socket, index) => {
-        if (socket.readyState !== WebSocket.OPEN || contracts[index] === HISTORICAL_TASK_PROGRESS) void loadReadModel(contracts[index]);
+        if (socket.readyState !== WebSocket.OPEN && contracts[index] !== HISTORICAL_TASK_PROGRESS) void loadReadModel(contracts[index]);
       });
       optionalSockets.forEach((socket, index) => {
         if (socket.readyState !== WebSocket.OPEN) void loadOptionalReadModel(optionalContracts[index]);
       });
     }, 10_000);
+    const historicalProgressIntervalId = window.setInterval(() => {
+      void loadReadModel(HISTORICAL_TASK_PROGRESS);
+    }, 2_000);
     return () => {
       controller.abort();
       sockets.forEach((socket) => socket.close());
       optionalSockets.forEach((socket) => socket.close());
       window.clearInterval(fallbackIntervalId);
+      window.clearInterval(historicalProgressIntervalId);
     };
   }, [applyReadModel, loadOptionalReadModel, loadReadModel]);
 
