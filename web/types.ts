@@ -273,6 +273,23 @@ export interface HistoricalTaskFailureRegisterPayload {
   latest_updated_at_utc?: string | null;
 }
 
+export interface HistoricalRuntimeActivityPayload {
+  activity_type?: string | null;
+  activity_label?: string | null;
+  activity_summary?: string | null;
+  replay_time_pointer?: string | null;
+  source_missing_count?: number | null;
+  source_ready_count?: number | null;
+  provider_calls?: number | null;
+  batch_index?: number | null;
+  batch_size?: number | null;
+  batch_count?: number | null;
+  option_source_unavailable_count?: number | null;
+  updated_at_utc?: string | null;
+  required_next_step?: string | null;
+  sample_targets?: string[];
+}
+
 export interface HistoricalTaskTimelineDetailPayload {
   blockers?: string[];
   receipt_refs?: string[];
@@ -291,6 +308,7 @@ export interface HistoricalTaskTimelineDetailPayload {
   agent_error_summary?: AgentErrorSummaryPayload[];
   repair_intervention_status?: string | null;
   worker?: HistoricalTaskWorkerPayload;
+  runtime_activity?: HistoricalRuntimeActivityPayload | null;
 }
 
 export interface HistoricalTaskTimelineItemPayload {
@@ -332,6 +350,7 @@ export interface HistoricalRuntimeActiveWorkPayload {
   reason?: string | null;
   next_internal_stage?: string | null;
   lock_status?: string | null;
+  runtime_activity?: HistoricalRuntimeActivityPayload | null;
 }
 
 export interface HistoricalTaskProgressChartPayload {

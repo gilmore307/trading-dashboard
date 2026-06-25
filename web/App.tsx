@@ -24,6 +24,7 @@ import type {
   DashboardReadModel,
   ExecutionRuntimeStatusChartPayload,
   HistoricalTaskProgressChartPayload,
+  HistoricalRuntimeActivityPayload,
   HistoricalTaskTimelineItemPayload,
   ModelLayerReadinessChartPayload,
   ModelVersionSummaryPayload,
@@ -528,6 +529,8 @@ function activeTaskLabel(chart: HistoricalTaskProgressChartPayload): string {
 
 function runtimeWorkLabel(chart: HistoricalTaskProgressChartPayload): string {
   const runtimeWork = chart.runtime_active_work;
+  const activity = runtimeWork?.runtime_activity;
+  if (activity?.activity_label) return activity.activity_label;
   if (runtimeWork?.stage_id) return startCase(runtimeWork.stage_id);
   if (chart.internal_active_stage) return startCase(chart.internal_active_stage);
   return startCase(runtimeWork?.status || 'unknown');
@@ -535,10 +538,41 @@ function runtimeWorkLabel(chart: HistoricalTaskProgressChartPayload): string {
 
 function runtimeWorkHint(chart: HistoricalTaskProgressChartPayload): string {
   const runtimeWork = chart.runtime_active_work;
+  const activity = runtimeWork?.runtime_activity;
+  if (activity?.activity_summary) return activity.activity_summary;
   const status = startCase(runtimeWork?.status || chart.lock_status || 'unknown');
   const month = runtimeWork?.month || chart.internal_current_month || chart.current_month || 'unknown period';
   const reason = runtimeWork?.reason_code || runtimeWork?.decision_status || runtimeWork?.reason;
   return reason ? `${status} · ${month} · ${startCase(reason)}` : `${status} · ${month}`;
+}
+
+function runtimeActivitySummary(activity?: HistoricalRuntimeActivityPayload | null): string {
+  if (!activity) return '';
+  if (activity.activity_summary) return activity.activity_summary;
+  const parts = [activity.activity_label || 'Live activity'];
+  if (activity.replay_time_pointer) parts.push(activity.replay_time_pointer);
+  if (activity.source_missing_count !== undefined && activity.source_missing_count !== null) {
+    parts.push(`${activity.source_missing_count} source gaps`);
+  }
+  return parts.join(' · ');
+}
+
+function runtimeActivityMetrics(activity?: HistoricalRuntimeActivityPayload | null): string[] {
+  if (!activity) return [];
+  return [
+    activity.source_missing_count !== undefined && activity.source_missing_count !== null ? `${activity.source_missing_count} source gaps` : null,
+    activity.source_ready_count !== undefined && activity.source_ready_count !== null ? `${activity.source_ready_count} source ready` : null,
+    activity.provider_calls !== undefined && activity.provider_calls !== null ? `${activity.provider_calls} provider calls` : null,
+    activity.option_source_unavailable_count !== undefined && activity.option_source_unavailable_count !== null ? `${activity.option_source_unavailable_count} unavailable markers` : null,
+    activity.batch_index !== undefined && activity.batch_index !== null && activity.batch_count
+      ? `batch ${activity.batch_index}/${activity.batch_count}`
+      : null,
+  ].filter(Boolean) as string[];
+}
+
+function runtimeActivitySamples(activity?: HistoricalRuntimeActivityPayload | null): string {
+  const targets = activity?.sample_targets?.filter(Boolean) ?? [];
+  return targets.length ? `Sample targets ${targets.slice(0, 6).join(', ')}` : '';
 }
 
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
@@ -3975,6 +4009,9 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const latestAgentRootCause = latestAgentError ? diagnosticText(latestAgentError.root_cause ?? latestAgentError.summary, '') : '';
   const latestAgentRetry = latestAgentError?.retry_recommendation ? String(latestAgentError.retry_recommendation) : '';
   const progressView = taskProgressView(task);
+  const runtimeActivity = detail.runtime_activity ?? null;
+  const runtimeMetrics = runtimeActivityMetrics(runtimeActivity);
+  const runtimeSamples = runtimeActivitySamples(runtimeActivity);
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -3997,6 +4034,16 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             <small><b>Status updated</b>{timestampText(task.status_updated_at_utc ?? task.updated_at_utc)}</small>
           </div>
         </div>
+        {runtimeActivity ? (
+          <div className="task-detail-card wide-detail live-activity-card">
+            <span>Live activity</span>
+            <strong>{runtimeActivitySummary(runtimeActivity)}</strong>
+            {runtimeMetrics.length ? <small>{runtimeMetrics.join(' · ')}</small> : null}
+            {runtimeSamples ? <small>{runtimeSamples}</small> : null}
+            {runtimeActivity.required_next_step ? <small>Next {startCase(runtimeActivity.required_next_step)}</small> : null}
+            {runtimeActivity.updated_at_utc ? <small>Updated {formatTimestamp(runtimeActivity.updated_at_utc)}</small> : null}
+          </div>
+        ) : null}
         {progress ? (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
@@ -4323,6 +4370,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     const taskKey = taskRowKey(task);
     const isExpanded = expandedTasks.has(taskKey);
     const progress = taskProgressView(task);
+    const runtimeActivity = task.detail?.runtime_activity ?? null;
     return (
       <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
         <div className="task-index">{task.task_number ?? task.sequence}</div>
@@ -4349,6 +4397,13 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
               <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
             </div>
           </div>
+          {runtimeActivity ? (
+            <div className="task-live-activity">
+              <span>Live</span>
+              <strong>{runtimeActivitySummary(runtimeActivity)}</strong>
+              <small>{runtimeActivityMetrics(runtimeActivity).join(' · ') || runtimeActivitySamples(runtimeActivity)}</small>
+            </div>
+          ) : null}
           {task.reason ? <div className="task-reason">{task.reason}</div> : null}
           {isExpanded ? <TaskDetailPanel task={task} /> : null}
         </div>
