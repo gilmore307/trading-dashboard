@@ -288,6 +288,8 @@ export interface HistoricalRuntimeActivityPayload {
   batch_size?: number | null;
   batch_count?: number | null;
   option_source_unavailable_count?: number | null;
+  started_at_utc?: string | null;
+  elapsed_seconds?: number | null;
   updated_at_utc?: string | null;
   required_next_step?: string | null;
   sample_targets?: string[];
