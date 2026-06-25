@@ -4234,7 +4234,6 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             <small><b>Started</b>{timestampText(task.started_at_utc)}</small>
             <small><b>Runtime</b>{taskRuntimeText(task)}</small>
             <small><b>Ended</b>{timestampText(task.ended_at_utc)}</small>
-            <small><b>Status updated</b>{timestampText(task.status_updated_at_utc ?? task.updated_at_utc)}</small>
           </div>
         </div>
         {runtimeActivity ? (
