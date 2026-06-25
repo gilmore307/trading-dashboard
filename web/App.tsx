@@ -1005,6 +1005,31 @@ function timestampText(value?: string | null): string {
   return value ? formatTimestamp(value) : 'Not recorded';
 }
 
+function compactDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return 'Not recorded';
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
+function taskRuntimeText(task: HistoricalTaskTimelineItemPayload): string {
+  if (!task.started_at_utc) return 'Not started';
+  const started = Date.parse(task.started_at_utc);
+  if (!Number.isFinite(started)) return 'Not recorded';
+  const ended = task.ended_at_utc ? Date.parse(task.ended_at_utc) : NaN;
+  if (Number.isFinite(ended)) return compactDuration(ended - started);
+  const status = String(task.status || '').toLowerCase();
+  const isLive = task.task_state === 'current' || status === 'running';
+  const elapsed = compactDuration(Date.now() - started);
+  return isLive ? `${elapsed} running` : `${elapsed} elapsed`;
+}
+
 function taskProgressFallback(task: HistoricalTaskTimelineItemPayload): { percent: number; label: string; hint: string } {
   const status = String(task.status || '').toLowerCase();
   if (status === 'succeeded' || status === 'not_applicable') {
@@ -4206,8 +4231,8 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
         <div className="task-detail-card wide-detail">
           <span>Task timing</span>
           <div className="task-timestamp-grid">
-            <small><b>Generated</b>{timestampText(task.created_at_utc)}</small>
             <small><b>Started</b>{timestampText(task.started_at_utc)}</small>
+            <small><b>Runtime</b>{taskRuntimeText(task)}</small>
             <small><b>Ended</b>{timestampText(task.ended_at_utc)}</small>
             <small><b>Status updated</b>{timestampText(task.status_updated_at_utc ?? task.updated_at_utc)}</small>
           </div>
