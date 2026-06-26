@@ -575,6 +575,13 @@ function runtimeActivitySamples(activity?: HistoricalRuntimeActivityPayload | nu
   return targets.length ? `Sample targets ${targets.slice(0, 6).join(', ')}` : '';
 }
 
+function runtimeActivityTraceLine(activity?: HistoricalRuntimeActivityPayload | null): string {
+  const traceRef = activity?.replay_runtime_trace_ref;
+  if (!traceRef) return '';
+  const traceName = traceRef.split('/').filter(Boolean).pop() || traceRef;
+  return `Trace ${traceName}`;
+}
+
 function taskRuntimeStatusLabel(task: HistoricalTaskTimelineItemPayload): string {
   const status = String(task.status || '').toLowerCase();
   if (status === 'running') return 'Running';
@@ -741,6 +748,7 @@ function runtimeActivityDetailLines(activity?: HistoricalRuntimeActivityPayload 
     activity.progress_label && activity.progress_hint ? `${activity.progress_label} · ${activity.progress_hint}` : activity.progress_label,
     ...(activity.activity_details ?? []),
     runtimeActivitySamples(activity),
+    runtimeActivityTraceLine(activity),
   ].filter(Boolean) as string[];
   return Array.from(new Set(lines));
 }
