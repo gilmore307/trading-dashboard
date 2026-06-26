@@ -5435,7 +5435,7 @@ function App() {
       ? modelPromotionModel ?? historicalModel
       : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
-  const activeError = readModelErrors[activeContractType] ?? null;
+  const activeError = activeReadModel ? null : (readModelErrors[activeContractType] ?? null);
   const loading = loadingContracts.size > 0;
   const chart = useMemo(() => {
     if (!historicalModel || !isHistoricalChart(historicalModel.chart_payload)) return {} as HistoricalTaskProgressChartPayload;
