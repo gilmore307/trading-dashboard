@@ -560,13 +560,16 @@ function runtimeActivitySummary(activity?: HistoricalRuntimeActivityPayload | nu
 function runtimeActivityMetrics(activity?: HistoricalRuntimeActivityPayload | null): string[] {
   if (!activity) return [];
   return [
-    activity.source_missing_count !== undefined && activity.source_missing_count !== null ? `${activity.source_missing_count} source gaps` : null,
-    activity.source_ready_count !== undefined && activity.source_ready_count !== null ? `${activity.source_ready_count} source ready` : null,
-    activity.provider_calls !== undefined && activity.provider_calls !== null ? `${activity.provider_calls} provider calls` : null,
-    activity.option_source_unavailable_count !== undefined && activity.option_source_unavailable_count !== null ? `${activity.option_source_unavailable_count} unavailable markers` : null,
-    activity.batch_index !== undefined && activity.batch_index !== null && activity.batch_count
-      ? `batch ${activity.batch_index}/${activity.batch_count}`
+    activity.source_missing_count !== undefined && activity.source_missing_count !== null ? `${activity.source_missing_count} source gaps remain` : null,
+    activity.provider_calls !== undefined && activity.provider_calls !== null && activity.provider_calls > 0 ? `${activity.provider_calls} provider calls this pass` : null,
+    activity.option_source_unavailable_count !== undefined && activity.option_source_unavailable_count !== null && activity.option_source_unavailable_count > 0
+      ? `${activity.option_source_unavailable_count} unavailable markers`
       : null,
+    activity.source_ready_count !== undefined && activity.source_ready_count !== null && activity.source_ready_count > 0
+      ? `${activity.source_ready_count} source-ready repairs`
+      : null,
+    activity.batch_count !== undefined && activity.batch_count !== null && activity.batch_count > 0 ? `${activity.batch_count} repair candidates selected` : null,
+    activity.batch_index !== undefined && activity.batch_index !== null && activity.batch_index > 0 ? `drain pass ${activity.batch_index}` : null,
   ].filter(Boolean) as string[];
 }
 
