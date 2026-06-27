@@ -552,15 +552,20 @@ function runtimeActivitySummary(activity?: HistoricalRuntimeActivityPayload | nu
   const parts = [activity.activity_label || 'Live activity'];
   if (activity.replay_time_pointer) parts.push(activity.replay_time_pointer);
   if (activity.source_missing_count !== undefined && activity.source_missing_count !== null) {
-    parts.push(`${activity.source_missing_count} source gaps`);
+    parts.push(`${activity.source_missing_count} source-gap candidates`);
   }
   return parts.join(' · ');
 }
 
 function runtimeActivityMetrics(activity?: HistoricalRuntimeActivityPayload | null): string[] {
   if (!activity) return [];
+  const sourceGapCandidateCount = activity.source_missing_count;
+  const batchCandidateCount =
+    activity.batch_count !== undefined && activity.batch_count !== null && activity.batch_count !== sourceGapCandidateCount
+      ? activity.batch_count
+      : null;
   return [
-    activity.source_missing_count !== undefined && activity.source_missing_count !== null ? `${activity.source_missing_count} source gaps remain` : null,
+    sourceGapCandidateCount !== undefined && sourceGapCandidateCount !== null ? `${sourceGapCandidateCount} source-gap candidates in current repair slice` : null,
     activity.provider_calls !== undefined && activity.provider_calls !== null && activity.provider_calls > 0 ? `${activity.provider_calls} provider calls this pass` : null,
     activity.option_source_unavailable_count !== undefined && activity.option_source_unavailable_count !== null && activity.option_source_unavailable_count > 0
       ? `${activity.option_source_unavailable_count} unavailable markers`
@@ -568,7 +573,7 @@ function runtimeActivityMetrics(activity?: HistoricalRuntimeActivityPayload | nu
     activity.source_ready_count !== undefined && activity.source_ready_count !== null && activity.source_ready_count > 0
       ? `${activity.source_ready_count} source-ready repairs`
       : null,
-    activity.batch_count !== undefined && activity.batch_count !== null && activity.batch_count > 0 ? `${activity.batch_count} repair candidates selected` : null,
+    batchCandidateCount !== null && batchCandidateCount > 0 ? `${batchCandidateCount} repair candidates selected` : null,
     activity.batch_index !== undefined && activity.batch_index !== null && activity.batch_index > 0 ? `drain pass ${activity.batch_index}` : null,
   ].filter(Boolean) as string[];
 }
