@@ -559,12 +559,14 @@ function runtimeActivitySummary(activity?: HistoricalRuntimeActivityPayload | nu
 
 function runtimeActivityMetrics(activity?: HistoricalRuntimeActivityPayload | null): string[] {
   if (!activity) return [];
+  const frontierRequirementCount = activity.requirement_count;
   const sourceGapCandidateCount = activity.source_missing_count;
   const batchCandidateCount =
     activity.batch_count !== undefined && activity.batch_count !== null && activity.batch_count !== sourceGapCandidateCount
       ? activity.batch_count
       : null;
   return [
+    frontierRequirementCount !== undefined && frontierRequirementCount !== null ? `${frontierRequirementCount} total frontier requirements` : null,
     sourceGapCandidateCount !== undefined && sourceGapCandidateCount !== null ? `${sourceGapCandidateCount} source-gap candidates in current repair slice` : null,
     activity.provider_calls !== undefined && activity.provider_calls !== null && activity.provider_calls > 0 ? `${activity.provider_calls} provider calls this pass` : null,
     activity.option_source_unavailable_count !== undefined && activity.option_source_unavailable_count !== null && activity.option_source_unavailable_count > 0
@@ -580,7 +582,7 @@ function runtimeActivityMetrics(activity?: HistoricalRuntimeActivityPayload | nu
 
 function runtimeActivitySamples(activity?: HistoricalRuntimeActivityPayload | null): string {
   const targets = activity?.sample_targets?.filter(Boolean) ?? [];
-  return targets.length ? `Sample targets ${targets.slice(0, 6).join(', ')}` : '';
+  return targets.length ? `Example targets ${targets.slice(0, 6).join(', ')}` : '';
 }
 
 function runtimeActivityTraceLine(activity?: HistoricalRuntimeActivityPayload | null): string {

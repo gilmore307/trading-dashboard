@@ -288,6 +288,7 @@ export interface HistoricalRuntimeActivityPayload {
   progress_hint?: string | null;
   replay_time_pointer?: string | null;
   replay_runtime_trace_ref?: string | null;
+  requirement_count?: number | null;
   source_missing_count?: number | null;
   source_ready_count?: number | null;
   provider_calls?: number | null;
@@ -300,6 +301,7 @@ export interface HistoricalRuntimeActivityPayload {
   updated_at_utc?: string | null;
   required_next_step?: string | null;
   sample_targets?: string[];
+  sample_requirements?: Record<string, unknown>[];
 }
 
 export interface HistoricalTaskTimelineDetailPayload {
