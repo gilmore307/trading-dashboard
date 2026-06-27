@@ -570,7 +570,7 @@ function runtimeActivityMetrics(activity?: HistoricalRuntimeActivityPayload | nu
     sourceGapCandidateCount !== undefined && sourceGapCandidateCount !== null ? `${sourceGapCandidateCount} source-gap candidates in current repair slice` : null,
     activity.provider_calls !== undefined && activity.provider_calls !== null && activity.provider_calls > 0 ? `${activity.provider_calls} provider calls this pass` : null,
     activity.option_source_unavailable_count !== undefined && activity.option_source_unavailable_count !== null && activity.option_source_unavailable_count > 0
-      ? `${activity.option_source_unavailable_count} unavailable markers`
+      ? `${activity.option_source_unavailable_count} provider-unavailable option sources`
       : null,
     activity.source_ready_count !== undefined && activity.source_ready_count !== null && activity.source_ready_count > 0
       ? `${activity.source_ready_count} source-ready repairs`
