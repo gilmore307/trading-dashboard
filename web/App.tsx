@@ -4260,6 +4260,8 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const latestAgentRootCause = latestAgentError ? diagnosticText(latestAgentError.root_cause ?? latestAgentError.summary, '') : '';
   const latestAgentRetry = latestAgentError?.retry_recommendation ? String(latestAgentError.retry_recommendation) : '';
   const progressView = taskProgressView(task);
+  const runtimeActivity = derivedTaskLiveActivity(task);
+  const runtimeDetailLines = runtimeActivitySupplementalLines(runtimeActivity).filter((line) => line !== task.reason);
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -4300,6 +4302,15 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             <small>{progressView.hint}</small>
           </div>
         )}
+        {runtimeActivity ? (
+          <div className="task-detail-card wide-detail">
+            <span>Live</span>
+            <strong>{runtimeActivitySummary(runtimeActivity)}</strong>
+            {runtimeDetailLines.map((line) => <small key={line}>{line}</small>)}
+            {runtimeActivity.required_next_step ? <small>Next {startCase(runtimeActivity.required_next_step)}</small> : null}
+            {runtimeActivity.updated_at_utc ? <small>Updated {formatTimestamp(runtimeActivity.updated_at_utc)}</small> : null}
+          </div>
+        ) : null}
         {execution ? (
           <div className="task-detail-card wide-detail">
             <span>Latest execution</span>
@@ -4608,7 +4619,8 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     const isExpanded = expandedTasks.has(taskKey);
     const progress = taskProgressView(task);
     const runtimeActivity = derivedTaskLiveActivity(task);
-    const runtimeDetailLine = runtimeActivityPreviewLine(runtimeActivity);
+    const rawRuntimeDetailLine = runtimeActivityPreviewLine(runtimeActivity);
+    const runtimeDetailLine = rawRuntimeDetailLine === task.reason ? '' : rawRuntimeDetailLine;
     return (
       <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
         <div className="task-index">{task.task_number ?? task.sequence}</div>
@@ -4644,7 +4656,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
               {runtimeDetailLine ? <small>{runtimeDetailLine}</small> : null}
             </div>
           ) : null}
-          {!isExpanded && task.reason ? <div className="task-reason">{task.reason}</div> : null}
+          {!isExpanded && !runtimeActivity && task.reason ? <div className="task-reason">{task.reason}</div> : null}
           {isExpanded ? <TaskDetailPanel task={task} /> : null}
         </div>
         <div className="task-counts">
