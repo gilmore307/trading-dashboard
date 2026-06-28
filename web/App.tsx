@@ -4626,23 +4626,25 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             <span>{startCase(task.status)}</span>
             <span>Runtime {taskRuntimeText(task)}</span>
           </div>
-          <div className={`task-row-progress${progress.hasEvidence ? '' : ' inferred'}${progress.failed ? ' failed' : ''}`}>
-            <div className="task-row-progress-copy">
-              <span>{progress.label}</span>
-              <small>{progress.hint}</small>
+          {!isExpanded ? (
+            <div className={`task-row-progress${progress.hasEvidence ? '' : ' inferred'}${progress.failed ? ' failed' : ''}`}>
+              <div className="task-row-progress-copy">
+                <span>{progress.label}</span>
+                <small>{progress.hint}</small>
+              </div>
+              <div className="mini-progress" aria-label={`Task progress ${progress.label}`}>
+                <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
+              </div>
             </div>
-            <div className="mini-progress" aria-label={`Task progress ${progress.label}`}>
-              <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
-            </div>
-          </div>
-          {runtimeActivity ? (
+          ) : null}
+          {!isExpanded && runtimeActivity ? (
             <div className="task-live-activity">
               <span>Live</span>
               <strong>{runtimeActivitySummary(runtimeActivity)}</strong>
               {runtimeDetailLine ? <small>{runtimeDetailLine}</small> : null}
             </div>
           ) : null}
-          {task.reason ? <div className="task-reason">{task.reason}</div> : null}
+          {!isExpanded && task.reason ? <div className="task-reason">{task.reason}</div> : null}
           {isExpanded ? <TaskDetailPanel task={task} /> : null}
         </div>
         <div className="task-counts">
