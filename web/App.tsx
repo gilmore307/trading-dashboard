@@ -4260,8 +4260,6 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const latestAgentRootCause = latestAgentError ? diagnosticText(latestAgentError.root_cause ?? latestAgentError.summary, '') : '';
   const latestAgentRetry = latestAgentError?.retry_recommendation ? String(latestAgentError.retry_recommendation) : '';
   const progressView = taskProgressView(task);
-  const runtimeActivity = derivedTaskLiveActivity(task);
-  const runtimeDetailLines = runtimeActivitySupplementalLines(runtimeActivity);
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -4283,15 +4281,6 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             <small><b>Ended</b>{timestampText(task.ended_at_utc)}</small>
           </div>
         </div>
-        {runtimeActivity ? (
-          <div className="task-detail-card wide-detail live-activity-card">
-            <span>Worker activity</span>
-            <strong>{runtimeActivity.activity_label || 'Current worker'}</strong>
-            {runtimeDetailLines.map((line) => <small key={line}>{line}</small>)}
-            {runtimeActivity.required_next_step ? <small>Next {startCase(runtimeActivity.required_next_step)}</small> : null}
-            {runtimeActivity.updated_at_utc ? <small>Updated {formatTimestamp(runtimeActivity.updated_at_utc)}</small> : null}
-          </div>
-        ) : null}
         {progress ? (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
