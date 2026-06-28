@@ -1100,7 +1100,8 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
   const expected = Math.max(0, progress.expected_count ?? 0);
   const ready = Math.max(0, progress.ready_count ?? 0);
   const active = Math.max(0, progress.active_count ?? progress.current_count ?? ready);
-  const displayCount = Math.max(ready, active);
+  const usesCompletedTaskUnits = progress.progress_source === 'model_task_internal_stages';
+  const displayCount = usesCompletedTaskUnits ? ready : Math.max(ready, active);
   const failedCount = Math.max(0, progress.failed_count ?? 0);
   const acceptedSkipCount = Math.max(0, progress.accepted_failed_count ?? 0);
   const usesRuntimeCursor = displayCount > ready && Boolean(progress.progress_display_basis);
