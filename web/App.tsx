@@ -763,6 +763,23 @@ function runtimeActivityDetailLines(activity?: HistoricalRuntimeActivityPayload 
   return Array.from(new Set(lines));
 }
 
+function runtimeActivitySupplementalLines(activity?: HistoricalRuntimeActivityPayload | null): string[] {
+  if (!activity) return [];
+  const primaryProgress =
+    activity.progress_label && activity.progress_hint ? `${activity.progress_label} · ${activity.progress_hint}` : activity.progress_label || '';
+  const summary = runtimeActivitySummary(activity);
+  return runtimeActivityDetailLines(activity).filter((line) => {
+    if (!line || line === summary || line === primaryProgress) return false;
+    if (line.startsWith('Task progress ')) return false;
+    return true;
+  });
+}
+
+function runtimeActivityPreviewLine(activity?: HistoricalRuntimeActivityPayload | null): string {
+  if (!activity) return '';
+  return runtimeActivitySupplementalLines(activity)[0] || runtimeActivitySamples(activity) || '';
+}
+
 function derivedTaskLiveActivity(task: HistoricalTaskTimelineItemPayload): HistoricalRuntimeActivityPayload | null {
   const explicitActivity = task.detail?.runtime_activity ?? null;
   if (explicitActivity) return explicitActivity;
@@ -4243,7 +4260,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const latestAgentRetry = latestAgentError?.retry_recommendation ? String(latestAgentError.retry_recommendation) : '';
   const progressView = taskProgressView(task);
   const runtimeActivity = derivedTaskLiveActivity(task);
-  const runtimeDetailLines = runtimeActivityDetailLines(runtimeActivity);
+  const runtimeDetailLines = runtimeActivitySupplementalLines(runtimeActivity);
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -4267,8 +4284,8 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
         </div>
         {runtimeActivity ? (
           <div className="task-detail-card wide-detail live-activity-card">
-            <span>Live activity</span>
-            <strong>{runtimeActivitySummary(runtimeActivity)}</strong>
+            <span>Worker activity</span>
+            <strong>{runtimeActivity.activity_label || 'Current worker'}</strong>
             {runtimeDetailLines.map((line) => <small key={line}>{line}</small>)}
             {runtimeActivity.required_next_step ? <small>Next {startCase(runtimeActivity.required_next_step)}</small> : null}
             {runtimeActivity.updated_at_utc ? <small>Updated {formatTimestamp(runtimeActivity.updated_at_utc)}</small> : null}
@@ -4601,7 +4618,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
     const isExpanded = expandedTasks.has(taskKey);
     const progress = taskProgressView(task);
     const runtimeActivity = derivedTaskLiveActivity(task);
-    const runtimeDetailLine = runtimeActivityDetailLines(runtimeActivity)[0] ?? runtimeActivitySamples(runtimeActivity);
+    const runtimeDetailLine = runtimeActivityPreviewLine(runtimeActivity);
     return (
       <article className={`task-row task-${task.task_state}`} key={taskKey} role="listitem">
         <div className="task-index">{task.task_number ?? task.sequence}</div>
