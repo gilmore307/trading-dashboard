@@ -807,7 +807,7 @@ function derivedTaskLiveActivity(task: HistoricalTaskTimelineItemPayload): Histo
 
 function taskLogTailEntries(task: HistoricalTaskTimelineItemPayload) {
   if (!taskShowsLiveSections(task)) return [];
-  return task.detail?.log_tail?.entries ?? [];
+  return (task.detail?.log_tail?.entries ?? []).filter((entry) => (entry.lines ?? []).length > 0);
 }
 
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
@@ -4837,7 +4837,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
                     <b>{String(entry.stream || 'log').toUpperCase()}</b>
                     <small>{entry.updated_at_utc ? formatTimestamp(entry.updated_at_utc) : entry.path?.split('/').pop() ?? ''}</small>
                   </div>
-                  <pre>{(entry.lines ?? []).length ? (entry.lines ?? []).join('\n') : 'No log lines yet.'}</pre>
+                  <pre>{(entry.lines ?? []).join('\n')}</pre>
                 </div>
               ))}
             </div>
