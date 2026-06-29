@@ -616,7 +616,7 @@ function taskRuntimeStatusLabel(task: HistoricalTaskTimelineItemPayload): string
 function taskLivePeriod(task: HistoricalTaskTimelineItemPayload): string {
   const unit = task.detail?.dataset_unit;
   if (unit?.start_month && unit?.end_month) return `${unit.start_month} to ${unit.end_month}`;
-  return monthLabel(task.month);
+  return taskPeriodLabel(task);
 }
 
 function taskLiveScope(task: HistoricalTaskTimelineItemPayload): string {
@@ -910,10 +910,14 @@ function monthLabel(month?: string | null): string {
   return month || 'Unscheduled Month';
 }
 
+function taskPeriodLabel(task: HistoricalTaskTimelineItemPayload): string {
+  return task.period_label || monthLabel(task.month);
+}
+
 function groupTasksByMonth(tasks: HistoricalTaskTimelineItemPayload[]) {
   const groups = new Map<string, HistoricalTaskTimelineItemPayload[]>();
   tasks.forEach((task) => {
-    const month = monthLabel(task.month);
+    const month = taskPeriodLabel(task);
     groups.set(month, [...(groups.get(month) ?? []), task]);
   });
   return Array.from(groups.entries());
@@ -4774,7 +4778,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
       <div className="task-detail-grid">
         <div className="task-detail-card">
           <span>Task identity</span>
-          <strong>{monthLabel(task.month)} · {task.task_label}</strong>
+          <strong>{taskPeriodLabel(task)} · {task.task_label}</strong>
           <small>{[task.task_id, taskTargetMetaLabel(task)].filter(Boolean).join(' · ')}</small>
         </div>
         <div className="task-detail-card">
@@ -4977,7 +4981,7 @@ function collectDiagnosticSummary(
       typeKey: 'task',
       typeLabel: 'Task',
       status: 'Failed',
-      detail: `${monthLabel(task.month)} · ${task.task_label} · ${startCase(task.stage_type)}${task.reason ? ` · ${task.reason}` : ''}`,
+      detail: `${taskPeriodLabel(task)} · ${task.task_label} · ${startCase(task.stage_type)}${task.reason ? ` · ${task.reason}` : ''}`,
       severity: 'error',
       handlingStatus: 'open',
       occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
@@ -4997,7 +5001,7 @@ function collectDiagnosticSummary(
       typeKey: 'task_coverage',
       typeLabel: 'Task Coverage',
       status: 'Action Required',
-      detail: `${monthLabel(task.month)} · ${task.task_label} · ${unresolvedFailedCount}/${progress?.expected_count ?? 0} unresolved requests failed; downstream remains blocked.`,
+      detail: `${taskPeriodLabel(task)} · ${task.task_label} · ${unresolvedFailedCount}/${progress?.expected_count ?? 0} unresolved requests failed; downstream remains blocked.`,
       severity: 'error',
       handlingStatus: 'open',
       occurredAt: task.status_updated_at_utc ?? task.updated_at_utc ?? task.ended_at_utc,
@@ -5057,7 +5061,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const [targetFilter, setTargetFilter] = useState('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
-  const monthOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, (task) => monthLabel(task.month), monthOptionRank), [tasks]);
+  const monthOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, taskPeriodLabel, monthOptionRank), [tasks]);
   const stateOptions = useMemo(() => uniqueTaskOptions(tasks, (task) => task.task_state, taskStateLabel, taskStateOptionRank), [tasks]);
   const taskOptions = useMemo(
     () => uniqueTaskOptions(tasks, taskFilterValue, taskFilterLabel, taskOptionRank),
@@ -5160,7 +5164,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
             </div>
           </div>
           <div className="task-meta">
-            <span>{monthLabel(task.month)}</span>
+            <span>{taskPeriodLabel(task)}</span>
             {taskTargetMetaLabel(task) ? <span>{taskTargetMetaLabel(task)}</span> : null}
             <span>{startCase(task.stage_type)}</span>
             <span>{startCase(task.status)}</span>
@@ -5231,10 +5235,10 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
       </div>
       <div className="task-filters" aria-label="Task list filters">
         <SearchableFilter
-          label="Month"
+          label="Fold"
           listId="task-month-options"
           value={monthFilter}
-          options={[["auto", "Active/latest period"], ["all", "All months"], ...monthOptions]}
+          options={[["auto", "Active/latest period"], ["all", "All folds"], ...monthOptions]}
           onChange={setMonthFilter}
         />
         <SearchableFilter
@@ -6428,12 +6432,12 @@ function App() {
     return (
       <>
         <section className="metric-grid">
-          <MetricCard label="Active historical period" value={chart.current_month ?? 'Unknown'} />
+          <MetricCard label="Active historical period" value={chart.current_period_label ?? chart.current_month ?? 'Unknown'} />
           <MetricCard label="Runtime work" value={runtimeWorkLabel(chart)} hint={runtimeWorkHint(chart)} />
           <MetricCard
             label="Active task"
             value={activeTaskLabel(chart)}
-            hint={chart.active_task?.status ? `${startCase(chart.active_task.status)} · ${chart.active_task.month ?? 'unknown period'}` : undefined}
+            hint={chart.active_task?.status ? `${startCase(chart.active_task.status)} · ${chart.active_task.period_label ?? chart.active_task.month ?? 'unknown period'}` : undefined}
           />
           <MetricCard label="Provider posture" value={startCase(chart.provider_status)} />
           <MetricCard label="Lock" value={startCase(chart.lock_status)} />

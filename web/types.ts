@@ -351,6 +351,7 @@ export interface HistoricalTaskTimelineItemPayload {
   task_number?: number | null;
   task_uid?: string | null;
   month?: string | null;
+  period_label?: string | null;
   task_id: string;
   task_label: string;
   task_state: 'completed' | 'current' | 'future' | 'failed' | 'skipped' | string;
@@ -390,6 +391,7 @@ export interface HistoricalRuntimeActiveWorkPayload {
 
 export interface HistoricalTaskProgressChartPayload {
   current_month?: string | null;
+  current_period_label?: string | null;
   active_stage?: string | null;
   active_task?: HistoricalTaskTimelineItemPayload | null;
   runtime_active_work?: HistoricalRuntimeActiveWorkPayload | null;
