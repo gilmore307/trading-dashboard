@@ -4181,12 +4181,28 @@ function ModelGroupDetail({
   const versions = groupPromotionVersions(layerChart, promotionChart);
   const exclusions = groupPromotionExclusions(promotionChart);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [autoSelectedVersionKey, setAutoSelectedVersionKey] = useState<string | null>(null);
   const [scatterGroupKey, setScatterGroupKey] = useState<ScatterGroupKey>('decision_intended_side');
+  const versionKey = versions.map((version, index) => versionStableId(version, index)).join('|');
   const activeRef = activeModelRef(runtimeChart);
   const activeVersion = versions.find((version) => modelIdentity(version) === 'active') ?? null;
   const selectedVersion = versions.find((version, index) => versionStableId(version, index) === selectedVersionId) ?? null;
   const pcaVersion = selectedVersion && diagnosticPoints(selectedVersion, 'pca').length ? selectedVersion : null;
   const pcoaVersion = selectedVersion && diagnosticPoints(selectedVersion, 'pcoa').length ? selectedVersion : null;
+  useEffect(() => {
+    const validIds = new Set(versions.map((version, index) => versionStableId(version, index)));
+    if (selectedVersionId && !validIds.has(selectedVersionId)) {
+      setSelectedVersionId(null);
+      setAutoSelectedVersionKey(null);
+      return;
+    }
+    if (selectedVersionId || autoSelectedVersionKey === versionKey) return;
+    const defaultEntry = versions
+      .map((version, index) => ({ version, index, id: versionStableId(version, index) }))
+      .find(({ version }) => diagnosticPoints(version, 'pca').length || diagnosticPoints(version, 'pcoa').length);
+    if (defaultEntry) setSelectedVersionId(defaultEntry.id);
+    setAutoSelectedVersionKey(versionKey);
+  }, [autoSelectedVersionKey, selectedVersionId, versionKey, versions]);
   return (
     <section className="panel model-group-detail-panel">
       <div className="model-group-detail-head">
