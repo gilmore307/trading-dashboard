@@ -690,13 +690,12 @@ Add `model_group_replay_review_summary` as the replay-review dashboard read mode
 - Replay Performance answers how the model group traded in replay. It owns realized replay economics such as NAV, return, drawdown, volatility, Sharpe/Sortino/Calmar, beta, hit/payoff quality, exposure, replacement benefit, opportunity capture, and regret as trading-performance context.
 - Replay Decisions answers whether each model layer made a reasonable decision given the information and candidate set available at the time. It owns chosen action versus best-available outcome labels, model-layer attribution, cause family, failure type, missed alternatives, parameter replay review, and impact/regret. Future returns may be used as post-replay labels, not as decision-time inputs.
 - Replay Operations answers whether the replay machinery exposed, routed, computed, and executed the decision correctly. It owns component/surface gaps, option path availability, replacement mechanics, fill status, source readiness, and first-gap component/mechanism evidence.
-- Events answers whether event context explains residual replay behavior by event scope. It owns event focus proposals, residual event governance attribution rows, event scope/status/counts, and links back to affected replay review decisions.
 
 ### Consequences
 
 - D030's component-first Replay Decisions hierarchy is retired. Component-first evidence now belongs under Replay Operations.
 - Dashboard pages should consume page-specific projections from `model_group_replay_review_summary`; raw replay review artifacts remain provenance/drilldown evidence.
-- The UI must preserve the same row-selection and Focus pattern across Replay Performance, Replay Decisions, Replay Operations, and Events.
+- The UI must preserve the same row-selection and Focus pattern across Replay Performance, Replay Decisions, and Replay Operations.
 - "Best available" language must stay clearly labeled as post-replay/counterfactual review unless the source row proves the alternative was point-in-time knowable.
 
 ## D032 - Events absorbs Temporal Explorer as the canonical event page
@@ -710,13 +709,13 @@ Chentong clarified that the intended Events page is the current time-axis event 
 
 ### Decision
 
-Events is the single public event page. It uses `temporal_explorer_summary` as the primary page contract for event substrate, chart controls, event density, and selected-unit M06 accepted event markers. When `model_group_replay_review_summary.event_runs[]` is available, Events appends replay residual-event governance below the timeline rather than exposing it as a separate page.
+Events is the single public event page. It uses `temporal_explorer_summary` as the primary page contract for event substrate, chart controls, event density, selected-unit certified event-family markers, and the certified event-family to market-state relationship. Events does not consume replay residual-event governance.
 
 ### Consequences
 
 - The left navigation no longer exposes a separate Temporal Explorer page.
 - Temporal Explorer remains the storage/read-model contract name for the timeline summary until a deliberate contract rename is accepted.
-- Replay Performance, Replay Decisions, and Replay Operations remain replay-specific pages. Events is the only page combining market/event timeline context with replay residual-event review evidence.
+- Replay Performance, Replay Decisions, and Replay Operations remain replay-specific pages. Events is the event attention-pool surface for certified event-family markers and their market-session/chart-state context.
 
 ## D033 - Task progress uses task-specific live work units
 

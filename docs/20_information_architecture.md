@@ -286,28 +286,23 @@ Hidden by default:
 
 ### Events
 
-Purpose: answer “What happened across the historical event time axis, and did event context explain residual replay behavior by event scope?”
+Purpose: answer “Which certified event families are in the event attention pool, and how do they correspond to market session and chart state?”
 
 Visible content should include:
 
 - frame-aligned symbol/frame/center-time controls;
 - a TradingView-style K-line chart over the selected symbol and frame;
 - volume and accepted-event-density subcharts;
-- M06 accepted event markers for the selected time unit;
-- event focus proposals created from replay review failures and misses;
-- residual event governance attribution rows by target, failure type, event scope, attribution status, review gate, and impact scope;
-- event proposal status, accepted/pending review gates, co-event/confounder handling, and supporting failure counts;
-- links back to source replay review ids and affected model-group replay runs;
-- summary mode across event governance runs and focus mode for one event run.
+- certified event-family markers for the selected time unit;
+- certified event-family counts by market-session state, family type, scope, and symbol;
+- event-family to market-state pairs with event time, session state, scope, symbol, and available OHLCV bar context.
 
 Preferred visuals:
 
 - event timeline candlesticks with visible event markers;
 - event density and volume subcharts;
-- event proposal and attribution status charts;
-- event-scope and failure-type comparison charts;
-- focus cards for top event proposals and attribution rows;
-- source replay review link chips for drilldown.
+- event-family to market-session distribution charts;
+- a dense relation table for accepted event-family markers and corresponding market state.
 
 Hidden by default:
 

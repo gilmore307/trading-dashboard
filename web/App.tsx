@@ -166,9 +166,7 @@ function isExecutionRuntimeChart(payload: DashboardReadModel['chart_payload']): 
 }
 
 type ReplayReviewChartPayload = {
-  page_contracts?: Array<Record<string, unknown>>;
   review_runs?: Array<Record<string, unknown>>;
-  event_runs?: Array<Record<string, unknown>>;
   contract_matrix?: Record<string, unknown>;
 };
 
@@ -3695,12 +3693,6 @@ function replayReviewRuns(chart: ReplayReviewChartPayload): Array<Record<string,
     : [];
 }
 
-function replayEventRuns(chart: ReplayReviewChartPayload): Array<Record<string, unknown>> {
-  return Array.isArray(chart.event_runs)
-    ? chart.event_runs.filter((run): run is Record<string, unknown> => Boolean(run) && typeof run === 'object' && !Array.isArray(run))
-    : [];
-}
-
 function replayReviewRunId(run: Record<string, unknown>, index: number): string {
   return String(run.review_run_id ?? run.candidate_model_ref ?? run.replay_execution_run_id ?? index);
 }
@@ -3883,28 +3875,6 @@ function ReplayReviewFocusPanel({
             </div>
           );
         })}
-      </div>
-    </section>
-  );
-}
-
-function ReplayReviewPageContract({
-  chart,
-  pageId,
-}: {
-  chart: ReplayReviewChartPayload;
-  pageId: string;
-}) {
-  const contract = (chart.page_contracts ?? []).find((item) => item.page_id === pageId);
-  if (!contract) return null;
-  return (
-    <section className="panel replay-page-contract-panel">
-      <div className="panel-heading">{startCase(pageId)} Scope</div>
-      <p className="panel-subtitle">{String(contract.question ?? '')}</p>
-      <div className="metric-grid three">
-        <MetricCard label="Primary source" value={String(contract.primary_source ?? 'Not reported')} />
-        <MetricCard label="Primary grain" value={String(contract.primary_grain ?? 'Not reported')} />
-        <MetricCard label="Caution" value={String(contract.caution ?? 'No special caution')} />
       </div>
     </section>
   );
@@ -4312,7 +4282,6 @@ function ReplayPerformanceView({
   const chartReviewRuns = selectedReviewRuns.length ? selectedReviewRuns : reviewRuns;
   return (
     <section className="replay-view">
-      <ReplayReviewPageContract chart={replayReviewChart} pageId="replay_performance" />
       <ReplaySelectionModePanel
         mode={selectedReviewRuns.length ? 'focus' : 'summary'}
         summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in performance summary`}
@@ -4395,7 +4364,6 @@ function ReplayDecisionsView({
   const parameterCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewParameter(run), 'classification_counts'));
   return (
     <section className="replay-view">
-      <ReplayReviewPageContract chart={replayReviewChart} pageId="replay_decisions" />
       <ReplaySelectionModePanel
         mode={selectedReviewRuns.length ? 'focus' : 'summary'}
         summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in model-layer decision summary`}
@@ -4499,7 +4467,6 @@ function ReplayOperationsView({
   }).length;
   return (
     <section className="replay-view">
-      <ReplayReviewPageContract chart={replayReviewChart} pageId="replay_operations" />
       <ReplaySelectionModePanel
         mode={selectedReviewRuns.length ? 'focus' : 'summary'}
         summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in operation summary`}
@@ -4552,94 +4519,112 @@ function ReplayOperationsView({
   );
 }
 
-function ReplayEventsView({ replayReviewChart }: { replayReviewChart: ReplayReviewChartPayload }) {
-  const eventRuns = replayEventRuns(replayReviewChart);
-  const [selectedEventRunId, setSelectedEventRunId] = useState<string | null>(null);
-  const eventRunIds = eventRuns.map((run, index) => String(run.event_run_id ?? index));
-  const eventRunKey = eventRunIds.join('|');
-  useEffect(() => {
-    if (selectedEventRunId && !eventRunIds.includes(selectedEventRunId)) setSelectedEventRunId(null);
-  }, [eventRunKey, selectedEventRunId]);
-  const selectedRun = eventRuns.find((run, index) => String(run.event_run_id ?? index) === selectedEventRunId) ?? null;
-  const chartRuns = selectedRun ? [selectedRun] : eventRuns;
-  const proposalCounts = aggregateCounts(chartRuns, (run) => countRecord(run, 'proposal_status_counts'));
-  const reviewGateCounts = aggregateCounts(chartRuns, (run) => countRecord(run, 'review_gate_counts'));
-  const impactScopeCounts = aggregateCounts(chartRuns, (run) => countRecord(run, 'impact_scope_type_counts'));
-  const attributionCounts = aggregateCounts(chartRuns, (run) => countRecord(run, 'attribution_status_counts'));
+function parseTimeMs(value?: string | null): number | null {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function tickForEvent(event: TemporalExplorerEventPayload, ticks: TemporalExplorerTickPayload[]): TemporalExplorerTickPayload | null {
+  const eventMs = parseTimeMs(event.event_time);
+  if (eventMs === null) return null;
+  return ticks.find((tick) => {
+    const startMs = parseTimeMs(tick.tick_start_utc);
+    const endMs = parseTimeMs(tick.tick_end_utc);
+    return startMs !== null && endMs !== null && eventMs >= startMs && eventMs < endMs;
+  }) ?? null;
+}
+
+function chartBarForEvent(event: TemporalExplorerEventPayload, bars: TemporalExplorerChartBarPayload[]): TemporalExplorerChartBarPayload | null {
+  const eventMs = parseTimeMs(event.event_time);
+  if (eventMs === null) return null;
+  return bars.find((bar) => {
+    const startMs = parseTimeMs(bar.bucket_start);
+    const endMs = parseTimeMs(bar.bucket_end);
+    return startMs !== null && endMs !== null && eventMs >= startMs && eventMs < endMs;
+  }) ?? null;
+}
+
+function eventRelationCounts(
+  events: TemporalExplorerEventPayload[],
+  ticks: TemporalExplorerTickPayload[],
+  key: 'market_session_status' | 'event_type' | 'scope' | 'symbol',
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const event of events) {
+    const tick = tickForEvent(event, ticks);
+    const value = key === 'market_session_status'
+      ? tick?.market_session_status
+      : event[key];
+    const label = String(value || 'unknown');
+    counts[label] = (counts[label] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function EventAttentionPoolView({
+  events,
+  selectedTick,
+  selectedTickEvents,
+  ticks,
+  chartBars,
+  activeFrame,
+}: {
+  events: TemporalExplorerEventPayload[];
+  selectedTick: TemporalExplorerTickPayload | undefined;
+  selectedTickEvents: TemporalExplorerEventPayload[];
+  ticks: TemporalExplorerTickPayload[];
+  chartBars: TemporalExplorerChartBarPayload[];
+  activeFrame: string;
+}) {
+  const visibleEvents = selectedTickEvents.length ? selectedTickEvents : events.slice(0, 12);
+  const marketStates = new Set(ticks.map((tick) => tick.market_session_status).filter(Boolean));
   return (
-    <section className="replay-view">
-      <ReplayReviewPageContract chart={replayReviewChart} pageId="events" />
-      <ReplaySelectionModePanel
-        mode={selectedRun ? 'focus' : 'summary'}
-        summary={selectedRun ? `Focused on ${String(selectedRun.event_run_id ?? 'event run')}` : `${eventRuns.length} residual event governance runs in summary`}
-        onClear={() => setSelectedEventRunId(null)}
-      />
-      <section className="panel replay-table-panel">
-        <div className="panel-heading">Event Governance Runs</div>
-        <div className="replay-table replay-event-summary-table">
-          <div className="replay-table-row replay-table-head">
-            <span>Run</span>
-            <span>Proposals</span>
-            <span>Attributions</span>
-            <span>Targets</span>
-            <span>Failure Types</span>
-            <span>Action</span>
-          </div>
-          {eventRuns.length ? eventRuns.map((run, index) => {
-            const id = String(run.event_run_id ?? index);
-            const selected = id === selectedEventRunId;
-            return (
-              <div
-                className={selected ? 'replay-table-row selected' : 'replay-table-row'}
-                key={id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedEventRunId(selected ? null : id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setSelectedEventRunId(selected ? null : id);
-                  }
-                }}
-              >
-                <strong><i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{id}</strong>
-                <span>{formatMetricValue(metricNumber(run, 'proposal_count'), 0)}</span>
-                <span>{formatMetricValue(metricNumber(run, 'attribution_row_count'), 0)}</span>
-                <span>{countSeriesFromRecord(countRecord(run, 'target_symbol_counts')).slice(0, 3).map((item) => `${item.label} ${item.value}`).join(' · ') || 'None'}</span>
-                <span>{countSeriesFromRecord(countRecord(run, 'failure_type_counts')).slice(0, 3).map((item) => `${item.label} ${item.value}`).join(' · ') || 'None'}</span>
-                <button className="replay-inline-action" type="button" onClick={(event) => { event.stopPropagation(); setSelectedEventRunId(id); }}>Focus</button>
-              </div>
-            );
-          }) : <div className="empty-chart compact">No residual event governance runs are published in the current replay review read model.</div>}
+    <section className="event-attention-pool">
+      <section className="panel">
+        <div className="panel-heading">Certified Event Families / Market State</div>
+        <div className="metric-grid four">
+          <MetricCard label="Certified families" value={events.length} hint="Accepted event-family markers in the attention pool read model" />
+          <MetricCard label="Selected unit" value={selectedTickEvents.length} hint={selectedTick?.label ?? activeFrame} />
+          <MetricCard label="Market states" value={marketStates.size} hint="Distinct market-session states in the current viewport" />
+          <MetricCard label="Chart bars" value={chartBars.length} hint="Bars available for event-to-market-state pairing" />
         </div>
       </section>
       <div className="replay-chart-grid">
-        <MiniMetricBarChart title="Proposal Status" series={countSeriesFromRecord(proposalCounts)} emptyLabel="No event proposal status counts published" />
-        <MiniMetricBarChart title="Review Gates" series={countSeriesFromRecord(reviewGateCounts)} emptyLabel="No event review gate counts published" />
-        <MiniMetricBarChart title="Impact Scope" series={countSeriesFromRecord(impactScopeCounts)} emptyLabel="No event impact-scope counts published" />
-        <MiniMetricBarChart title="Attribution Status" series={countSeriesFromRecord(attributionCounts)} emptyLabel="No event attribution status counts published" />
+        <MiniMetricBarChart title="Events By Market State" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'market_session_status'))} emptyLabel="No certified event families in the current event attention pool" />
+        <MiniMetricBarChart title="Events By Family Type" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'event_type'))} emptyLabel="No certified event family types published" />
+        <MiniMetricBarChart title="Events By Scope" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'scope'))} emptyLabel="No certified event scopes published" />
+        <MiniMetricBarChart title="Events By Symbol" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'symbol'))} emptyLabel="No certified event symbols published" />
       </div>
-      {selectedRun ? (
-        <section className="panel replay-review-focus-panel">
-          <div className="panel-heading">Event Focus Detail</div>
-          <div className="replay-review-focus-grid">
-            {nestedArray(selectedRun, 'sample_proposals').map((proposal, index) => (
-              <div className="replay-review-focus-card" key={`${proposal.event_focus_proposal_id ?? index}`}>
-                <strong>{String(proposal.event_summary ?? proposal.event_ref ?? `Proposal ${index + 1}`)}</strong>
-                <span>{String(proposal.target_symbol ?? 'Unknown target')} · {startCase(String(proposal.failure_type ?? 'unknown'))}</span>
-                <small>{String(proposal.review_gate ?? proposal.proposal_status ?? 'No gate')}</small>
-              </div>
-            ))}
-            {nestedArray(selectedRun, 'sample_attributions').map((attribution, index) => (
-              <div className="replay-review-focus-card" key={`${attribution.attribution_id ?? attribution.dominant_event_candidate ?? index}`}>
-                <strong>{String(attribution.dominant_event_candidate ?? `Attribution ${index + 1}`)}</strong>
-                <span>{String(attribution.target_symbol ?? 'Unknown target')} · {startCase(String(attribution.impact_scope_type ?? 'unknown'))}</span>
-                <small>{startCase(String(attribution.attribution_status ?? 'unknown'))} · source {String(attribution.source_replay_review_id ?? 'not linked')}</small>
-              </div>
-            ))}
+      <section className="panel replay-table-panel">
+        <div className="panel-heading">Event Family / Market State Pairs</div>
+        <div className="replay-table event-market-state-table">
+          <div className="replay-table-row replay-table-head">
+            <span>Event Family</span>
+            <span>Time</span>
+            <span>Market State</span>
+            <span>Scope</span>
+            <span>Symbol</span>
+            <span>Market Bar</span>
           </div>
-        </section>
-      ) : null}
+          {visibleEvents.length ? visibleEvents.map((event) => {
+            const tick = tickForEvent(event, ticks);
+            const bar = chartBarForEvent(event, chartBars);
+            return (
+              <div className="replay-table-row" key={`${event.lane}-${event.event_id}`}>
+                <strong>{event.title || event.event_id}</strong>
+                <span>{formatTimestamp(event.event_time)}</span>
+                <span>{startCase(tick?.market_session_status ?? 'unknown')}</span>
+                <span>{startCase(event.scope ?? 'unknown')}</span>
+                <span>{event.symbol ?? 'Market'}</span>
+                <span>{bar ? `O ${formatMetricValue(bar.open, 2)} C ${formatMetricValue(bar.close, 2)} V ${formatMetricValue(bar.volume ?? null, 0)}` : 'No bar'}</span>
+              </div>
+            );
+          }) : (
+            <div className="empty-chart compact">No certified event families are currently published in the event attention pool.</div>
+          )}
+        </div>
+      </section>
     </section>
   );
 }
@@ -6445,7 +6430,7 @@ function App() {
         </section>
         <section className="panel temporal-events-panel">
           <div className="panel-heading">Event Markers</div>
-          <p className="panel-subtitle">Showing only the selected {activeFrame} unit. Markers require M06 accepted event-family status.</p>
+          <p className="panel-subtitle">Showing only the selected {activeFrame} unit. Markers require certified event-family status in the event attention pool.</p>
           {selectedTickEvents.length ? (
             <div className="temporal-event-stack">
               {selectedTickEvents.map((event) => (
@@ -6463,10 +6448,17 @@ function App() {
               ))}
             </div>
           ) : (
-            <div className="empty-chart compact">No M06 accepted event markers for {selectedTick?.label ?? 'the selected time unit'}.</div>
+            <div className="empty-chart compact">No certified event-family markers for {selectedTick?.label ?? 'the selected time unit'}.</div>
           )}
         </section>
-        <ReplayEventsView replayReviewChart={replayReviewChart} />
+        <EventAttentionPoolView
+          activeFrame={activeFrame}
+          chartBars={chartBars}
+          events={events}
+          selectedTick={selectedTick}
+          selectedTickEvents={selectedTickEvents}
+          ticks={ticks}
+        />
       </>
     );
   };
@@ -6525,7 +6517,7 @@ function App() {
   };
 
   const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'events' ? 'Events' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'events' ? 'Historical Events / Timeline + Replay Review' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'events' ? 'Historical Events / Attention Pool' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);

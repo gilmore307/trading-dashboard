@@ -308,23 +308,20 @@ Replay Decisions legacy presentation:
 
 ### `model_group_replay_review_summary`
 
-Purpose: support Replay Performance, Replay Decisions, Replay Operations, and the replay event-governance section of Events from post-replay review artifacts without exposing raw artifact directories as primary UI content.
+Purpose: support Replay Performance, Replay Decisions, and Replay Operations from post-replay review artifacts without exposing raw artifact directories as primary UI content.
 
 Current semantic source:
 
 - `post_replay_review_runs/*/post_replay_review_receipt.json`;
 - `post_replay_review_runs/*/replay_review_performance_summary.json`;
 - `post_replay_review_runs/*/replay_review_rows.jsonl`;
-- `post_replay_review_runs/*/layer_attribution/parameter_replay_review_report.json`;
-- `post_replay_attribution_runs/*/event_focus_proposals.jsonl`;
-- `post_replay_attribution_runs/*/residual_event_governance_rows.jsonl`.
+- `post_replay_review_runs/*/layer_attribution/parameter_replay_review_report.json`.
 
 Dashboard presentation:
 
 - Replay Performance consumes `review_runs[].performance` for trading-performance evidence such as decision rows, fill counts, target performance, stock selection, option expression, and replacement review;
 - Replay Decisions consumes `review_runs[].decision_review` and `review_runs[].parameter_review` for model-layer attribution, cause family, failure type, regret, impact, and parameter replay review classes;
 - Replay Operations consumes first-gap component/mechanism, option path status, fill status, replacement mechanics, and other component/surface diagnostics projected from replay review;
-- Events consumes `event_runs[]` after the primary event timeline for event focus proposal counts, residual-event attribution status, review gates, event scope, failure type, and focus samples;
 - every page keeps the same three dimensions: model-group comparison, individual model-group analysis, and Focus/detail drilldown by source refs.
 
 Safety/interpretation constraints:
