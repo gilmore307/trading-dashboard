@@ -332,7 +332,7 @@ Chentong asked for provider API status and Background Services to share one row,
 
 ### Decision
 
-Status renders Server Resources first, then a Runtime Throughput card. The card shows the 3 month-ingest + 1 model-worker topology, six-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. API Connections and Background Services remain side by side. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
+Status renders Server Resources first, then a Runtime Throughput card. The card shows the 1 month-ingest + 1 model-worker topology, twelve-month fold cadence, completion rate, peak completion burst, observation window, and idle/blocked decision count. API Connections and Background Services remain side by side. Dashboard Data is a full-width panel below them and lists original source outputs such as scheduler state, scheduler decision log, active workflow state, stage coverage output, and stage-run output with each output's last updated timestamp. Aggregation/sanitization is allowed as an adapter/cache step, but it is not the canonical source of truth.
 
 As future website pages, adapters, or read-model slices consume additional original source outputs, the Dashboard Data source-output inventory must be updated in the same development slice. Omitting a newly consumed raw source output from this list is a freshness/auditability contract gap, even if the derived dashboard JSON is already refreshed.
 
@@ -393,7 +393,7 @@ Chentong clarified that the task list should display the finest child tasks so c
 
 ### Decision
 
-Task List treats each historical training row as `fold/period + layer + operational stage/work type`. Rows are grouped by fold period, still filterable by period/layer/status/task type/target, and each row has a read-only details toggle. Source/feature stages from six-month folds stay on the fold row and expose month child partitions in detail. Model-group replay rows use canonical phase labels and keep the training fold as `month`, with the replay/test window exposed in task detail. Public task numbers are continuous display sequence numbers assigned after chronological fold, layer, and workflow-stage sorting; `task_uid` remains the durable progress/evidence identity. Expanded details show task identity, status/reason, latest execution result when attached, evidence count/refs, blockers, and progress only when there is real progress evidence such as row counts, month counts, elapsed/expected time, or an active progress file. Worker labels are not shown and worker filtering is not supported in Tasks because one fold can be executed by multiple internal provider/ingest lanes. The task timeline must not expose the current incomplete fold as a Ready task before the final month of that fold has completed in `America/New_York`.
+Task List treats each historical training row as `fold/period + layer + operational stage/work type`. Rows are grouped by fold period, still filterable by period/layer/status/task type/target, and each row has a read-only details toggle. Source/feature stages from twelve-month folds stay on the fold row and expose month child partitions in detail. Model-group replay rows use canonical phase labels and keep the training fold as `month`, with the replay/test window exposed in task detail. Public task numbers are continuous display sequence numbers assigned after chronological fold, layer, and workflow-stage sorting; `task_uid` remains the durable progress/evidence identity. Expanded details show task identity, status/reason, latest execution result when attached, evidence count/refs, blockers, and progress only when there is real progress evidence such as row counts, month counts, elapsed/expected time, or an active progress file. Worker labels are not shown and worker filtering is not supported in Tasks because one fold can be executed by multiple internal provider/ingest lanes. The task timeline must not expose the current incomplete fold as a Ready task before the final month of that fold has completed in `America/New_York`.
 
 ### Consequences
 
@@ -504,7 +504,7 @@ Status: Accepted
 
 ### Context
 
-After historical workflow slices complete, the task timeline can contain no `current` rows. A hard default Status filter of `Now` then renders `0 of N child tasks`, which looks broken even though the system is healthy and the rows are completed. Month filter ordering also treated six-month fold ranges as unknown values, placing them after all single-month entries.
+After historical workflow slices complete, the task timeline can contain no `current` rows. A hard default Status filter of `Now` then renders `0 of N child tasks`, which looks broken even though the system is healthy and the rows are completed. Month filter ordering also treated twelve-month fold ranges as unknown values, placing them after all single-month entries.
 
 ### Decision
 
@@ -513,7 +513,7 @@ The default filters now use `Now/latest period`: they show current work when cur
 ### Consequences
 
 - An idle/completed workflow still shows useful historical task rows without rendering the entire multi-year timeline by default.
-- Six-month model folds no longer drift to the bottom of the Month filter.
+- Twelve-month model folds no longer drift to the bottom of the Month filter.
 - Target filtering is easier to scan because concrete symbols appear before broad market/sector rows.
 
 ## D023 - High-cardinality task filters are typed selectors and task rows are windowed
@@ -523,7 +523,7 @@ Status: Accepted
 
 ### Context
 
-The task timeline can span thousands of child tasks across historical months and six-month model folds. Plain dropdowns are workable for low-cardinality dimensions such as Model and Status, but Month and Target become slow to scan as history and target universes grow. Rendering every filtered row at once also wastes browser work when operators choose broad filters such as all months/all statuses.
+The task timeline can span thousands of child tasks across historical months and twelve-month model folds. Plain dropdowns are workable for low-cardinality dimensions such as Model and Status, but Month and Target become slow to scan as history and target universes grow. Rendering every filtered row at once also wastes browser work when operators choose broad filters such as all months/all statuses.
 
 ### Decision
 
