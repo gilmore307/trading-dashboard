@@ -594,7 +594,7 @@ function runtimeActivityMetrics(activity?: HistoricalRuntimeActivityPayload | nu
 
 function runtimeActivitySamples(activity?: HistoricalRuntimeActivityPayload | null): string {
   const targets = activity?.sample_targets?.filter(Boolean) ?? [];
-  return targets.length ? `Example targets ${targets.slice(0, 6).join(', ')}` : '';
+  return targets.length ? `Target candidates ${targets.join(', ')}` : '';
 }
 
 function runtimeActivityTraceLine(activity?: HistoricalRuntimeActivityPayload | null): string {
