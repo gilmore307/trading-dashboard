@@ -29,7 +29,7 @@ storage/06_dashboard_cache/read_models/<contract_type>.json
 
 The WebSocket route sends the current read model on connect and on current-file changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
 
-The dashboard renders Status, Tasks, Temporal Explorer, Models, Replay Performance, Replay Decisions, Replay Operations, Events, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
+The dashboard renders Status, Tasks, Events, Models, Replay Performance, Replay Decisions, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -179,9 +179,9 @@ If realtime monitoring has not started, `realtime_signal_summary` should say `no
 
 ### `temporal_explorer_summary`
 
-Purpose: support the Temporal Explorer page.
+Purpose: support the event timeline section of the Events page.
 
-Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables, chart cache, execution runtime status, and replay artifact root. The dashboard shows substrate population as a status card above the chart, renders the primary chart as a TradingView-style K-line surface, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to M06 accepted event families; ordinary scheduled events, released macro results, and news index rows appear as substrate population/readiness, not chart markers. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
+Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables, chart cache, execution runtime status, and replay artifact root. The dashboard Events page shows substrate population as a status card above the chart, renders the primary chart as a TradingView-style K-line surface, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to M06 accepted event families; ordinary scheduled events, released macro results, and news index rows appear as substrate population/readiness, not chart markers. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
 
 Owner-facing fields:
 
@@ -308,7 +308,7 @@ Replay Decisions legacy presentation:
 
 ### `model_group_replay_review_summary`
 
-Purpose: support Replay Performance, Replay Decisions, Replay Operations, and Events from post-replay review artifacts without exposing raw artifact directories as primary UI content.
+Purpose: support Replay Performance, Replay Decisions, Replay Operations, and the replay event-governance section of Events from post-replay review artifacts without exposing raw artifact directories as primary UI content.
 
 Current semantic source:
 
@@ -324,7 +324,7 @@ Dashboard presentation:
 - Replay Performance consumes `review_runs[].performance` for trading-performance evidence such as decision rows, fill counts, target performance, stock selection, option expression, and replacement review;
 - Replay Decisions consumes `review_runs[].decision_review` and `review_runs[].parameter_review` for model-layer attribution, cause family, failure type, regret, impact, and parameter replay review classes;
 - Replay Operations consumes first-gap component/mechanism, option path status, fill status, replacement mechanics, and other component/surface diagnostics projected from replay review;
-- Events consumes `event_runs[]` for event focus proposal counts, residual-event attribution status, review gates, event scope, failure type, and focus samples;
+- Events consumes `event_runs[]` after the primary event timeline for event focus proposal counts, residual-event attribution status, review gates, event scope, failure type, and focus samples;
 - every page keeps the same three dimensions: model-group comparison, individual model-group analysis, and Focus/detail drilldown by source refs.
 
 Safety/interpretation constraints:

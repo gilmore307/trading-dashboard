@@ -106,7 +106,7 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   trading_economics_calendar_source_events: 310,
 };
 
-type ViewId = 'status' | 'tasks' | 'temporal' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance' | 'decisions' | 'events';
+type ViewId = 'status' | 'tasks' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance' | 'decisions' | 'events';
 
 type NavItem = { id: ViewId; label: string };
 
@@ -129,7 +129,6 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
       { id: 'decisions', label: 'Replay Decisions' },
       { id: 'replay', label: 'Replay Operations' },
       { id: 'events', label: 'Events' },
-      { id: 'temporal', label: 'Temporal Explorer' },
     ],
   },
   {
@@ -5831,10 +5830,10 @@ function PlaceholderView({ title }: { title: string }) {
 
 function contractForView(view: ViewId): string {
   if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
-  if (view === 'temporal') return TEMPORAL_EXPLORER_SUMMARY;
+  if (view === 'events') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   if (view === 'models') return MODEL_READINESS;
-  if (view === 'replay' || view === 'performance' || view === 'decisions' || view === 'events') return MODEL_GROUP_REPLAY_REVIEW;
+  if (view === 'replay' || view === 'performance' || view === 'decisions') return MODEL_GROUP_REPLAY_REVIEW;
   return HISTORICAL_TASK_PROGRESS;
 }
 
@@ -5963,13 +5962,13 @@ function App() {
   const activeContractType = contractForView(activeView);
   const activeReadModel = activeView === 'status' || activeView === 'data'
     ? currentStatusModel
-    : activeView === 'temporal'
+    : activeView === 'events'
       ? temporalExplorerModel
     : activeView === 'realtime'
       ? realtimeModel
     : activeView === 'models'
       ? modelLayerModel ?? historicalModel
-    : activeView === 'replay' || activeView === 'performance' || activeView === 'decisions' || activeView === 'events'
+    : activeView === 'replay' || activeView === 'performance' || activeView === 'decisions'
       ? replayReviewModel ?? modelPromotionModel ?? historicalModel
       : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
@@ -6188,9 +6187,9 @@ function App() {
     );
   };
 
-  const renderTemporalExplorerView = () => {
+  const renderEventsView = () => {
     if (!temporalExplorerModel) {
-      return <section className="panel loading-panel">Loading temporal explorer…</section>;
+      return <section className="panel loading-panel">Loading event timeline…</section>;
     }
     const viewport = temporalExplorerChart.viewport ?? {};
     const activeFrame = selectedTemporalFrame ?? viewport.frame ?? '1D';
@@ -6217,7 +6216,7 @@ function App() {
     return (
       <>
         <section className="panel temporal-substrate-panel">
-          <div className="panel-heading">Temporal Substrate</div>
+          <div className="panel-heading">Event Timeline Substrate</div>
           <div className="temporal-substrate-grid">
             {rightLanes.map((lane) => (
               <section className="temporal-substrate-card" key={lane.lane_id} title={`${lane.label}: ${startCase(lane.status)}`}>
@@ -6234,7 +6233,7 @@ function App() {
         <section className="panel timewheel-chart-panel integrated-timewheel">
           <div className="timewheel-chart-head">
             <div>
-              <div className="panel-heading">Temporal Chart</div>
+              <div className="panel-heading">Event Timeline</div>
               <p className="panel-subtitle">{chartModel.role ? startCase(chartModel.role) : 'Chart cache is a visualization substrate, not training truth.'}</p>
             </div>
             <div className="temporal-chart-controls">
@@ -6355,18 +6354,18 @@ function App() {
             <div className="empty-chart compact">No M06 accepted event markers for {selectedTick?.label ?? 'the selected time unit'}.</div>
           )}
         </section>
+        <ReplayEventsView replayReviewChart={replayReviewChart} />
       </>
     );
   };
 
   const renderMainView = () => {
     if (activeView === 'status') return renderCurrentStatusView();
-    if (activeView === 'temporal') return renderTemporalExplorerView();
+    if (activeView === 'events') return renderEventsView();
     if (activeView === 'data') return <DataExplorerView />;
     if (activeView === 'performance') return <ReplayPerformanceView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
     if (activeView === 'decisions') return <ReplayDecisionsView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
     if (activeView === 'replay') return <ReplayOperationsView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
-    if (activeView === 'events') return <ReplayEventsView replayReviewChart={replayReviewChart} />;
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
       return <DiagnosticsSummaryView items={diagnosticItems} currentStatusModel={currentStatusModel} historicalModel={historicalModel} />;
@@ -6413,8 +6412,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'temporal' ? 'Temporal Explorer' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : activeView === 'events' ? 'Events' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'temporal' ? 'Temporal Explorer / Dashboard' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : activeView === 'events' ? 'Historical Replay / Events' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'events' ? 'Events' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'events' ? 'Historical Events / Timeline + Replay Review' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);

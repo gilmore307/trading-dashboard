@@ -20,7 +20,7 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 The left sidebar is grouped by user intent:
 
 - General — Status, Definitions, and Diagnostics.
-- Historical Models — Tasks, Data, Models, Replay Performance, Replay Decisions, Replay Operations, Events, and Temporal Explorer.
+- Historical Models — Tasks, Data, Models, Replay Performance, Replay Decisions, Replay Operations, and Events.
 - Realtime — Realtime Signals.
 
 ## Page Contracts
@@ -286,10 +286,14 @@ Hidden by default:
 
 ### Events
 
-Purpose: answer “Did event context explain residual replay behavior by event scope?”
+Purpose: answer “What happened across the historical event time axis, and did event context explain residual replay behavior by event scope?”
 
 Visible content should include:
 
+- frame-aligned symbol/frame/center-time controls;
+- a TradingView-style K-line chart over the selected symbol and frame;
+- volume and accepted-event-density subcharts;
+- M06 accepted event markers for the selected time unit;
 - event focus proposals created from replay review failures and misses;
 - residual event governance attribution rows by target, failure type, event scope, attribution status, review gate, and impact scope;
 - event proposal status, accepted/pending review gates, co-event/confounder handling, and supporting failure counts;
@@ -298,6 +302,8 @@ Visible content should include:
 
 Preferred visuals:
 
+- event timeline candlesticks with visible event markers;
+- event density and volume subcharts;
 - event proposal and attribution status charts;
 - event-scope and failure-type comparison charts;
 - focus cards for top event proposals and attribution rows;
@@ -305,26 +311,8 @@ Preferred visuals:
 
 Hidden by default:
 
-- generic event/news browsing unrelated to replay review;
-- raw event payloads unless needed for a focused replay/event explanation;
+- raw event payloads unless needed for a focused event explanation;
 - event promotion or pool mutation controls.
-
-### Temporal Explorer
-
-Purpose: answer “What happened across the historical time axis?”
-
-Visible content should include:
-
-- frame-aligned symbol/frame/center-time controls;
-- a TradingView-style K-line chart over the selected symbol and frame;
-- volume and accepted-event-density subcharts;
-- M06 accepted event markers for the selected time unit.
-
-Hidden by default:
-
-- raw event payloads;
-- implementation receipts;
-- unrelated market-state summaries.
 
 ### Realtime Signals
 

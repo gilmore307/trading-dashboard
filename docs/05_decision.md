@@ -93,7 +93,7 @@ Dashboard implementation work must stay read-only and consume reviewed storage-h
 ## D007 - Temporal Explorer page consumes Temporal Explorer summary
 
 Date: 2026-05-26
-Status: Accepted
+Status: Superseded by D032
 
 ### Context
 
@@ -698,3 +698,22 @@ Add `model_group_replay_review_summary` as the replay-review dashboard read mode
 - Dashboard pages should consume page-specific projections from `model_group_replay_review_summary`; raw replay review artifacts remain provenance/drilldown evidence.
 - The UI must preserve the same row-selection and Focus pattern across Replay Performance, Replay Decisions, Replay Operations, and Events.
 - "Best available" language must stay clearly labeled as post-replay/counterfactual review unless the source row proves the alternative was point-in-time knowable.
+
+## D032 - Events absorbs Temporal Explorer as the canonical event page
+
+Date: 2026-06-29
+Status: Accepted
+
+### Context
+
+Chentong clarified that the intended Events page is the current time-axis event exploration surface, not a separate replay-only residual-event page. Keeping both Events and Temporal Explorer in navigation creates two competing event routes and hides the canonical event timeline behind a development name.
+
+### Decision
+
+Events is the single public event page. It uses `temporal_explorer_summary` as the primary page contract for event substrate, chart controls, event density, and selected-unit M06 accepted event markers. When `model_group_replay_review_summary.event_runs[]` is available, Events appends replay residual-event governance below the timeline rather than exposing it as a separate page.
+
+### Consequences
+
+- The left navigation no longer exposes a separate Temporal Explorer page.
+- Temporal Explorer remains the storage/read-model contract name for the timeline summary until a deliberate contract rename is accepted.
+- Replay Performance, Replay Decisions, and Replay Operations remain replay-specific pages. Events is the only page combining market/event timeline context with replay residual-event review evidence.
