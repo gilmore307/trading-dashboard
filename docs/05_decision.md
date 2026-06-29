@@ -731,7 +731,7 @@ Chentong clarified that the Tasks page progress bar must represent the current t
 
 For running Tasks rows, `historical_task_progress_summary` should use active worker progress as the primary progress evidence when concrete units are available. Units may differ by task type: source-month requests for acquisition, feature months for feature generation, model rows or split jobs for model generation, replay timestamps/months for replay, and attribution units for review/governance. Internal-stage aggregate progress may remain as parent context, but it must not replace the active task's real work units.
 
-The expanded row detail shows Live only for the current/running task. Live renders the specific `runtime_activity` summary and details from the manager read model. Logs are separate from progress: they render only bounded non-empty stdout/stderr/log stream tails attached to that task. The dashboard must not fabricate a log stream from the progress heartbeat, and it must not show empty log panels just to prove the stream path exists.
+The expanded row detail shows Live only for the current/running task. Live renders the specific `runtime_activity` summary and details from the manager read model. Tasks does not render a separate Logs section; if progress evidence is too coarse, the producer must improve `runtime_activity` rather than attach partial log streams.
 
 ### Consequences
 

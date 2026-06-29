@@ -121,7 +121,6 @@ export interface StageCoveragePayload {
   progress_scope?: string | null;
   current_activity?: string | null;
   activity_details?: string[];
-  log_refs?: string[];
   nodes?: unknown[];
 }
 
@@ -309,21 +308,6 @@ export interface HistoricalRuntimeActivityPayload {
   sample_requirements?: Record<string, unknown>[];
 }
 
-export interface HistoricalTaskLogTailEntryPayload {
-  stream?: string | null;
-  path?: string | null;
-  updated_at_utc?: string | null;
-  line_count?: number;
-  lines?: string[];
-}
-
-export interface HistoricalTaskLogTailPayload {
-  contract_type?: string | null;
-  stage_id?: string | null;
-  updated_at_utc?: string | null;
-  entries?: HistoricalTaskLogTailEntryPayload[];
-}
-
 export interface HistoricalTaskTimelineDetailPayload {
   blockers?: string[];
   receipt_refs?: string[];
@@ -343,7 +327,6 @@ export interface HistoricalTaskTimelineDetailPayload {
   repair_intervention_status?: string | null;
   worker?: HistoricalTaskWorkerPayload;
   runtime_activity?: HistoricalRuntimeActivityPayload | null;
-  log_tail?: HistoricalTaskLogTailPayload | null;
 }
 
 export interface HistoricalTaskTimelineItemPayload {

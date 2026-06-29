@@ -805,11 +805,6 @@ function derivedTaskLiveActivity(task: HistoricalTaskTimelineItemPayload): Histo
   return taskLiveActivityByKind(task);
 }
 
-function taskLogTailEntries(task: HistoricalTaskTimelineItemPayload) {
-  if (!taskShowsLiveSections(task)) return [];
-  return (task.detail?.log_tail?.entries ?? []).filter((entry) => (entry.lines ?? []).length > 0);
-}
-
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
   const target = taskTargetSymbol(task);
   if (target) return target;
@@ -4772,7 +4767,6 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const progressView = taskProgressView(task);
   const runtimeActivity = derivedTaskLiveActivity(task);
   const runtimeDetailLines = runtimeActivitySupplementalLines(runtimeActivity).filter((line) => line !== task.reason);
-  const logEntries = taskLogTailEntries(task);
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -4824,23 +4818,6 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             {runtimeDetailLines.map((line) => <small key={line}>{line}</small>)}
             {runtimeActivity.required_next_step ? <small>Next {startCase(runtimeActivity.required_next_step)}</small> : null}
             {runtimeActivity.updated_at_utc ? <small>Updated {formatTimestamp(runtimeActivity.updated_at_utc)}</small> : null}
-          </div>
-        ) : null}
-        {logEntries.length ? (
-          <div className="task-detail-card wide-detail">
-            <span>Logs</span>
-            <strong>{logEntries.length} active stream{logEntries.length === 1 ? '' : 's'}</strong>
-            <div className="task-log-tail">
-              {logEntries.map((entry, entryIndex) => (
-                <div className="task-log-stream" key={`${entry.path ?? entry.stream ?? 'log'}-${entryIndex}`}>
-                  <div className="task-log-stream-head">
-                    <b>{String(entry.stream || 'log').toUpperCase()}</b>
-                    <small>{entry.updated_at_utc ? formatTimestamp(entry.updated_at_utc) : entry.path?.split('/').pop() ?? ''}</small>
-                  </div>
-                  <pre>{(entry.lines ?? []).join('\n')}</pre>
-                </div>
-              ))}
-            </div>
           </div>
         ) : null}
         {execution ? (
