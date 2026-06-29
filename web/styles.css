@@ -298,6 +298,22 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-performance-summary-table .replay-table-row.selected { border-color: rgba(52, 211, 153, .48); background: rgba(6, 78, 59, .20); }
 .replay-performance-summary-table strong { display: flex; align-items: center; gap: 8px; }
 .replay-performance-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
+.replay-review-summary-table { min-width: 1120px; }
+.replay-review-summary-table .replay-table-row { grid-template-columns: minmax(220px, 1.3fr) repeat(6, minmax(92px, .62fr)) minmax(86px, .48fr); }
+.replay-review-summary-table .replay-table-row[role="button"] { cursor: pointer; }
+.replay-review-summary-table .replay-table-row[role="button"]:hover { border-color: rgba(125, 211, 252, .38); background: rgba(14, 165, 233, .10); }
+.replay-review-summary-table .replay-table-row[role="button"]:focus-visible { outline: 2px solid rgba(125, 211, 252, .7); outline-offset: 2px; }
+.replay-review-summary-table .replay-table-row.selected { border-color: rgba(52, 211, 153, .48); background: rgba(6, 78, 59, .20); }
+.replay-review-summary-table strong,
+.replay-event-summary-table strong { display: flex; align-items: center; gap: 8px; }
+.replay-review-summary-table i,
+.replay-event-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
+.replay-event-summary-table { min-width: 1080px; }
+.replay-event-summary-table .replay-table-row { grid-template-columns: minmax(270px, 1.4fr) minmax(90px, .52fr) minmax(108px, .58fr) minmax(190px, 1fr) minmax(190px, 1fr) minmax(86px, .44fr); }
+.replay-event-summary-table .replay-table-row[role="button"] { cursor: pointer; }
+.replay-event-summary-table .replay-table-row[role="button"]:hover { border-color: rgba(125, 211, 252, .38); background: rgba(14, 165, 233, .10); }
+.replay-event-summary-table .replay-table-row[role="button"]:focus-visible { outline: 2px solid rgba(125, 211, 252, .7); outline-offset: 2px; }
+.replay-event-summary-table .replay-table-row.selected { border-color: rgba(52, 211, 153, .48); background: rgba(6, 78, 59, .20); }
 .replay-performance-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .replay-performance-cell strong { color: #f8fbff; }
 .replay-inline-action { border: 1px solid rgba(125, 211, 252, .28); border-radius: 999px; padding: 6px 9px; color: #bae6fd; background: rgba(14, 165, 233, .12); font: inherit; font-size: 11px; font-weight: 900; cursor: pointer; }
@@ -334,6 +350,13 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-evidence-card { min-width: 0; display: grid; gap: 5px; padding: 10px 11px; border-radius: 12px; background: rgba(20, 83, 45, .18); border: 1px solid rgba(74, 222, 128, .14); }
 .replay-evidence-card strong { color: #dcfce7; font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
 .replay-evidence-card span { color: #86efac; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.replay-page-contract-panel { display: grid; gap: 12px; }
+.replay-review-focus-panel { display: grid; gap: 12px; }
+.replay-review-focus-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.replay-review-focus-card { min-width: 0; display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, .12); background: rgba(15, 23, 42, .46); }
+.replay-review-focus-card > strong { color: #f8fbff; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.replay-review-focus-card > span { color: #7dd3fc; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.replay-review-focus-card small { color: #8fa2ba; line-height: 1.35; overflow-wrap: anywhere; }
 .replay-decision-table-wrap { min-width: 0; overflow: auto; }
 .replay-decision-table { min-width: 2020px; }
 .replay-decision-table .replay-table-row { grid-template-columns: minmax(190px, 1.05fr) minmax(150px, .85fr) minmax(76px, .42fr) minmax(82px, .45fr) minmax(120px, .62fr) minmax(105px, .58fr) minmax(105px, .58fr) repeat(4, minmax(82px, .48fr)) minmax(220px, 1.05fr) minmax(280px, 1.22fr) minmax(310px, 1.45fr); }

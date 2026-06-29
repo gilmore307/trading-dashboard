@@ -651,10 +651,10 @@ Add a dedicated Replay Decisions page under Historical Models. It uses the same 
 - Replay Performance stays focused on economic curves and professional performance metrics.
 - Replay Operations no longer duplicates decision rows or decision-result attribution.
 
-## D030 - Replay Decisions is component-first with model evidence pivots
+## D030 - Replay Decisions was component-first with model evidence pivots
 
 Date: 2026-06-17
-Status: Accepted
+Status: Superseded by D031
 
 ### Context
 
@@ -670,3 +670,31 @@ Replay Decisions uses replay/runtime component decisions as the primary hierarch
 - Models remains the owner for model validity, promotion posture, layer-level diagnostics, feature-space evidence, and statistical metrics.
 - Replay decision payloads should publish stable component IDs and model evidence refs together so the UI can answer both "which component decided this?" and "which model output did that component consume?"
 - Component runtime health and graph readiness remain under Replay Operations.
+
+## D031 - Replay review splits model-layer decisions, operations, performance, and events
+
+Date: 2026-06-29
+Status: Accepted
+
+### Context
+
+Chentong clarified the replay analysis page family after post-replay review artifacts began publishing. Models should evaluate model groups from a machine-learning structure and statistical-validity perspective, while the replay pages should share the same three interaction dimensions: model-group comparison, individual model-group analysis, and Focus/detail drilldown. The previous D030 component-first rule made Replay Decisions and Replay Operations overlap, and it conflicted with the desired view that Replay Decisions should decompose a model group into the six model layers and judge whether each layer's decision was reasonable with point-in-time evidence.
+
+The manager already runs post-replay review before residual event governance. The artifacts include replay review rows, performance summaries, layer/parameter attribution, and event focus proposals. These are the right semantic source for replay analysis, but they should be projected through a dedicated dashboard read model rather than surfaced as raw artifacts or overloaded into `model_promotion_posture_summary`.
+
+### Decision
+
+Add `model_group_replay_review_summary` as the replay-review dashboard read model. The replay page family uses it as the canonical source for post-replay analysis:
+
+- Models answers whether a model group is statistically and structurally credible as machine learning. It owns model architecture, layer purpose, ranking/calibration, AUROC/PR-AUC/Brier/ECE/MCE, confusion/threshold diagnostics, feature-space PCA/PCoA/silhouette, feature/parameter importance, ablation/attribution, uncertainty, integrity, and temporal stability. Replay PnL is not the primary model-validity criterion.
+- Replay Performance answers how the model group traded in replay. It owns realized replay economics such as NAV, return, drawdown, volatility, Sharpe/Sortino/Calmar, beta, hit/payoff quality, exposure, replacement benefit, opportunity capture, and regret as trading-performance context.
+- Replay Decisions answers whether each model layer made a reasonable decision given the information and candidate set available at the time. It owns chosen action versus best-available outcome labels, model-layer attribution, cause family, failure type, missed alternatives, parameter replay review, and impact/regret. Future returns may be used as post-replay labels, not as decision-time inputs.
+- Replay Operations answers whether the replay machinery exposed, routed, computed, and executed the decision correctly. It owns component/surface gaps, option path availability, replacement mechanics, fill status, source readiness, and first-gap component/mechanism evidence.
+- Events answers whether event context explains residual replay behavior by event scope. It owns event focus proposals, residual event governance attribution rows, event scope/status/counts, and links back to affected replay review decisions.
+
+### Consequences
+
+- D030's component-first Replay Decisions hierarchy is retired. Component-first evidence now belongs under Replay Operations.
+- Dashboard pages should consume page-specific projections from `model_group_replay_review_summary`; raw replay review artifacts remain provenance/drilldown evidence.
+- The UI must preserve the same row-selection and Focus pattern across Replay Performance, Replay Decisions, Replay Operations, and Events.
+- "Best available" language must stay clearly labeled as post-replay/counterfactual review unless the source row proves the alternative was point-in-time knowable.

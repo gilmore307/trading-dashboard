@@ -29,7 +29,7 @@ storage/06_dashboard_cache/read_models/<contract_type>.json
 
 The WebSocket route sends the current read model on connect and on current-file changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
 
-The dashboard renders Status, Tasks, Temporal Explorer, Models, Replay Performance, Replay Decisions, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
+The dashboard renders Status, Tasks, Temporal Explorer, Models, Replay Performance, Replay Decisions, Replay Operations, Events, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -56,7 +56,7 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 
 ## Dashboard Read-Model Contracts
 
-The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_readiness_summary`, and `model_promotion_posture_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
+The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_readiness_summary`, `model_promotion_posture_summary`, and `model_group_replay_review_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
 
 ### `current_system_status_summary`
 
@@ -293,7 +293,7 @@ Replay Performance presentation:
 - metric comparison charts show total return, drawdown, excess return, volatility, Sharpe, and beta when published;
 - ETF, M01, M02, and sector-anchor comparison series stay absent until a read model publishes them; the dashboard must not fabricate benchmark rows from missing evidence.
 
-Replay Decisions presentation:
+Replay Decisions legacy presentation:
 
 - Replay Decisions consumes the same `replay_run_id`, version scope, time range, and selected month/cursor as Replay Performance when those fields are available;
 - no selected replay version means decision summary mode across all published versions; one selected replay version shows focused decision curves, slice distribution, and monthly decision rows; multiple selected replay versions show selected-set decision comparison;
@@ -301,10 +301,37 @@ Replay Decisions presentation:
 - replay slice/contribution distributions belong in Replay Decisions because they explain decision flow and component behavior, not headline trading performance;
 - full Monthly Replay detail is a model-scoped detail window, and month clicks route to a historical replay decision-detail table sourced through the read-only dashboard replay decision API;
 - trade-level replay decision detail must remain historical replay evidence with sanitized fields such as timestamp, target/instrument, action/disposition, fill status, score, returns, cost, reason codes, and component decision trace; it must not present broker/account/order mutation controls;
-- `decision_trace` is component-first: each step should identify the replay/runtime `component_id`, label, action/decision/status, score when reported, and reason codes;
-- model provenance stays secondary to the component trace through `model_layer`, `model_surface`, `model_output_ref`, or `evidence_refs` fields on either the row or trace step, so the dashboard can filter and pivot by consumed model evidence without turning Replay Decisions into a model-layer page;
+- legacy `/api/replay-decisions` rows may still include `decision_trace`; component-first trace display is supporting context only;
+- model provenance and layer attribution now define the Replay Decisions primary hierarchy when `model_group_replay_review_summary` is published;
 - Replay Operations owns execution graph health, operation status, source readiness, and missing-evidence diagnostics rather than decision-result attribution;
 - future storage work should split large replay payloads into a dedicated replay read model when promotion posture is no longer the narrow canonical home.
+
+### `model_group_replay_review_summary`
+
+Purpose: support Replay Performance, Replay Decisions, Replay Operations, and Events from post-replay review artifacts without exposing raw artifact directories as primary UI content.
+
+Current semantic source:
+
+- `post_replay_review_runs/*/post_replay_review_receipt.json`;
+- `post_replay_review_runs/*/replay_review_performance_summary.json`;
+- `post_replay_review_runs/*/replay_review_rows.jsonl`;
+- `post_replay_review_runs/*/layer_attribution/parameter_replay_review_report.json`;
+- `post_replay_attribution_runs/*/event_focus_proposals.jsonl`;
+- `post_replay_attribution_runs/*/residual_event_governance_rows.jsonl`.
+
+Dashboard presentation:
+
+- Replay Performance consumes `review_runs[].performance` for trading-performance evidence such as decision rows, fill counts, target performance, stock selection, option expression, and replacement review;
+- Replay Decisions consumes `review_runs[].decision_review` and `review_runs[].parameter_review` for model-layer attribution, cause family, failure type, regret, impact, and parameter replay review classes;
+- Replay Operations consumes first-gap component/mechanism, option path status, fill status, replacement mechanics, and other component/surface diagnostics projected from replay review;
+- Events consumes `event_runs[]` for event focus proposal counts, residual-event attribution status, review gates, event scope, failure type, and focus samples;
+- every page keeps the same three dimensions: model-group comparison, individual model-group analysis, and Focus/detail drilldown by source refs.
+
+Safety/interpretation constraints:
+
+- The read model is a projection over completed artifacts only. It performs no replay, provider calls, model activation, broker execution, account mutation, or dashboard-originated storage mutation beyond read-model materialization.
+- Future returns and best-available labels are post-replay review labels. They must not be displayed as decision-time information unless the source row explicitly proves point-in-time knowability.
+- Raw review rows stay provenance/drilldown evidence rather than a global artifact browser.
 
 ### `registry_dictionary_profile`
 

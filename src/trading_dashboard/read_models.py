@@ -26,6 +26,7 @@ REGISTERED_DASHBOARD_READ_MODELS = frozenset(
         "realtime_task_progress_summary",
         "model_readiness_summary",
         "model_promotion_posture_summary",
+        "model_group_replay_review_summary",
         "registry_dictionary_profile",
         "realtime_signal_summary",
         "execution_realtime_trading_runtime_status",

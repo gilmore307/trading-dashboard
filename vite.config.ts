@@ -20,6 +20,7 @@ const REGISTERED_READ_MODELS = new Set([
   'realtime_task_progress_summary',
   'model_readiness_summary',
   'model_promotion_posture_summary',
+  'model_group_replay_review_summary',
   'registry_dictionary_profile',
   'realtime_signal_summary',
   'execution_realtime_trading_runtime_status',

@@ -20,7 +20,7 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 The left sidebar is grouped by user intent:
 
 - General — Status, Definitions, and Diagnostics.
-- Historical Models — Tasks, Data, Models, Replay Performance, Replay Decisions, Replay Operations, and Temporal Explorer.
+- Historical Models — Tasks, Data, Models, Replay Performance, Replay Decisions, Replay Operations, Events, and Temporal Explorer.
 - Realtime — Realtime Signals.
 
 ## Page Contracts
@@ -159,7 +159,7 @@ Hidden by default:
 
 ### Models
 
-Purpose: answer “How are model-group versions evolving, which versions are active/shadow/retired, what objective does each component optimize, and what evaluation evidence supports the version trajectory?”
+Purpose: answer “Is this model group statistically and structurally credible as machine learning, and how are model-group versions evolving?”
 
 Subpages:
 
@@ -179,7 +179,8 @@ The model-group page owns:
 
 - all published model-group promotion versions;
 - active/shadow/retired/candidate identity by version;
-- version metric charts such as AUROC, excess return, drawdown, PCA, and PCoA when published;
+- machine-learning validity metrics such as AUROC, PR-AUC, Brier, ECE/MCE, calibration/reliability, confusion or threshold-quality evidence, uncertainty, and temporal stability when published;
+- feature-space and representation diagnostics such as PCA, PCoA, silhouette, cluster separation, feature/parameter importance, ablation, layer attribution, and MBatchNet-style batch/temporal/feature analysis when published;
 - promotion decision table rows with fold identity, decision, agent recommendation, and metric values.
 
 Model pages own:
@@ -195,7 +196,7 @@ Preferred visuals:
 
 - metric cards;
 - model-parameter grids;
-- group performance trend charts;
+- model-validity trend charts;
 - confusion/quality summaries where applicable;
 - group promotion-readiness checklist;
 - group candidate timeline.
@@ -220,7 +221,8 @@ Visible content should include:
 - summary mode when no replay series is selected, focus mode when one or more replay series are selected;
 - strategy, ETF, M01, M02, and sector-anchor performance summary rows when those comparison series are published;
 - trading performance metrics such as total return, excess return, max drawdown, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and monthly win rate when available;
-- metric comparison charts for total return, drawdown, excess return, volatility, Sharpe, and beta when available.
+- replay review performance evidence such as decision rows, fill counts, gross PnL, mean realized return, selected-target counts, replacement benefit, opportunity capture, and regret when `model_group_replay_review_summary` publishes it;
+- metric comparison charts for total return, drawdown, excess return, volatility, Sharpe, beta, gross PnL, filled decisions, and selected-top-rank evidence when available.
 
 The replay initial capital of `25000 USD` is an execution/risk-limit input. It may appear as metadata, but Performance charts compare normalized values from `1.0` so strategy and ETF/context series share one scale.
 
@@ -233,7 +235,7 @@ Hidden by default:
 
 ### Replay Operations
 
-Purpose: answer “Did the replay execution graph and model components behave normally and explainably?”
+Purpose: answer “Did the replay machinery expose, route, compute, and execute the decision correctly?”
 
 Visible content should include:
 
@@ -242,7 +244,9 @@ Visible content should include:
 - component health, coverage, and missing-evidence diagnostics;
 - summary mode when no replay version is selected, focus mode when one or more replay versions are selected;
 - monthly replay operation status;
-- replay source-data readiness and visible gaps.
+- replay source-data readiness and visible gaps;
+- first-gap component and first-gap mechanism counts from replay review rows;
+- option path availability, fill status, replacement mechanics, source readiness, and component/surface evidence from replay review.
 
 Preferred visuals:
 
@@ -255,30 +259,55 @@ Hidden by default:
 
 - model statistical validity metrics such as AUROC;
 - raw decision rows;
-- decision-result attribution and score/threshold/cost diagnostics;
+- model-layer decision-quality attribution and score/threshold/cost diagnostics;
 - raw provider plumbing;
 - dataset internals unless they explain replay gaps.
 
 ### Replay Decisions
 
-Purpose: answer “Which concrete decisions did each replay component make, and where did those decisions begin to fail?”
+Purpose: answer “Did each model layer choose reasonably with point-in-time evidence and the available candidate set?”
 
 Visible content should include:
 
 - replay decision-version selector with role, performance context, decision row count, accepted/fill counts, and taken/avoided/missed outcome counts;
 - decision-result comparison charts for row count, accepted, filled, taken-good, avoided-bad, and missed-good evidence;
-- score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics for the focused replay version;
-- monthly replay decision window with return, drawdown, cumulative result, and row-count context;
-- component-first decision trace summaries for the runtime/replay components that made or reported each decision;
-- model-layer, model-surface, and model-output evidence references as secondary filters and pivots inside the component trace;
+- six-layer model attribution from replay review rows, including cause family, failure type, miss attribution layer, first affected model layer, and impact/regret;
+- parameter replay review classifications such as directionally useful, weak/sample-limited, empirical signal present but direction-unassigned, and suspect requiring redesign;
+- chosen action versus best-available post-replay outcome label, with clear separation between point-in-time evidence and hindsight/counterfactual labels;
+- score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics as supporting context for the focused replay version;
+- monthly replay decision window with return, drawdown, cumulative result, and row-count context when row-level decision APIs publish it;
 - inspectable raw replay decision rows with timestamp, target, instrument type, action, disposition, fill status, score, realized return, cost, net return, reason codes, component trace, and model evidence refs.
 
 Hidden by default:
 
 - normalized NAV and professional performance metrics, which belong under Replay Performance;
 - replay source-data readiness, component health, and execution graph diagnostics, which belong under Replay Operations;
-- model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure;
-- model-layer-first drilldowns, which belong under Models unless the user is filtering decision provenance by a consumed model output.
+- model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure.
+
+### Events
+
+Purpose: answer “Did event context explain residual replay behavior by event scope?”
+
+Visible content should include:
+
+- event focus proposals created from replay review failures and misses;
+- residual event governance attribution rows by target, failure type, event scope, attribution status, review gate, and impact scope;
+- event proposal status, accepted/pending review gates, co-event/confounder handling, and supporting failure counts;
+- links back to source replay review ids and affected model-group replay runs;
+- summary mode across event governance runs and focus mode for one event run.
+
+Preferred visuals:
+
+- event proposal and attribution status charts;
+- event-scope and failure-type comparison charts;
+- focus cards for top event proposals and attribution rows;
+- source replay review link chips for drilldown.
+
+Hidden by default:
+
+- generic event/news browsing unrelated to replay review;
+- raw event payloads unless needed for a focused replay/event explanation;
+- event promotion or pool mutation controls.
 
 ### Temporal Explorer
 

@@ -45,6 +45,7 @@ const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
 const TEMPORAL_EXPLORER_SUMMARY = 'temporal_explorer_summary';
 const MODEL_READINESS = 'model_readiness_summary';
 const MODEL_PROMOTION_POSTURE = 'model_promotion_posture_summary';
+const MODEL_GROUP_REPLAY_REVIEW = 'model_group_replay_review_summary';
 const EXECUTION_RUNTIME_STATUS = 'execution_realtime_trading_runtime_status';
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -105,7 +106,7 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   trading_economics_calendar_source_events: 310,
 };
 
-type ViewId = 'status' | 'tasks' | 'temporal' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance' | 'decisions';
+type ViewId = 'status' | 'tasks' | 'temporal' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance' | 'decisions' | 'events';
 
 type NavItem = { id: ViewId; label: string };
 
@@ -127,6 +128,7 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
       { id: 'performance', label: 'Replay Performance' },
       { id: 'decisions', label: 'Replay Decisions' },
       { id: 'replay', label: 'Replay Operations' },
+      { id: 'events', label: 'Events' },
       { id: 'temporal', label: 'Temporal Explorer' },
     ],
   },
@@ -159,6 +161,17 @@ function isModelPromotionPostureChart(payload: DashboardReadModel['chart_payload
 }
 
 function isExecutionRuntimeChart(payload: DashboardReadModel['chart_payload']): payload is ExecutionRuntimeStatusChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+type ReplayReviewChartPayload = {
+  page_contracts?: Array<Record<string, unknown>>;
+  review_runs?: Array<Record<string, unknown>>;
+  event_runs?: Array<Record<string, unknown>>;
+  contract_matrix?: Record<string, unknown>;
+};
+
+function isReplayReviewChart(payload: DashboardReadModel['chart_payload']): payload is ReplayReviewChartPayload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
 
@@ -3645,6 +3658,227 @@ function ReplaySelectionModePanel({
   );
 }
 
+function replayReviewRuns(chart: ReplayReviewChartPayload): Array<Record<string, unknown>> {
+  return Array.isArray(chart.review_runs)
+    ? chart.review_runs.filter((run): run is Record<string, unknown> => Boolean(run) && typeof run === 'object' && !Array.isArray(run))
+    : [];
+}
+
+function replayEventRuns(chart: ReplayReviewChartPayload): Array<Record<string, unknown>> {
+  return Array.isArray(chart.event_runs)
+    ? chart.event_runs.filter((run): run is Record<string, unknown> => Boolean(run) && typeof run === 'object' && !Array.isArray(run))
+    : [];
+}
+
+function replayReviewRunId(run: Record<string, unknown>, index: number): string {
+  return String(run.review_run_id ?? run.candidate_model_ref ?? run.replay_execution_run_id ?? index);
+}
+
+function replayReviewRunLabel(run: Record<string, unknown>, index: number): string {
+  const target = String(run.target_symbol ?? run.candidate_training_target ?? '').trim().toUpperCase();
+  const fold = String(run.candidate_fold_id ?? '').replace(/^fold_/u, '').replace('_', ' to ');
+  if (target && fold) return `${target} ${fold}`;
+  if (target) return target;
+  if (fold) return fold;
+  return String(run.review_run_id ?? `Review ${index + 1}`);
+}
+
+function replayReviewSection(run: Record<string, unknown>, section: string): Record<string, unknown> | null {
+  return nestedRecord(nestedRecord(run, 'performance'), section);
+}
+
+function replayReviewDecision(run: Record<string, unknown>): Record<string, unknown> | null {
+  return nestedRecord(run, 'decision_review');
+}
+
+function replayReviewParameter(run: Record<string, unknown>): Record<string, unknown> | null {
+  return nestedRecord(run, 'parameter_review');
+}
+
+function countRecord(record: Record<string, unknown> | null, key: string): Record<string, unknown> {
+  return nestedRecord(record, key) ?? {};
+}
+
+function countSeriesFromRecord(counts: Record<string, unknown>): Array<{ label: string; value: number }> {
+  return Object.entries(counts)
+    .map(([label, value]) => ({ label: startCase(label), value: typeof value === 'number' ? value : Number(value) }))
+    .filter((point) => Number.isFinite(point.value))
+    .sort((left, right) => right.value - left.value || left.label.localeCompare(right.label));
+}
+
+function aggregateCounts(runs: Array<Record<string, unknown>>, section: (run: Record<string, unknown>) => Record<string, unknown>): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const run of runs) {
+    for (const [key, value] of Object.entries(section(run))) {
+      const numeric = typeof value === 'number' ? value : Number(value);
+      if (Number.isFinite(numeric)) counts[key] = (counts[key] ?? 0) + numeric;
+    }
+  }
+  return counts;
+}
+
+function replayReviewMetricSeries(
+  runs: Array<Record<string, unknown>>,
+  metric: (run: Record<string, unknown>) => number | null,
+): Array<{ label: string; value: number; status?: string | null }> {
+  return runs
+    .map((run, index) => {
+      const value = metric(run);
+      return value === null ? null : { label: replayReviewRunLabel(run, index), value };
+    })
+    .filter((point): point is { label: string; value: number } => Boolean(point));
+}
+
+function countChips(counts: Record<string, unknown>, emptyLabel: string) {
+  const entries = countSeriesFromRecord(counts).slice(0, 6);
+  return entries.length ? (
+    <div className="chips">
+      {entries.map((entry) => <span className="chip" key={entry.label}>{entry.label}: {entry.value}</span>)}
+    </div>
+  ) : <span className="muted">{emptyLabel}</span>;
+}
+
+function ReplayReviewRunSelector({
+  title,
+  runs,
+  selectedIds,
+  onChange,
+  onFocus,
+}: {
+  title: string;
+  runs: Array<Record<string, unknown>>;
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  onFocus?: (id: string) => void;
+}) {
+  if (!runs.length) {
+    return (
+      <section className="panel replay-table-panel">
+        <div className="panel-heading">{title}</div>
+        <div className="empty-chart compact">No replay review runs are published in the current read model.</div>
+      </section>
+    );
+  }
+  return (
+    <section className="panel replay-table-panel">
+      <div className="panel-heading">{title}</div>
+      <div className="replay-table replay-review-summary-table">
+        <div className="replay-table-row replay-table-head">
+          <span>Model Group</span>
+          <span>Rows</span>
+          <span>Filled</span>
+          <span>PnL</span>
+          <span>Mean Return</span>
+          <span>Best Regret</span>
+          <span>Events</span>
+          <span>Action</span>
+        </div>
+        {runs.map((run, index) => {
+          const id = replayReviewRunId(run, index);
+          const selected = selectedIds.includes(id);
+          const decisionScope = replayReviewSection(run, 'decision_scope');
+          const performance = replayReviewSection(run, 'target_performance');
+          const decision = replayReviewDecision(run);
+          const toggleSelected = () => {
+            onChange(selected ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]);
+          };
+          return (
+            <div
+              className={selected ? 'replay-table-row selected' : 'replay-table-row'}
+              key={id}
+              role="button"
+              tabIndex={0}
+              onClick={toggleSelected}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  toggleSelected();
+                }
+              }}
+            >
+              <strong><i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{replayReviewRunLabel(run, index)}</strong>
+              <span>{formatMetricValue(metricNumber(decisionScope, 'decision_row_count'), 0)}</span>
+              <span>{formatMetricValue(metricNumber(decisionScope, 'filled_count'), 0)}</span>
+              <span>{formatMetricValue(metricNumber(performance, 'gross_pnl_total'), 2)}</span>
+              <span>{formatMetricValue(metricNumber(performance, 'mean_realized_return'), 4)}</span>
+              <span>{formatMetricValue(metricNumber(decision, 'mean_regret_to_best_available'), 4)}</span>
+              <span>{formatMetricValue(metricNumber(run, 'event_candidate_count'), 0)}</span>
+              {onFocus ? (
+                <button
+                  className="replay-inline-action"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onFocus(id);
+                  }}
+                >
+                  Focus
+                </button>
+              ) : <span />}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ReplayReviewFocusPanel({
+  runs,
+  title,
+}: {
+  runs: Array<Record<string, unknown>>;
+  title: string;
+}) {
+  if (!runs.length) return null;
+  return (
+    <section className="panel replay-review-focus-panel">
+      <div className="panel-heading">{title}</div>
+      <div className="replay-review-focus-grid">
+        {runs.map((run, index) => {
+          const decision = replayReviewDecision(run);
+          const parameter = replayReviewParameter(run);
+          const sourceRefs = nestedRecord(run, 'source_refs');
+          return (
+            <div className="replay-review-focus-card" key={replayReviewRunId(run, index)}>
+              <strong>{replayReviewRunLabel(run, index)}</strong>
+              <span>Cause family</span>
+              {countChips(countRecord(decision, 'cause_family_counts'), 'No cause-family counts')}
+              <span>Layer attribution</span>
+              {countChips(countRecord(decision, 'miss_attribution_layer_counts'), 'No layer attribution counts')}
+              <span>Parameter classes</span>
+              {countChips(countRecord(parameter, 'classification_counts'), 'No parameter replay review')}
+              <small>{String(sourceRefs?.review_rows_ref ?? sourceRefs?.receipt_ref ?? 'No source ref published')}</small>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ReplayReviewPageContract({
+  chart,
+  pageId,
+}: {
+  chart: ReplayReviewChartPayload;
+  pageId: string;
+}) {
+  const contract = (chart.page_contracts ?? []).find((item) => item.page_id === pageId);
+  if (!contract) return null;
+  return (
+    <section className="panel replay-page-contract-panel">
+      <div className="panel-heading">{startCase(pageId)} Scope</div>
+      <p className="panel-subtitle">{String(contract.question ?? '')}</p>
+      <div className="metric-grid three">
+        <MetricCard label="Primary source" value={String(contract.primary_source ?? 'Not reported')} />
+        <MetricCard label="Primary grain" value={String(contract.primary_grain ?? 'Not reported')} />
+        <MetricCard label="Caution" value={String(contract.caution ?? 'No special caution')} />
+      </div>
+    </section>
+  );
+}
+
 type ReplayLightweightCandle = CandlestickData & {
   label: string;
   absoluteOpen: number;
@@ -4013,22 +4247,59 @@ function ReplayMonthlyWindow({
   );
 }
 
-function ReplayPerformanceView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
+function ReplayPerformanceView({
+  promotionChart,
+  replayReviewChart,
+}: {
+  promotionChart: ModelPromotionPostureChartPayload;
+  replayReviewChart: ReplayReviewChartPayload;
+}) {
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const reviewRuns = replayReviewRuns(replayReviewChart);
+  const reviewIds = reviewRuns.map(replayReviewRunId);
+  const reviewKey = reviewIds.join('|');
+  const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
       return current.filter((id) => valid.has(id));
     });
   }, [versionKey]);
+  useEffect(() => {
+    setSelectedReviewIds((current) => {
+      const valid = new Set(reviewIds);
+      return current.filter((id) => valid.has(id));
+    });
+  }, [reviewKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
   const chartEntries = selectedEntries.length ? selectedEntries : entries;
+  const selectedReviewRuns = reviewRuns.filter((run, index) => selectedReviewIds.includes(replayReviewRunId(run, index)));
+  const chartReviewRuns = selectedReviewRuns.length ? selectedReviewRuns : reviewRuns;
   return (
     <section className="replay-view">
+      <ReplayReviewPageContract chart={replayReviewChart} pageId="replay_performance" />
+      <ReplaySelectionModePanel
+        mode={selectedReviewRuns.length ? 'focus' : 'summary'}
+        summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in performance summary`}
+        onClear={() => setSelectedReviewIds([])}
+      />
+      <ReplayReviewRunSelector
+        title="Replay Review Performance Selector"
+        runs={reviewRuns}
+        selectedIds={selectedReviewIds}
+        onChange={setSelectedReviewIds}
+      />
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart title="Gross PnL · Replay Review" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewSection(run, 'target_performance'), 'gross_pnl_total'))} emptyLabel="No replay review gross PnL published" />
+        <MiniMetricBarChart title="Mean Realized Return · Replay Review" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewSection(run, 'target_performance'), 'mean_realized_return'))} emptyLabel="No replay review realized returns published" />
+        <MiniMetricBarChart title="Filled Decisions · Replay Review" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewSection(run, 'decision_scope'), 'filled_count'))} emptyLabel="No replay review fill counts published" />
+        <MiniMetricBarChart title="Selected Top 10 · Replay Review" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewSection(run, 'stock_selection'), 'selected_top_10_count'))} emptyLabel="No replay review stock-selection evidence published" />
+      </div>
+      <ReplayReviewFocusPanel runs={selectedReviewRuns} title="Replay Performance Focus Evidence" />
       <ReplaySelectionModePanel
         mode={selectedEntries.length ? 'focus' : 'summary'}
         summary={selectedEntries.length ? `${selectedEntries.length} selected replay series` : `${entries.length} replay series in summary`}
@@ -4052,12 +4323,22 @@ function ReplayPerformanceView({ promotionChart }: { promotionChart: ModelPromot
   );
 }
 
-function ReplayDecisionsView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
+function ReplayDecisionsView({
+  promotionChart,
+  replayReviewChart,
+}: {
+  promotionChart: ModelPromotionPostureChartPayload;
+  replayReviewChart: ReplayReviewChartPayload;
+}) {
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const reviewRuns = replayReviewRuns(replayReviewChart);
+  const reviewIds = reviewRuns.map(replayReviewRunId);
+  const reviewKey = reviewIds.join('|');
+  const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
   const [monthlyVersionId, setMonthlyVersionId] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   useEffect(() => {
@@ -4066,12 +4347,42 @@ function ReplayDecisionsView({ promotionChart }: { promotionChart: ModelPromotio
       return current.filter((id) => valid.has(id));
     });
   }, [versionKey]);
+  useEffect(() => {
+    setSelectedReviewIds((current) => {
+      const valid = new Set(reviewIds);
+      return current.filter((id) => valid.has(id));
+    });
+  }, [reviewKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
   const selectedVersion = selectedEntries[0]?.version ?? null;
   const chartEntries = selectedEntries.length ? selectedEntries : entries;
   const monthlyEntry = entries.find(({ version, index }) => versionStableId(version, index) === monthlyVersionId) ?? null;
+  const selectedReviewRuns = reviewRuns.filter((run, index) => selectedReviewIds.includes(replayReviewRunId(run, index)));
+  const chartReviewRuns = selectedReviewRuns.length ? selectedReviewRuns : reviewRuns;
+  const layerCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewDecision(run), 'miss_attribution_layer_counts'));
+  const causeCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewDecision(run), 'cause_family_counts'));
+  const parameterCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewParameter(run), 'classification_counts'));
   return (
     <section className="replay-view">
+      <ReplayReviewPageContract chart={replayReviewChart} pageId="replay_decisions" />
+      <ReplaySelectionModePanel
+        mode={selectedReviewRuns.length ? 'focus' : 'summary'}
+        summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in model-layer decision summary`}
+        onClear={() => setSelectedReviewIds([])}
+      />
+      <ReplayReviewRunSelector
+        title="Model-Layer Decision Review Selector"
+        runs={reviewRuns}
+        selectedIds={selectedReviewIds}
+        onChange={setSelectedReviewIds}
+      />
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart title="Miss Attribution Layer" series={countSeriesFromRecord(layerCounts)} emptyLabel="No layer attribution counts published" />
+        <MiniMetricBarChart title="Cause Family" series={countSeriesFromRecord(causeCounts)} emptyLabel="No cause-family counts published" />
+        <MiniMetricBarChart title="Parameter Review Classes" series={countSeriesFromRecord(parameterCounts)} emptyLabel="No parameter replay review classifications published" />
+        <MiniMetricBarChart title="Regret To Best Available" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewDecision(run), 'mean_regret_to_best_available'))} emptyLabel="No regret-to-best-available metrics published" />
+      </div>
+      <ReplayReviewFocusPanel runs={selectedReviewRuns} title="Model-Layer Decision Focus Evidence" />
       <ReplaySelectionModePanel
         mode={selectedEntries.length ? 'focus' : 'summary'}
         summary={selectedEntries.length === 1 ? `Focused on ${compactVersionLabel(selectedEntries[0].version, selectedEntries[0].index)}` : selectedEntries.length ? `${selectedEntries.length} selected replay versions` : `${entries.length} replay versions in decision summary`}
@@ -4123,8 +4434,30 @@ function ReplayDecisionsView({ promotionChart }: { promotionChart: ModelPromotio
   );
 }
 
-function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromotionPostureChartPayload }) {
+function ReplayOperationsView({
+  promotionChart,
+  replayReviewChart,
+}: {
+  promotionChart: ModelPromotionPostureChartPayload;
+  replayReviewChart: ReplayReviewChartPayload;
+}) {
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const reviewRuns = replayReviewRuns(replayReviewChart);
+  const reviewIds = reviewRuns.map(replayReviewRunId);
+  const reviewKey = reviewIds.join('|');
+  const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
+  useEffect(() => {
+    setSelectedReviewIds((current) => {
+      const valid = new Set(reviewIds);
+      return current.filter((id) => valid.has(id));
+    });
+  }, [reviewKey]);
+  const selectedReviewRuns = reviewRuns.filter((run, index) => selectedReviewIds.includes(replayReviewRunId(run, index)));
+  const chartReviewRuns = selectedReviewRuns.length ? selectedReviewRuns : reviewRuns;
+  const firstGapCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewDecision(run), 'first_gap_component_counts'));
+  const optionPathCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewSection(run, 'option_expression'), 'path_status_counts'));
+  const replacementCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewSection(run, 'replacement_review'), 'replacement_status_counts'));
+  const fillCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewSection(run, 'decision_scope'), 'fill_status_counts'));
   const operationReadyCount = versions.filter((version) => {
     const metrics = version.metrics ?? {};
     return Boolean(
@@ -4135,13 +4468,32 @@ function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromoti
   }).length;
   return (
     <section className="replay-view">
+      <ReplayReviewPageContract chart={replayReviewChart} pageId="replay_operations" />
+      <ReplaySelectionModePanel
+        mode={selectedReviewRuns.length ? 'focus' : 'summary'}
+        summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in operation summary`}
+        onClear={() => setSelectedReviewIds([])}
+      />
+      <ReplayReviewRunSelector
+        title="Replay Operation Review Selector"
+        runs={reviewRuns}
+        selectedIds={selectedReviewIds}
+        onChange={setSelectedReviewIds}
+      />
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart title="First Gap Component" series={countSeriesFromRecord(firstGapCounts)} emptyLabel="No first-gap component counts published" />
+        <MiniMetricBarChart title="Option Path Status" series={countSeriesFromRecord(optionPathCounts)} emptyLabel="No option path status counts published" />
+        <MiniMetricBarChart title="Replacement Status" series={countSeriesFromRecord(replacementCounts)} emptyLabel="No replacement review counts published" />
+        <MiniMetricBarChart title="Fill Status" series={countSeriesFromRecord(fillCounts)} emptyLabel="No fill-status counts published" />
+      </div>
+      <ReplayReviewFocusPanel runs={selectedReviewRuns} title="Replay Operation Focus Evidence" />
       <ReplaySelectionModePanel
         mode="summary"
-        summary={`${versions.length} replay versions · ${operationReadyCount} with operation diagnostics`}
+        summary={`${versions.length} promotion-posture replay versions · ${operationReadyCount} with legacy operation diagnostics`}
       />
       <section className="panel replay-operations-placeholder">
-        <div className="panel-heading">Replay Operation Evidence</div>
-        <p className="panel-subtitle">Decision summaries, score/threshold/cost diagnostics, slice distributions, and raw decision rows now live under Replay Decisions.</p>
+        <div className="panel-heading">Legacy Operation Evidence</div>
+        <p className="panel-subtitle">Component execution surfaces now come from replay review when published. This legacy section only reports operation diagnostics still embedded in promotion posture.</p>
         <div className="metric-grid three">
           <MetricCard label="Replay versions" value={versions.length} hint="Published model-group replay versions" />
           <MetricCard label="Operation diagnostics" value={operationReadyCount} hint="Component operation evidence with current read model fields" />
@@ -4165,6 +4517,98 @@ function ReplayOperationsView({ promotionChart }: { promotionChart: ModelPromoti
           <div className="empty-chart compact">No replay operation timeline, component health, or source-readiness diagnostics are published in the current read model.</div>
         )}
       </section>
+    </section>
+  );
+}
+
+function ReplayEventsView({ replayReviewChart }: { replayReviewChart: ReplayReviewChartPayload }) {
+  const eventRuns = replayEventRuns(replayReviewChart);
+  const [selectedEventRunId, setSelectedEventRunId] = useState<string | null>(null);
+  const eventRunIds = eventRuns.map((run, index) => String(run.event_run_id ?? index));
+  const eventRunKey = eventRunIds.join('|');
+  useEffect(() => {
+    if (selectedEventRunId && !eventRunIds.includes(selectedEventRunId)) setSelectedEventRunId(null);
+  }, [eventRunKey, selectedEventRunId]);
+  const selectedRun = eventRuns.find((run, index) => String(run.event_run_id ?? index) === selectedEventRunId) ?? null;
+  const chartRuns = selectedRun ? [selectedRun] : eventRuns;
+  const proposalCounts = aggregateCounts(chartRuns, (run) => countRecord(run, 'proposal_status_counts'));
+  const reviewGateCounts = aggregateCounts(chartRuns, (run) => countRecord(run, 'review_gate_counts'));
+  const impactScopeCounts = aggregateCounts(chartRuns, (run) => countRecord(run, 'impact_scope_type_counts'));
+  const attributionCounts = aggregateCounts(chartRuns, (run) => countRecord(run, 'attribution_status_counts'));
+  return (
+    <section className="replay-view">
+      <ReplayReviewPageContract chart={replayReviewChart} pageId="events" />
+      <ReplaySelectionModePanel
+        mode={selectedRun ? 'focus' : 'summary'}
+        summary={selectedRun ? `Focused on ${String(selectedRun.event_run_id ?? 'event run')}` : `${eventRuns.length} residual event governance runs in summary`}
+        onClear={() => setSelectedEventRunId(null)}
+      />
+      <section className="panel replay-table-panel">
+        <div className="panel-heading">Event Governance Runs</div>
+        <div className="replay-table replay-event-summary-table">
+          <div className="replay-table-row replay-table-head">
+            <span>Run</span>
+            <span>Proposals</span>
+            <span>Attributions</span>
+            <span>Targets</span>
+            <span>Failure Types</span>
+            <span>Action</span>
+          </div>
+          {eventRuns.length ? eventRuns.map((run, index) => {
+            const id = String(run.event_run_id ?? index);
+            const selected = id === selectedEventRunId;
+            return (
+              <div
+                className={selected ? 'replay-table-row selected' : 'replay-table-row'}
+                key={id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedEventRunId(selected ? null : id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedEventRunId(selected ? null : id);
+                  }
+                }}
+              >
+                <strong><i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{id}</strong>
+                <span>{formatMetricValue(metricNumber(run, 'proposal_count'), 0)}</span>
+                <span>{formatMetricValue(metricNumber(run, 'attribution_row_count'), 0)}</span>
+                <span>{countSeriesFromRecord(countRecord(run, 'target_symbol_counts')).slice(0, 3).map((item) => `${item.label} ${item.value}`).join(' · ') || 'None'}</span>
+                <span>{countSeriesFromRecord(countRecord(run, 'failure_type_counts')).slice(0, 3).map((item) => `${item.label} ${item.value}`).join(' · ') || 'None'}</span>
+                <button className="replay-inline-action" type="button" onClick={(event) => { event.stopPropagation(); setSelectedEventRunId(id); }}>Focus</button>
+              </div>
+            );
+          }) : <div className="empty-chart compact">No residual event governance runs are published in the current replay review read model.</div>}
+        </div>
+      </section>
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart title="Proposal Status" series={countSeriesFromRecord(proposalCounts)} emptyLabel="No event proposal status counts published" />
+        <MiniMetricBarChart title="Review Gates" series={countSeriesFromRecord(reviewGateCounts)} emptyLabel="No event review gate counts published" />
+        <MiniMetricBarChart title="Impact Scope" series={countSeriesFromRecord(impactScopeCounts)} emptyLabel="No event impact-scope counts published" />
+        <MiniMetricBarChart title="Attribution Status" series={countSeriesFromRecord(attributionCounts)} emptyLabel="No event attribution status counts published" />
+      </div>
+      {selectedRun ? (
+        <section className="panel replay-review-focus-panel">
+          <div className="panel-heading">Event Focus Detail</div>
+          <div className="replay-review-focus-grid">
+            {nestedArray(selectedRun, 'sample_proposals').map((proposal, index) => (
+              <div className="replay-review-focus-card" key={`${proposal.event_focus_proposal_id ?? index}`}>
+                <strong>{String(proposal.event_summary ?? proposal.event_ref ?? `Proposal ${index + 1}`)}</strong>
+                <span>{String(proposal.target_symbol ?? 'Unknown target')} · {startCase(String(proposal.failure_type ?? 'unknown'))}</span>
+                <small>{String(proposal.review_gate ?? proposal.proposal_status ?? 'No gate')}</small>
+              </div>
+            ))}
+            {nestedArray(selectedRun, 'sample_attributions').map((attribution, index) => (
+              <div className="replay-review-focus-card" key={`${attribution.attribution_id ?? attribution.dominant_event_candidate ?? index}`}>
+                <strong>{String(attribution.dominant_event_candidate ?? `Attribution ${index + 1}`)}</strong>
+                <span>{String(attribution.target_symbol ?? 'Unknown target')} · {startCase(String(attribution.impact_scope_type ?? 'unknown'))}</span>
+                <small>{startCase(String(attribution.attribution_status ?? 'unknown'))} · source {String(attribution.source_replay_review_id ?? 'not linked')}</small>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -5390,7 +5834,7 @@ function contractForView(view: ViewId): string {
   if (view === 'temporal') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   if (view === 'models') return MODEL_READINESS;
-  if (view === 'replay' || view === 'performance') return MODEL_PROMOTION_POSTURE;
+  if (view === 'replay' || view === 'performance' || view === 'decisions' || view === 'events') return MODEL_GROUP_REPLAY_REVIEW;
   return HISTORICAL_TASK_PROGRESS;
 }
 
@@ -5401,6 +5845,7 @@ function App() {
   const [temporalExplorerModel, setTemporalExplorerModel] = useState<DashboardReadModel | null>(null);
   const [modelLayerModel, setModelLayerModel] = useState<DashboardReadModel | null>(null);
   const [modelPromotionModel, setModelPromotionModel] = useState<DashboardReadModel | null>(null);
+  const [replayReviewModel, setReplayReviewModel] = useState<DashboardReadModel | null>(null);
   const [executionRuntimeModel, setExecutionRuntimeModel] = useState<DashboardReadModel | null>(null);
   const [readModelErrors, setReadModelErrors] = useState<Record<string, string>>({});
   const [loadingContracts, setLoadingContracts] = useState<Set<string>>(new Set());
@@ -5418,6 +5863,7 @@ function App() {
     if (payload.contract_type === TEMPORAL_EXPLORER_SUMMARY) setTemporalExplorerModel(payload);
     if (payload.contract_type === MODEL_READINESS) setModelLayerModel(payload);
     if (payload.contract_type === MODEL_PROMOTION_POSTURE) setModelPromotionModel(payload);
+    if (payload.contract_type === MODEL_GROUP_REPLAY_REVIEW) setReplayReviewModel(payload);
     if (payload.contract_type === EXECUTION_RUNTIME_STATUS) setExecutionRuntimeModel(payload);
     setReadModelErrors((previous) => {
       const next = { ...previous };
@@ -5468,9 +5914,10 @@ function App() {
     void loadReadModel(EXECUTION_RUNTIME_STATUS, controller.signal);
     void loadOptionalReadModel(MODEL_READINESS, controller.signal);
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE, controller.signal);
+    void loadOptionalReadModel(MODEL_GROUP_REPLAY_REVIEW, controller.signal);
     const liveContracts = new Set<string>();
     const contracts = [CURRENT_SYSTEM_STATUS, TEMPORAL_EXPLORER_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY, EXECUTION_RUNTIME_STATUS];
-    const optionalContracts = [MODEL_READINESS, MODEL_PROMOTION_POSTURE];
+    const optionalContracts = [MODEL_READINESS, MODEL_PROMOTION_POSTURE, MODEL_GROUP_REPLAY_REVIEW];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         liveContracts.add(contractType);
@@ -5522,8 +5969,8 @@ function App() {
       ? realtimeModel
     : activeView === 'models'
       ? modelLayerModel ?? historicalModel
-    : activeView === 'replay' || activeView === 'performance'
-      ? modelPromotionModel ?? historicalModel
+    : activeView === 'replay' || activeView === 'performance' || activeView === 'decisions' || activeView === 'events'
+      ? replayReviewModel ?? modelPromotionModel ?? historicalModel
       : historicalModel;
   const pageStatusModel = currentStatusModel ?? activeReadModel;
   const activeError = activeReadModel ? null : (readModelErrors[activeContractType] ?? null);
@@ -5556,6 +6003,10 @@ function App() {
     if (!executionRuntimeModel || !isExecutionRuntimeChart(executionRuntimeModel.chart_payload)) return {} as ExecutionRuntimeStatusChartPayload;
     return executionRuntimeModel.chart_payload;
   }, [executionRuntimeModel]);
+  const replayReviewChart = useMemo(() => {
+    if (!replayReviewModel || !isReplayReviewChart(replayReviewModel.chart_payload)) return {} as ReplayReviewChartPayload;
+    return replayReviewModel.chart_payload;
+  }, [replayReviewModel]);
 
   useEffect(() => {
     const viewport = temporalExplorerChart.viewport ?? {};
@@ -5912,9 +6363,10 @@ function App() {
     if (activeView === 'status') return renderCurrentStatusView();
     if (activeView === 'temporal') return renderTemporalExplorerView();
     if (activeView === 'data') return <DataExplorerView />;
-    if (activeView === 'performance') return <ReplayPerformanceView promotionChart={modelPromotionChart} />;
-    if (activeView === 'decisions') return <ReplayDecisionsView promotionChart={modelPromotionChart} />;
-    if (activeView === 'replay') return <ReplayOperationsView promotionChart={modelPromotionChart} />;
+    if (activeView === 'performance') return <ReplayPerformanceView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
+    if (activeView === 'decisions') return <ReplayDecisionsView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
+    if (activeView === 'replay') return <ReplayOperationsView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
+    if (activeView === 'events') return <ReplayEventsView replayReviewChart={replayReviewChart} />;
     if (!historicalModel) return null;
     if (activeView === 'diagnostics') {
       return <DiagnosticsSummaryView items={diagnosticItems} currentStatusModel={currentStatusModel} historicalModel={historicalModel} />;
@@ -5961,8 +6413,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'temporal' ? 'Temporal Explorer' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'temporal' ? 'Temporal Explorer / Dashboard' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'temporal' ? 'Temporal Explorer' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : activeView === 'events' ? 'Events' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'temporal' ? 'Temporal Explorer / Dashboard' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : activeView === 'events' ? 'Historical Replay / Events' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);
@@ -5972,6 +6424,7 @@ function App() {
     void loadReadModel(EXECUTION_RUNTIME_STATUS);
     void loadOptionalReadModel(MODEL_READINESS);
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE);
+    void loadOptionalReadModel(MODEL_GROUP_REPLAY_REVIEW);
   };
 
   return (
