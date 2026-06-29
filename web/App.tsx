@@ -1194,6 +1194,24 @@ function metricNumber(metrics: Record<string, unknown> | undefined | null, key: 
   return null;
 }
 
+function versionMetricNumber(version: ModelGroupPromotionVersionPayload, key: string): number | null {
+  const metrics = version.metrics;
+  const direct = metricNumber(metrics, key);
+  if (direct !== null) return direct;
+  const fallbackSections = [
+    'data_integrity_diagnostics',
+    'economic_diagnostics',
+    'calibration_diagnostics',
+    'predictive_diagnostics',
+    'feature_diagnostics',
+  ];
+  for (const sectionKey of fallbackSections) {
+    const value = metricNumber(nestedRecord(metrics, sectionKey), key);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
 function compactVersionLabel(version: ModelGroupPromotionVersionPayload, index: number): string {
   const label = String(version.version_label ?? '').trim();
   if (label) return label;
@@ -1214,7 +1232,7 @@ function compactVersionLabel(version: ModelGroupPromotionVersionPayload, index: 
 function versionMetricSeries(versions: ModelGroupPromotionVersionPayload[], key: string): Array<{ label: string; value: number; status?: string | null }> {
   const points: Array<{ label: string; value: number; status?: string | null }> = [];
   versions.forEach((version, index) => {
-    const value = metricNumber(version.metrics, key);
+    const value = versionMetricNumber(version, key);
     if (value !== null) {
       points.push({ label: compactVersionLabel(version, index), value, status: version.decision_status });
     }
