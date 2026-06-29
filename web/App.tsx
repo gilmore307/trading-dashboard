@@ -6041,13 +6041,14 @@ function App() {
     const monthWorkers = runtime.month_ingest_worker_count ?? 0;
     const modelWorkers = runtime.model_worker_count ?? 0;
     const rounds = runtime.month_ingest_rounds_per_fold;
+    const foldStep = runtime.fold_step_month_count;
     return (
       <section className="panel runtime-throughput-panel">
         <div className="panel-heading">Runtime Throughput</div>
         <p className="panel-subtitle">{runtime.summary ?? 'Historical scheduler throughput has not been observed yet.'}</p>
         <div className="artifact-grid runtime-throughput-grid">
           <MetricCard label="Runtime lanes" value={`${monthWorkers}+${modelWorkers}`} hint={`${runtime.total_worker_count ?? monthWorkers + modelWorkers} total workers`} />
-          <MetricCard label="Fold cadence" value={`${runtime.fold_month_count ?? 12} months`} hint={rounds ? `${rounds} ingest rounds per fold` : 'non-overlapping folds'} />
+          <MetricCard label="Fold window" value={`${runtime.fold_month_count ?? 18} months`} hint={rounds ? `${rounds} ingest rounds, ${foldStep ?? 12}-month step` : `${foldStep ?? 12}-month step`} />
           <MetricCard label="Completion rate" value={`${runtime.completion_rate_per_minute ?? 0}/min`} hint={`${runtime.executed_decision_count ?? 0} completed decisions`} />
           <MetricCard label="Peak completions" value={`${runtime.max_completions_per_second ?? 0}/sec`} hint={`${runtime.multi_completion_second_count ?? 0} seconds had multiple completions`} />
           <MetricCard label="Observation window" value={`${runtime.window_minutes ?? 15}m`} hint={runtime.latest_decision_at_utc ? `latest scheduler decision ${formatTimestamp(runtime.latest_decision_at_utc)}` : 'no decision timestamp'} />

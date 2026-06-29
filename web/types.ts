@@ -200,6 +200,7 @@ export interface CurrentSystemRuntimeThroughputPayload {
   model_worker_count?: number;
   total_worker_count?: number;
   fold_month_count?: number;
+  fold_step_month_count?: number;
   month_ingest_rounds_per_fold?: number | null;
   window_minutes?: number;
   window_start_utc?: string;
