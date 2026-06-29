@@ -1621,11 +1621,12 @@ function visibleScatterGroupOptions(
   const options: Array<{ key: ScatterGroupKey; label: string }> = [];
   for (const option of SCATTER_GROUP_OPTIONS) {
     const signature = scatterPartitionSignature(points, option.key);
+    if (!signature) continue;
     if (signature && seenSignatures.has(signature)) continue;
-    if (signature) seenSignatures.add(signature);
+    seenSignatures.add(signature);
     options.push(option);
   }
-  return options;
+  return options.length ? options : [SCATTER_GROUP_OPTIONS[0]];
 }
 
 function resolvedScatterGroupKey(
