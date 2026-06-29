@@ -639,11 +639,28 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .task-timestamp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .task-timestamp-grid small { display: grid; gap: 3px; padding: 9px 10px; border-radius: 12px; background: rgba(2, 6, 23, .32); border: 1px solid rgba(148, 163, 184, .10); }
 .task-timestamp-grid b { color: #7dd3fc; font-size: 10px; text-transform: uppercase; letter-spacing: .10em; }
+.task-subtask-section { display: grid; gap: 10px; padding-top: 2px; }
+.task-subtask-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px; }
+.task-subtask-heading span { color: #7dd3fc; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .10em; }
+.task-subtask-heading strong { color: #dbeafe; font-size: 13px; }
+.task-subtask-list { display: grid; gap: 8px; }
+.task-subtask-row { display: grid; grid-template-columns: minmax(220px, .28fr) minmax(260px, .42fr) minmax(220px, .30fr); gap: 10px; align-items: center; padding: 10px; border-radius: 14px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .12); }
+.task-subtask-row.status-running { border-color: rgba(125, 211, 252, .38); background: rgba(8, 47, 73, .20); }
+.task-subtask-row.status-failed { border-color: rgba(248, 113, 113, .35); background: rgba(127, 29, 29, .16); }
+.task-subtask-title { min-width: 0; display: grid; gap: 5px; }
+.task-subtask-title strong { color: #f8fbff; font-size: 13px; overflow-wrap: anywhere; }
+.task-subtask-title small { color: #8fa2ba; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+.task-subtask-progress { min-width: 0; display: grid; grid-template-columns: minmax(150px, .52fr) minmax(140px, .48fr); gap: 10px; align-items: center; }
+.task-subtask-live { min-width: 0; display: grid; gap: 4px; color: #bfdbfe; }
+.task-subtask-live span { width: fit-content; padding: 3px 7px; border-radius: 999px; color: #082f49; background: #7dd3fc; font-size: 10px; font-weight: 950; text-transform: uppercase; letter-spacing: .08em; }
+.task-subtask-live strong { color: #e0f2fe; font-size: 12px; overflow-wrap: anywhere; }
+.task-subtask-live small { color: #8fa2ba; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
 .mini-progress { height: 10px; border-radius: 999px; overflow: hidden; background: rgba(30, 41, 59, .85); border: 1px solid rgba(148, 163, 184, .12); }
 .mini-progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #38bdf8, #22c55e); }
 .mini-progress-fill.failed { background: linear-gradient(90deg, #fb7185, #f97316); }
 @media (max-width: 1220px) {
   .task-detail-grid, .task-timestamp-grid { grid-template-columns: 1fr; }
+  .task-subtask-row, .task-subtask-progress { grid-template-columns: 1fr; }
   .signal-card-grid { grid-template-columns: 1fr; }
 }
 

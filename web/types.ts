@@ -308,6 +308,21 @@ export interface HistoricalRuntimeActivityPayload {
   sample_requirements?: Record<string, unknown>[];
 }
 
+export interface HistoricalInternalStagePayload {
+  stage_id?: string | null;
+  stage_label?: string | null;
+  stage_type?: string | null;
+  status?: string | null;
+  last_reason?: string | null;
+  started_at_utc?: string | null;
+  ended_at_utc?: string | null;
+  updated_utc?: string | null;
+  blockers?: string[];
+  dataset_split?: Record<string, unknown> | null;
+  progress?: StageCoveragePayload;
+  runtime_activity?: HistoricalRuntimeActivityPayload | null;
+}
+
 export interface HistoricalTaskTimelineDetailPayload {
   blockers?: string[];
   receipt_refs?: string[];
@@ -327,6 +342,7 @@ export interface HistoricalTaskTimelineDetailPayload {
   repair_intervention_status?: string | null;
   worker?: HistoricalTaskWorkerPayload;
   runtime_activity?: HistoricalRuntimeActivityPayload | null;
+  internal_stages?: HistoricalInternalStagePayload[] | null;
 }
 
 export interface HistoricalTaskTimelineItemPayload {

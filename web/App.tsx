@@ -23,6 +23,7 @@ import type {
   CurrentSystemStatusChartPayload,
   DashboardReadModel,
   ExecutionRuntimeStatusChartPayload,
+  HistoricalInternalStagePayload,
   HistoricalTaskProgressChartPayload,
   HistoricalRuntimeActivityPayload,
   HistoricalTaskTimelineItemPayload,
@@ -36,6 +37,7 @@ import type {
   TemporalExplorerChartPayload,
   TemporalExplorerEventPayload,
   TemporalExplorerTickPayload,
+  StageCoveragePayload,
 } from './types';
 import './styles.css';
 
@@ -1105,17 +1107,28 @@ function taskProgressFallback(task: HistoricalTaskTimelineItemPayload): { percen
   return { percent: 0, label: startCase(task.status || 'Not started'), hint: task.reason || 'No execution progress recorded yet.' };
 }
 
-function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: number; label: string; hint: string; hasEvidence: boolean; failed: boolean; hasBar: boolean } {
-  const progress = task.detail?.progress;
+type ProgressView = { percent: number; label: string; hint: string; hasEvidence: boolean; failed: boolean; hasBar: boolean };
+
+function progressPayloadView(
+  progress: StageCoveragePayload | undefined | null,
+  statusValue: string | undefined | null,
+  reason: string | undefined | null,
+  fallback?: { percent: number; label: string; hint: string },
+): ProgressView {
   if (!progress) {
-    const fallback = taskProgressFallback(task);
+    const fallbackView = fallback ?? {
+      percent: 0,
+      label: startCase(statusValue || 'Not started'),
+      hint: reason || 'No execution progress recorded yet.',
+    };
+    const status = String(statusValue || '').toLowerCase();
     return {
-      percent: Math.max(0, Math.min(100, fallback.percent)),
-      label: fallback.label,
-      hint: fallback.hint,
+      percent: Math.max(0, Math.min(100, fallbackView.percent)),
+      label: fallbackView.label,
+      hint: fallbackView.hint,
       hasEvidence: false,
-      hasBar: String(task.status || '').toLowerCase() === 'succeeded' || String(task.status || '').toLowerCase() === 'not_applicable' || String(task.status || '').toLowerCase() === 'failed',
-      failed: String(task.status || '').toLowerCase() === 'failed',
+      hasBar: status === 'succeeded' || status === 'not_applicable' || status === 'failed',
+      failed: status === 'failed',
     };
   }
   const expected = Math.max(0, progress.expected_count ?? 0);
@@ -1142,7 +1155,7 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
   const completed = !usesRuntimeCursor && displayCount > ready ? ` · Completed ${ready}/${expected}` : '';
   const displayBasis = progress.progress_display_basis ? ` · ${startCase(progress.progress_display_basis.replace('ready_count remains completed replay months', 'month completion updates at month close'))}` : '';
   const progressSource = String(progress.progress_source || '');
-  const status = String(progress.status || task.status || '').toLowerCase();
+  const status = String(progress.status || statusValue || '').toLowerCase();
   const hasMeasuredCounter = expected > 0 && progressSource !== 'stage_status';
   const terminalStatusEvidence = progressSource === 'stage_status' && ['complete', 'failed', 'succeeded', 'not_applicable'].includes(status);
   const hasEvidence = hasMeasuredCounter || terminalStatusEvidence;
@@ -1152,8 +1165,12 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
     hint: `Pending ${pendingCount} · Failed ${failedCount} · Accepted skips ${acceptedSkipCount}${completed}${partitions}${source}${updated}${basis}${displayBasis}`,
     hasEvidence,
     hasBar: hasEvidence,
-    failed: failedCount > 0 || String(progress.status || task.status || '').toLowerCase() === 'failed',
+    failed: failedCount > 0 || String(progress.status || statusValue || '').toLowerCase() === 'failed',
   };
+}
+
+function taskProgressView(task: HistoricalTaskTimelineItemPayload): ProgressView {
+  return progressPayloadView(task.detail?.progress, task.status, task.reason, task.detail?.progress ? undefined : taskProgressFallback(task));
 }
 
 function normalizeModelRef(value: unknown): string {
@@ -4724,6 +4741,77 @@ function ModelGroupDetail({
   );
 }
 
+function internalStageDisplayLabel(stage: HistoricalInternalStagePayload): string {
+  const split = stage.dataset_split;
+  const splitName = typeof split?.split_name === 'string' ? split.split_name : '';
+  const base = stage.stage_label || startCase(stage.stage_type || stage.stage_id || 'Subtask');
+  return splitName ? `${base} · ${startCase(splitName)}` : base;
+}
+
+function internalStageMeta(stage: HistoricalInternalStagePayload): string {
+  const split = stage.dataset_split;
+  const startMonth = typeof split?.split_start_month === 'string' ? split.split_start_month : '';
+  const endMonth = typeof split?.split_end_month === 'string' ? split.split_end_month : '';
+  const splitRange = startMonth && endMonth ? `${startMonth}..${endMonth}` : '';
+  return [stage.stage_id, splitRange].filter(Boolean).join(' · ');
+}
+
+function internalStageSeverity(status: string | null | undefined): 'success' | 'warning' | 'error' | 'info' | 'neutral' {
+  const normalized = String(status || '').toLowerCase();
+  if (['complete', 'succeeded', 'not_applicable'].includes(normalized)) return 'success';
+  if (normalized === 'failed') return 'error';
+  if (normalized === 'running') return 'info';
+  if (normalized === 'blocked') return 'warning';
+  return 'neutral';
+}
+
+function TaskInternalStages({ stages }: { stages: HistoricalInternalStagePayload[] }) {
+  if (!stages.length) return null;
+  return (
+    <div className="task-subtask-section">
+      <div className="task-subtask-heading">
+        <span>Subtasks</span>
+        <strong>{stages.length} internal stages</strong>
+      </div>
+      <div className="task-subtask-list">
+        {stages.map((stage, index) => {
+          const progress = progressPayloadView(stage.progress, stage.status, stage.last_reason ?? undefined);
+          const activity = stage.runtime_activity ?? null;
+          const activityLines = runtimeActivitySupplementalLines(activity).filter((line) => line !== stage.last_reason);
+          return (
+            <div className={`task-subtask-row status-${String(stage.status || 'unknown').toLowerCase().replace(/[^a-z0-9_-]+/g, '-')}`} key={`${stage.stage_id ?? index}-${index}`}>
+              <div className="task-subtask-title">
+                <strong>{internalStageDisplayLabel(stage)}</strong>
+                <StatusPill status={startCase(stage.status || 'unknown')} severity={internalStageSeverity(stage.status)} />
+                <small>{internalStageMeta(stage)}</small>
+              </div>
+              <div className={`task-subtask-progress${progress.failed ? ' failed' : ''}`}>
+                <div className="task-row-progress-copy">
+                  <span>{progress.label}</span>
+                  <small>{progress.hint}</small>
+                </div>
+                {progress.hasBar ? (
+                  <div className="mini-progress" aria-label={`Subtask progress ${progress.label}`}>
+                    <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
+                  </div>
+                ) : null}
+              </div>
+              {activity ? (
+                <div className="task-subtask-live">
+                  <span>Live</span>
+                  <strong>{runtimeActivitySummary(activity)}</strong>
+                  {activityLines.slice(0, 3).map((line) => <small key={line}>{line}</small>)}
+                  {activity.updated_at_utc ? <small>Updated {formatTimestamp(activity.updated_at_utc)}</small> : null}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) {
   const detail = task.detail ?? {};
   const progress = detail.progress;
@@ -4767,6 +4855,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const progressView = taskProgressView(task);
   const runtimeActivity = derivedTaskLiveActivity(task);
   const runtimeDetailLines = runtimeActivitySupplementalLines(runtimeActivity).filter((line) => line !== task.reason);
+  const internalStages = detail.internal_stages ?? [];
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -4860,6 +4949,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
           {blockers.length ? blockers.slice(0, 3).map((blocker) => <code key={blocker}>{blocker}</code>) : <small>No blockers attached.</small>}
         </div>
       </div>
+      <TaskInternalStages stages={internalStages} />
     </div>
   );
 }
