@@ -5055,13 +5055,13 @@ function collectDiagnosticSummary(
 }
 
 function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[] }) {
-  const [monthFilter, setMonthFilter] = useState('auto');
+  const [periodFilter, setPeriodFilter] = useState('auto');
   const [stateFilter, setStateFilter] = useState('auto');
   const [taskFilter, setTaskFilter] = useState('all');
   const [targetFilter, setTargetFilter] = useState('all');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
-  const monthOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, taskPeriodLabel, monthOptionRank), [tasks]);
+  const periodOptions = useMemo(() => uniqueTaskOptions(tasks, taskMonthFilterValue, taskPeriodLabel, monthOptionRank), [tasks]);
   const stateOptions = useMemo(() => uniqueTaskOptions(tasks, (task) => task.task_state, taskStateLabel, taskStateOptionRank), [tasks]);
   const taskOptions = useMemo(
     () => uniqueTaskOptions(tasks, taskFilterValue, taskFilterLabel, taskOptionRank),
@@ -5091,7 +5091,7 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
   const defaultStateFilter = hasCurrentTasks ? 'current' : 'all';
   const defaultMonthFilter = hasCurrentTasks ? 'all' : latestTaskMonthValue;
   const effectiveStateFilter = stateFilter === 'auto' ? defaultStateFilter : stateFilter;
-  const effectiveMonthFilter = monthFilter === 'auto' ? defaultMonthFilter : monthFilter;
+  const effectiveMonthFilter = periodFilter === 'auto' ? defaultMonthFilter : periodFilter;
   const filteredTasks = useMemo(
     () => tasks.filter((task) => {
       if (effectiveMonthFilter !== 'all' && taskMonthFilterValue(task) !== effectiveMonthFilter) return false;
@@ -5229,17 +5229,17 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
           <div className="panel-heading">Task List</div>
           <div className="task-filter-summary">Showing {filteredTasks.length} of {tasks.length} child tasks</div>
         </div>
-        <button className="secondary-button" type="button" onClick={() => { setMonthFilter('auto'); setStateFilter('auto'); setTaskFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
+        <button className="secondary-button" type="button" onClick={() => { setPeriodFilter('auto'); setStateFilter('auto'); setTaskFilter('all'); setTargetFilter('all'); setExpandedTasks(new Set()); }}>
           Reset filters
         </button>
       </div>
       <div className="task-filters" aria-label="Task list filters">
         <SearchableFilter
-          label="Fold"
+          label="Time"
           listId="task-month-options"
-          value={monthFilter}
-          options={[["auto", "Active/latest period"], ["all", "All folds"], ...monthOptions]}
-          onChange={setMonthFilter}
+          value={periodFilter}
+          options={[["auto", "Active/latest period"], ["all", "All time periods"], ...periodOptions]}
+          onChange={setPeriodFilter}
         />
         <SearchableFilter
           label="Target"
