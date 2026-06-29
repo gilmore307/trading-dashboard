@@ -3328,21 +3328,27 @@ function ReplayDecisionVersionSelector({
         </div>
         {rows.length ? rows.map((row) => {
           const selected = selectedIds.includes(row.id);
+          const toggleSelected = () => {
+            const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
+            onChange(next);
+          };
           return (
             <div
               className={selected ? 'replay-table-row selected' : 'replay-table-row'}
               key={row.id}
+              role="button"
+              tabIndex={0}
+              onClick={toggleSelected}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  toggleSelected();
+                }
+              }}
             >
-              <button
-                className="replay-row-main"
-                type="button"
-                onClick={() => {
-                  const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
-                  onChange(next);
-                }}
-              >
+              <strong>
                 <i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}
-              </button>
+              </strong>
               <span><StatusPill status={row.identity} severity={modelStatusSeverity(row.identity)} /></span>
               <span>{formatMetricValue(row.netReturn, 4)}</span>
               <span>{formatMetricValue(row.excessReturn, 4)}</span>
@@ -3353,11 +3359,16 @@ function ReplayDecisionVersionSelector({
               <span>{row.takenGood.toFixed(0)} / {row.takenBad.toFixed(0)}</span>
               <span>{row.avoidedBad.toFixed(0)}</span>
               <span>{row.missedGood.toFixed(0)}</span>
-              {selectedIds.length === 1 && selected ? (
-                <button className="replay-inline-action" type="button" onClick={() => onOpenMonthly(row.id)}>Monthly</button>
-              ) : (
-                <button className="replay-inline-action" type="button" onClick={() => onChange([row.id])}>Focus</button>
-              )}
+              <button
+                className="replay-inline-action"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenMonthly(row.id);
+                }}
+              >
+                Focus
+              </button>
             </div>
           );
         }) : <div className="empty-chart compact">No replay versions match the current filter.</div>}
@@ -4056,6 +4067,7 @@ function ReplayDecisionsView({ promotionChart }: { promotionChart: ModelPromotio
         selectedIds={selectedIds}
         onChange={setSelectedIds}
         onOpenMonthly={(id) => {
+          setSelectedIds([id]);
           setMonthlyVersionId(id);
           setSelectedMonth(null);
         }}

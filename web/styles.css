@@ -282,6 +282,9 @@ button.model-table-row:hover { border-color: rgba(125, 211, 252, .32); backgroun
 .replay-table-row { display: grid; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: rgba(15, 23, 42, .42); border: 1px solid rgba(148, 163, 184, .10); color: #cbd5e1; font-size: 12px; font-weight: 800; }
 button.replay-table-row { width: 100%; font: inherit; text-align: left; cursor: pointer; }
 button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); background: rgba(14, 165, 233, .10); }
+.replay-summary-table .replay-table-row[role="button"] { cursor: pointer; }
+.replay-summary-table .replay-table-row[role="button"]:hover { border-color: rgba(125, 211, 252, .38); background: rgba(14, 165, 233, .10); }
+.replay-summary-table .replay-table-row[role="button"]:focus-visible { outline: 2px solid rgba(125, 211, 252, .7); outline-offset: 2px; }
 .table-sort-button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; border: 0; padding: 0; color: #7dd3fc; background: transparent; text-align: left; font: inherit; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
 .table-sort-button:hover { color: #bae6fd; }
 .table-sort-button small { color: #7dd3fc; font-size: 10px; font-weight: 900; letter-spacing: 0; }
@@ -295,8 +298,6 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-performance-summary-table .replay-table-row.selected { border-color: rgba(52, 211, 153, .48); background: rgba(6, 78, 59, .20); }
 .replay-performance-summary-table strong { display: flex; align-items: center; gap: 8px; }
 .replay-performance-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
-.replay-row-main { display: flex; align-items: center; gap: 8px; min-width: 0; border: 0; padding: 0; color: #f8fbff; background: transparent; font: inherit; font-weight: 900; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
-.replay-row-main:hover { color: #bae6fd; }
 .replay-performance-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .replay-performance-cell strong { color: #f8fbff; }
 .replay-inline-action { border: 1px solid rgba(125, 211, 252, .28); border-radius: 999px; padding: 6px 9px; color: #bae6fd; background: rgba(14, 165, 233, .12); font: inherit; font-size: 11px; font-weight: 900; cursor: pointer; }
