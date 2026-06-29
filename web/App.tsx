@@ -792,13 +792,22 @@ function runtimeActivityPreviewLine(activity?: HistoricalRuntimeActivityPayload 
   return runtimeActivitySupplementalLines(activity)[0] || runtimeActivitySamples(activity) || '';
 }
 
+function taskShowsLiveSections(task: HistoricalTaskTimelineItemPayload): boolean {
+  const status = String(task.status || '').toLowerCase();
+  return task.task_state === 'current' || status === 'running';
+}
+
 function derivedTaskLiveActivity(task: HistoricalTaskTimelineItemPayload): HistoricalRuntimeActivityPayload | null {
   const explicitActivity = task.detail?.runtime_activity ?? null;
-  if (explicitActivity) return explicitActivity;
-  const isCurrentTask = task.task_state === 'current';
-  const isRuntimeVisible = isCurrentTask || task.status === 'running';
+  const isRuntimeVisible = taskShowsLiveSections(task);
+  if (explicitActivity && isRuntimeVisible) return explicitActivity;
   if (!isRuntimeVisible) return null;
   return taskLiveActivityByKind(task);
+}
+
+function taskLogTailEntries(task: HistoricalTaskTimelineItemPayload) {
+  if (!taskShowsLiveSections(task)) return [];
+  return task.detail?.log_tail?.entries ?? [];
 }
 
 function taskTargetLabel(task: HistoricalTaskTimelineItemPayload): string {
@@ -1097,7 +1106,7 @@ function taskProgressFallback(task: HistoricalTaskTimelineItemPayload): { percen
   return { percent: 0, label: startCase(task.status || 'Not started'), hint: task.reason || 'No execution progress recorded yet.' };
 }
 
-function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: number; label: string; hint: string; hasEvidence: boolean; failed: boolean } {
+function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: number; label: string; hint: string; hasEvidence: boolean; failed: boolean; hasBar: boolean } {
   const progress = task.detail?.progress;
   if (!progress) {
     const fallback = taskProgressFallback(task);
@@ -1106,6 +1115,7 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
       label: fallback.label,
       hint: fallback.hint,
       hasEvidence: false,
+      hasBar: String(task.status || '').toLowerCase() === 'succeeded' || String(task.status || '').toLowerCase() === 'not_applicable' || String(task.status || '').toLowerCase() === 'failed',
       failed: String(task.status || '').toLowerCase() === 'failed',
     };
   }
@@ -1132,11 +1142,17 @@ function taskProgressView(task: HistoricalTaskTimelineItemPayload): { percent: n
   const cursor = cursorMonth ? ` · Current ${cursorMonth}` : '';
   const completed = !usesRuntimeCursor && displayCount > ready ? ` · Completed ${ready}/${expected}` : '';
   const displayBasis = progress.progress_display_basis ? ` · ${startCase(progress.progress_display_basis.replace('ready_count remains completed replay months', 'month completion updates at month close'))}` : '';
+  const progressSource = String(progress.progress_source || '');
+  const status = String(progress.status || task.status || '').toLowerCase();
+  const hasMeasuredCounter = expected > 0 && progressSource !== 'stage_status';
+  const terminalStatusEvidence = progressSource === 'stage_status' && ['complete', 'failed', 'succeeded', 'not_applicable'].includes(status);
+  const hasEvidence = hasMeasuredCounter || terminalStatusEvidence;
   return {
     percent: Math.max(0, Math.min(100, percent)),
     label: `${formatPercent(percent)} · ${displayCount}/${expected} ${unitLabel}${cursor}`,
     hint: `Pending ${pendingCount} · Failed ${failedCount} · Accepted skips ${acceptedSkipCount}${completed}${partitions}${source}${updated}${basis}${displayBasis}`,
-    hasEvidence: true,
+    hasEvidence,
+    hasBar: hasEvidence,
     failed: failedCount > 0 || String(progress.status || task.status || '').toLowerCase() === 'failed',
   };
 }
@@ -4752,6 +4768,7 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
   const progressView = taskProgressView(task);
   const runtimeActivity = derivedTaskLiveActivity(task);
   const runtimeDetailLines = runtimeActivitySupplementalLines(runtimeActivity).filter((line) => line !== task.reason);
+  const logEntries = taskLogTailEntries(task);
   return (
     <div className="task-detail-panel">
       <div className="task-detail-grid">
@@ -4777,18 +4794,22 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
             <strong>{progressView.label}</strong>
-            <div className="mini-progress" aria-label={`Task progress ${progressView.label}`}>
-              <div className={`mini-progress-fill${progressView.failed ? ' failed' : ''}`} style={{ width: `${progressView.percent}%` }} />
-            </div>
+            {progressView.hasBar ? (
+              <div className="mini-progress" aria-label={`Task progress ${progressView.label}`}>
+                <div className={`mini-progress-fill${progressView.failed ? ' failed' : ''}`} style={{ width: `${progressView.percent}%` }} />
+              </div>
+            ) : null}
             <small>{progressView.hint}</small>
           </div>
         ) : (
           <div className="task-detail-card wide-detail">
             <span>Current progress</span>
             <strong>{progressView.label}</strong>
-            <div className="mini-progress" aria-label={`Task progress ${progressView.label}`}>
-              <div className={`mini-progress-fill${progressView.failed ? ' failed' : ''}`} style={{ width: `${progressView.percent}%` }} />
-            </div>
+            {progressView.hasBar ? (
+              <div className="mini-progress" aria-label={`Task progress ${progressView.label}`}>
+                <div className={`mini-progress-fill${progressView.failed ? ' failed' : ''}`} style={{ width: `${progressView.percent}%` }} />
+              </div>
+            ) : null}
             <small>{progressView.hint}</small>
           </div>
         )}
@@ -4799,6 +4820,23 @@ function TaskDetailPanel({ task }: { task: HistoricalTaskTimelineItemPayload }) 
             {runtimeDetailLines.map((line) => <small key={line}>{line}</small>)}
             {runtimeActivity.required_next_step ? <small>Next {startCase(runtimeActivity.required_next_step)}</small> : null}
             {runtimeActivity.updated_at_utc ? <small>Updated {formatTimestamp(runtimeActivity.updated_at_utc)}</small> : null}
+          </div>
+        ) : null}
+        {logEntries.length ? (
+          <div className="task-detail-card wide-detail">
+            <span>Logs</span>
+            <strong>{logEntries.length} active stream{logEntries.length === 1 ? '' : 's'}</strong>
+            <div className="task-log-tail">
+              {logEntries.map((entry, entryIndex) => (
+                <div className="task-log-stream" key={`${entry.path ?? entry.stream ?? 'log'}-${entryIndex}`}>
+                  <div className="task-log-stream-head">
+                    <b>{String(entry.stream || 'log').toUpperCase()}</b>
+                    <small>{entry.updated_at_utc ? formatTimestamp(entry.updated_at_utc) : entry.path?.split('/').pop() ?? ''}</small>
+                  </div>
+                  <pre>{(entry.lines ?? []).length ? (entry.lines ?? []).join('\n') : 'No log lines yet.'}</pre>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
         {execution ? (
@@ -5134,9 +5172,11 @@ function TaskTimelineList({ tasks }: { tasks: HistoricalTaskTimelineItemPayload[
                 <span>{progress.label}</span>
                 <small>{progress.hint}</small>
               </div>
-              <div className="mini-progress" aria-label={`Task progress ${progress.label}`}>
-                <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
-              </div>
+              {progress.hasBar ? (
+                <div className="mini-progress" aria-label={`Task progress ${progress.label}`}>
+                  <div className={`mini-progress-fill${progress.failed ? ' failed' : ''}`} style={{ width: `${progress.percent}%` }} />
+                </div>
+              ) : null}
             </div>
           ) : null}
           {!isExpanded && runtimeActivity ? (

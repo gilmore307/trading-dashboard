@@ -717,3 +717,25 @@ Events is the single public event page. It uses `temporal_explorer_summary` as t
 - The left navigation no longer exposes a separate Temporal Explorer page.
 - Temporal Explorer remains the storage/read-model contract name for the timeline summary until a deliberate contract rename is accepted.
 - Replay Performance, Replay Decisions, and Replay Operations remain replay-specific pages. Events is the only page combining market/event timeline context with replay residual-event review evidence.
+
+## D033 - Task progress uses task-specific live work units
+
+Date: 2026-06-29
+Status: Accepted
+
+### Context
+
+Chentong clarified that the Tasks page progress bar must represent the current task's actual completed work over its actual total work. A single internal-stage template such as "task units" hides the real operational shape of different tasks. The Live area also needs to say what is happening now, such as the current feature window, target, source month, or option-source request, not a generic catch-up phrase. Current task logs should be visible without turning the dashboard into a global log browser.
+
+### Decision
+
+For running Tasks rows, `historical_task_progress_summary` should use active worker progress as the primary progress evidence when concrete units are available. Units may differ by task type: source-month requests for acquisition, feature months for feature generation, model rows or split jobs for model generation, replay timestamps/months for replay, and attribution units for review/governance. Internal-stage aggregate progress may remain as parent context, but it must not replace the active task's real work units.
+
+The expanded row detail shows Live and Logs only for the current/running task. Live renders the specific `runtime_activity` summary and details from the manager read model. Logs render bounded active stdout/stderr/log stream tails attached to that task; if a stream exists but has no lines yet, the UI says so instead of hiding the log surface or fabricating output.
+
+### Consequences
+
+- Progress bars are not shown for rows whose only evidence is a non-terminal status placeholder.
+- Running task progress can legitimately use different denominators across task types.
+- Past and future task rows do not show live/log areas.
+- The dashboard remains read-only: it reads sanitized manager/storage summaries and does not expose a global raw log explorer.
