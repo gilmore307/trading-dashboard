@@ -5687,6 +5687,14 @@ function shiftTemporalCenter(centerIso?: string | null, frame?: string | null, o
   return new Date(base + frameMilliseconds(frame) * offset).toISOString();
 }
 
+function temporalCenterInsideViewport(centerIso?: string | null, startIso?: string | null, endIso?: string | null): boolean {
+  const center = Date.parse(centerIso ?? '');
+  const start = Date.parse(startIso ?? '');
+  const end = Date.parse(endIso ?? '');
+  if (!Number.isFinite(center) || !Number.isFinite(start) || !Number.isFinite(end)) return false;
+  return center >= start && center < end;
+}
+
 function temporalTickLabel(value: Date, frame?: string | null): string {
   if (frame === '30m' || frame === '1h') {
     return value.toISOString().slice(5, 16).replace('T', ' ');
@@ -5884,7 +5892,7 @@ function TemporalTradingViewChart({
   }, [candleByTime, chartData, volumeData]);
 
   if (!chartData.length) {
-    return <div className="empty-chart compact">{symbol} {timeframe} chart cache is empty for this viewport.</div>;
+    return <div className="empty-chart compact">{symbol} {timeframe} chart bars are unavailable for this viewport.</div>;
   }
 
   const latest = chartData[chartData.length - 1];
@@ -6108,7 +6116,11 @@ function App() {
     const chartModel = temporalExplorerChart.chart ?? {};
     setSelectedTemporalFrame((previous) => previous ?? viewport.frame ?? '1D');
     setSelectedTemporalSymbol((previous) => previous ?? chartModel.symbol ?? chartModel.available_symbols?.[0] ?? 'SPY');
-    setSelectedTemporalCenter((previous) => previous ?? viewport.center_time_utc ?? temporalExplorerModel?.generated_at_utc ?? new Date().toISOString());
+    setSelectedTemporalCenter((previous) => {
+      const nextCenter = viewport.center_time_utc ?? temporalExplorerModel?.generated_at_utc ?? new Date().toISOString();
+      if (!previous) return nextCenter;
+      return temporalCenterInsideViewport(previous, viewport.start_utc, viewport.end_utc) ? previous : nextCenter;
+    });
   }, [temporalExplorerChart, temporalExplorerModel?.generated_at_utc]);
   const diagnosticItems = useMemo(
     () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
@@ -6304,34 +6316,16 @@ function App() {
     const ticks = buildTemporalTicks(activeCenter, activeFrame, temporalExplorerChart.timewheel_ticks ?? [], events);
     const selectedTick = ticks.find((tick) => tick.is_center) ?? ticks[10] ?? ticks[0];
     const selectedTickEvents = selectedTick ? eventForTick(events, selectedTick) : [];
-    const rightLanes = temporalExplorerChart.right_lanes ?? [];
-    const substrate = temporalExplorerChart.substrate_status ?? {};
     const volumeValues = chartBars.map((bar) => bar.volume ?? 0).filter((value) => Number.isFinite(value));
     const maxVolume = Math.max(...volumeValues, 1);
     const maxTickEvents = Math.max(...ticks.map((tick) => tick.event_count ?? 0), 1);
     const shiftCenter = (offset: number) => setSelectedTemporalCenter((current) => shiftTemporalCenter(current ?? activeCenter, activeFrame, offset));
     return (
       <>
-        <section className="panel temporal-substrate-panel">
-          <div className="panel-heading">Event Timeline Substrate</div>
-          <div className="temporal-substrate-grid">
-            {rightLanes.map((lane) => (
-              <section className="temporal-substrate-card" key={lane.lane_id} title={`${lane.label}: ${startCase(lane.status)}`}>
-                <div>
-                  <span>{lane.label}</span>
-                  <strong>{lane.item_count}</strong>
-                </div>
-                <StatusPill status={lane.status} severity={temporalLaneSeverity(lane.status)} />
-              </section>
-            ))}
-          </div>
-        </section>
-
         <section className="panel timewheel-chart-panel integrated-timewheel">
           <div className="timewheel-chart-head">
             <div>
-              <div className="panel-heading">Event Timeline</div>
-              <p className="panel-subtitle">{chartModel.role ? startCase(chartModel.role) : 'Chart cache is a visualization substrate, not training truth.'}</p>
+              <div className="panel-heading">Event Attention Pool</div>
             </div>
             <div className="temporal-chart-controls">
               <label className="temporal-control">

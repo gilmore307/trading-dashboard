@@ -181,7 +181,7 @@ If realtime monitoring has not started, `realtime_signal_summary` should say `no
 
 Purpose: support the event timeline section of the Events page.
 
-Current implementation: `trading-storage` builds this summary from accepted Temporal Explorer substrate tables, chart cache, execution runtime status, and replay artifact root. The dashboard Events page shows substrate population as a status card above the chart, renders the primary chart as a TradingView-style K-line surface, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to M06 accepted event families; ordinary scheduled events, released macro results, and news index rows appear as substrate population/readiness, not chart markers. `chart_ohlcv_cache` is shown as visualization cache only, not training truth.
+Current implementation: `trading-storage` builds this summary from accepted event-attention-pool inputs, market-session context, and chart bars. The dashboard Events page renders the primary chart as a TradingView-style K-line surface, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to M06 accepted event families; ordinary scheduled events, released macro results, and news index rows remain evidence inputs until M06 promotes them. Chart bars are display context only, not training truth.
 
 Owner-facing fields:
 
@@ -191,7 +191,7 @@ Owner-facing fields:
 - status lanes for market sessions, scheduled events, event results, news index, model event markers, and replay state;
 - event markers for the currently selected time unit;
 - TradingView-style chart bars when `chart_ohlcv_cache` is populated;
-- substrate table statuses.
+- context input statuses.
 
 Hidden by default:
 

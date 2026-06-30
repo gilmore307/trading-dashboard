@@ -101,7 +101,7 @@ The dashboard calendar route is a Temporal Explorer, not a raw event browser. Th
 
 ### Decision
 
-Add a read-only Temporal Explorer page backed by `temporal_explorer_summary` from `trading-storage`. The primary chart is a TradingView-style K-line surface: selected frame, M06 accepted event markers, visible tick labels, and center time all live around the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, substrate status cards, symbol/frame/center-time selectors, selected-unit event details, and chart-cache status. The former narrow event-calendar summary is no longer part of the public dashboard surface.
+Add a read-only Temporal Explorer page backed by `temporal_explorer_summary` from `trading-storage`. The primary chart is a TradingView-style K-line surface: selected frame, M06 accepted event markers, visible tick labels, and center time all live around the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, symbol/frame/center-time selectors, and selected-unit event details. The former narrow event-calendar summary is no longer part of the public dashboard surface.
 
 ### Consequences
 
@@ -709,7 +709,7 @@ Chentong clarified that the intended Events page is the current time-axis event 
 
 ### Decision
 
-Events is the single public event page. It uses `temporal_explorer_summary` as the primary page contract for event substrate, chart controls, event density, selected-unit certified event-family markers, and the certified event-family to market-state relationship. Events does not consume replay residual-event governance.
+Events is the single public event page. It uses `temporal_explorer_summary` as the primary page contract for chart controls, event density, selected-unit certified event-family markers, and the certified event-family to market-state relationship. Events does not expose substrate cards and does not consume replay residual-event governance.
 
 ### Consequences
 
