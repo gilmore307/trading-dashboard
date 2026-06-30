@@ -311,6 +311,8 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .table-sort-button small { color: #7dd3fc; font-size: 10px; font-weight: 900; letter-spacing: 0; }
 .replay-summary-table { min-width: 1180px; }
 .replay-summary-table .replay-table-row { grid-template-columns: minmax(170px, 1.2fr) minmax(92px, .72fr) repeat(9, minmax(76px, .62fr)); }
+.replay-version-selector-table { min-width: 1370px; }
+.replay-version-selector-table .replay-table-row { grid-template-columns: minmax(190px, 1.2fr) minmax(82px, .55fr) repeat(9, minmax(88px, .58fr)); }
 .replay-performance-summary-table { min-width: 1370px; }
 .replay-performance-summary-table .replay-table-row { grid-template-columns: minmax(190px, 1.2fr) minmax(82px, .55fr) repeat(10, minmax(82px, .58fr)); }
 .replay-layer-tabs { position: sticky; top: 64px; z-index: 8; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 10px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 18px; background: rgba(3, 9, 17, .82); backdrop-filter: blur(16px); }

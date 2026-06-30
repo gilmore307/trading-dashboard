@@ -3522,7 +3522,7 @@ function ReplayDecisionVersionSelector({
         </label>
         <small>Showing {rows.length} of {versions.length}</small>
       </div>
-      <div className="replay-table replay-selector-table replay-summary-table">
+      <div className="replay-table replay-selector-table replay-summary-table replay-version-selector-table">
         <div className="replay-table-row replay-table-head">
           <SortableHeader label="Version" column="label" sort={sort} onSort={setSort} />
           <SortableHeader label="Role" column="identity" sort={sort} onSort={setSort} />
