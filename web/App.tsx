@@ -4699,9 +4699,6 @@ function ReplayDecisionsView({
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const reviewRuns = replayReviewRuns(replayReviewChart);
-  const reviewIds = reviewRuns.map(replayReviewRunId);
-  const reviewKey = reviewIds.join('|');
-  const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
   const [monthlyVersionId, setMonthlyVersionId] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   useEffect(() => {
@@ -4710,41 +4707,19 @@ function ReplayDecisionsView({
       return current.filter((id) => valid.has(id));
     });
   }, [versionKey]);
-  useEffect(() => {
-    setSelectedReviewIds((current) => {
-      const valid = new Set(reviewIds);
-      return current.filter((id) => valid.has(id));
-    });
-  }, [reviewKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
   const selectedVersion = selectedEntries[0]?.version ?? null;
   const chartEntries = selectedEntries.length ? selectedEntries : entries;
   const monthlyEntry = entries.find(({ version, index }) => versionStableId(version, index) === monthlyVersionId) ?? null;
-  const selectedReviewRuns = reviewRuns.filter((run, index) => selectedReviewIds.includes(replayReviewRunId(run, index)));
-  const chartReviewRuns = selectedReviewRuns.length ? selectedReviewRuns : reviewRuns;
+  const selectedReviewRuns = selectedEntries
+    .map(({ version }) => replayReviewRunForVersion(version, reviewRuns))
+    .filter((run): run is Record<string, unknown> => Boolean(run));
+  const chartReviewRuns = selectedEntries.length ? selectedReviewRuns : reviewRuns;
   const layerCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewDecision(run), 'miss_attribution_layer_counts'));
   const causeCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewDecision(run), 'cause_family_counts'));
   const parameterCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewParameter(run), 'classification_counts'));
   return (
     <section className="replay-view">
-      <ReplaySelectionModePanel
-        mode={selectedReviewRuns.length ? 'focus' : 'summary'}
-        summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in model-layer decision summary`}
-        onClear={() => setSelectedReviewIds([])}
-      />
-      <ReplayReviewRunSelector
-        title="Model-Layer Decision Review Selector"
-        runs={reviewRuns}
-        selectedIds={selectedReviewIds}
-        onChange={setSelectedReviewIds}
-      />
-      <div className="replay-chart-grid">
-        <MiniMetricBarChart title="Miss Attribution Layer" series={countSeriesFromRecord(layerCounts)} emptyLabel="No layer attribution counts published" />
-        <MiniMetricBarChart title="Cause Family" series={countSeriesFromRecord(causeCounts)} emptyLabel="No cause-family counts published" />
-        <MiniMetricBarChart title="Parameter Review Classes" series={countSeriesFromRecord(parameterCounts)} emptyLabel="No parameter replay review classifications published" />
-        <MiniMetricBarChart title="Regret To Best Available" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewDecision(run), 'mean_regret_to_best_available'))} emptyLabel="No regret-to-best-available metrics published" />
-      </div>
-      <ReplayReviewFocusPanel runs={selectedReviewRuns} title="Model-Layer Decision Focus Evidence" />
       <ReplaySelectionModePanel
         mode={selectedEntries.length ? 'focus' : 'summary'}
         summary={selectedEntries.length === 1 ? `Focused on ${compactVersionLabel(selectedEntries[0].version, selectedEntries[0].index)}` : selectedEntries.length ? `${selectedEntries.length} selected replay versions` : `${entries.length} replay versions in decision summary`}
@@ -4764,6 +4739,13 @@ function ReplayDecisionsView({
           setSelectedMonth(null);
         }}
       />
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart title="Miss Attribution Layer" series={countSeriesFromRecord(layerCounts)} emptyLabel="No layer attribution counts published" />
+        <MiniMetricBarChart title="Cause Family" series={countSeriesFromRecord(causeCounts)} emptyLabel="No cause-family counts published" />
+        <MiniMetricBarChart title="Parameter Review Classes" series={countSeriesFromRecord(parameterCounts)} emptyLabel="No parameter replay review classifications published" />
+        <MiniMetricBarChart title="Regret To Best Available" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewDecision(run), 'mean_regret_to_best_available'))} emptyLabel="No regret-to-best-available metrics published" />
+      </div>
+      <ReplayReviewFocusPanel runs={selectedReviewRuns} title="Model-Layer Decision Focus Evidence" />
       {selectedEntries.length === 1 ? (
         <div className="replay-chart-grid">
           <ScoreDecileReturnCurve version={selectedVersion} emptyLabel="Select a replay version with score decile return evidence" />
