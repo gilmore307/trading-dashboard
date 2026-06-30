@@ -3117,32 +3117,60 @@ function betaAgainstBenchmark(strategyReturns: number[], benchmarkReturns: numbe
   return variance > 0 && Number.isFinite(covariance) ? covariance / variance : null;
 }
 
-function replayVersionPerformanceSummary(version: ModelGroupPromotionVersionPayload, index: number) {
+function replayReviewRunForVersion(version: ModelGroupPromotionVersionPayload, reviewRuns: Array<Record<string, unknown>>): Record<string, unknown> | null {
+  const replayRunId = String(version.replay_execution_run_id ?? '').trim();
+  const candidateModelRef = String(version.candidate_model_ref ?? '').trim();
+  const candidateFoldId = String(version.candidate_fold_id ?? version.fold_id ?? '').trim();
+  const target = String(version.target_symbol ?? version.candidate_training_target ?? '').trim().toUpperCase();
+  return reviewRuns.find((run) => {
+    const runReplayId = String(run.replay_execution_run_id ?? '').trim();
+    if (replayRunId && runReplayId && replayRunId === runReplayId) return true;
+    const runModelRef = String(run.candidate_model_ref ?? '').trim();
+    if (candidateModelRef && runModelRef && candidateModelRef === runModelRef) return true;
+    const runFold = String(run.candidate_fold_id ?? '').trim();
+    const runTarget = String(run.target_symbol ?? run.candidate_training_target ?? '').trim().toUpperCase();
+    return Boolean(candidateFoldId && target && runFold === candidateFoldId && runTarget === target);
+  }) ?? null;
+}
+
+function replayVersionPerformanceSummary(version: ModelGroupPromotionVersionPayload, index: number, reviewRun: Record<string, unknown> | null = null) {
   const returns = monthlyReplayReturns(version);
   const returnValues = returns.map((point) => point.value);
   const navPoints = normalizedNavPoints(returns);
   const nav = navPoints[navPoints.length - 1]?.value ?? null;
   const months = returns.length;
+  const monthlyMean = returnValues.length ? returnValues.reduce((sum, value) => sum + value, 0) / returnValues.length : null;
   const totalReturn = metricFallback(version, ['net_return_total', 'cost_adjusted_return_total']) ?? (nav === null ? null : nav - 1);
   const excessReturn = metricFallback(version, ['excess_return_total']);
   const maxDrawdown = metricFallback(version, ['max_drawdown']) ?? drawdownFromNavPoints(navPoints);
-  const annualizedReturn = metricFallback(version, ['annualized_return', 'annualized_net_return']) ?? annualizedReturnFromNav(nav, months);
+  const arithmeticAnnualizedReturn = monthlyMean === null ? null : monthlyMean * 12;
+  const annualizedReturn = metricFallback(version, ['annualized_return', 'annualized_net_return']) ?? annualizedReturnFromNav(nav, months) ?? arithmeticAnnualizedReturn;
   const monthlyVolatility = sampleStandardDeviation(returnValues);
   const volatility = metricFallback(version, ['annualized_volatility', 'volatility']) ?? (monthlyVolatility === null ? null : monthlyVolatility * Math.sqrt(12));
   const downsideValues = returnValues.filter((value) => value < 0);
   const downsideDeviation = downsideValues.length
     ? Math.sqrt(downsideValues.reduce((sum, value) => sum + value ** 2, 0) / downsideValues.length) * Math.sqrt(12)
     : null;
-  const sharpe = metricFallback(version, ['sharpe_ratio', 'sharpe']) ?? (annualizedReturn !== null && volatility && volatility > 0 ? annualizedReturn / volatility : null);
+  const sharpe = metricFallback(version, ['sharpe_ratio', 'sharpe']) ?? (
+    monthlyMean !== null && monthlyVolatility && monthlyVolatility > 0
+      ? (monthlyMean / monthlyVolatility) * Math.sqrt(12)
+      : null
+  );
   const sortino = metricFallback(version, ['sortino_ratio', 'sortino']) ?? (annualizedReturn !== null && downsideDeviation && downsideDeviation > 0 ? annualizedReturn / downsideDeviation : null);
   const calmar = metricFallback(version, ['calmar_ratio', 'calmar']) ?? (annualizedReturn !== null && maxDrawdown !== null && Math.abs(maxDrawdown) > 0 ? annualizedReturn / Math.abs(maxDrawdown) : null);
   const beta = metricFallback(version, ['beta', 'market_beta', 'benchmark_beta']) ?? betaAgainstBenchmark(returnValues, temporalBenchmarkReturns(version));
   const winRate = returnValues.length ? returnValues.filter((value) => value > 0).length / returnValues.length : null;
+  const decisionScope = replayReviewSection(reviewRun ?? {}, 'decision_scope');
+  const targetPerformance = replayReviewSection(reviewRun ?? {}, 'target_performance');
+  const stockSelection = replayReviewSection(reviewRun ?? {}, 'stock_selection');
+  const replacementReview = replayReviewSection(reviewRun ?? {}, 'replacement_review');
+  const decisionReview = replayReviewDecision(reviewRun ?? {});
   return {
     id: versionStableId(version, index),
     label: compactVersionLabel(version, index),
     target: String(version.target_symbol ?? '').trim().toUpperCase() || 'Not reported',
     identity: modelIdentity(version),
+    replayRun: String(version.replay_execution_run_id ?? reviewRun?.replay_execution_run_id ?? '').trim() || 'Not reported',
     nav,
     totalReturn,
     excessReturn,
@@ -3155,19 +3183,23 @@ function replayVersionPerformanceSummary(version: ModelGroupPromotionVersionPayl
     beta,
     winRate,
     months,
+    reviewAvailable: Boolean(reviewRun),
+    decisionRows: metricNumber(decisionScope, 'decision_row_count') ?? metricNumber(version.metrics, 'decision_row_count'),
+    filledCount: metricNumber(decisionScope, 'filled_count'),
+    selectedTargets: metricNumber(decisionScope, 'selected_target_count'),
+    grossPnl: metricNumber(targetPerformance, 'gross_pnl_total'),
+    grossReturnOnUsedNotional: metricNumber(targetPerformance, 'gross_return_on_used_notional'),
+    meanRealizedReturn: metricNumber(targetPerformance, 'mean_realized_return'),
+    medianRealizedReturn: metricNumber(targetPerformance, 'median_realized_return'),
+    positiveReturnCount: metricNumber(targetPerformance, 'positive_return_count'),
+    negativeReturnCount: metricNumber(targetPerformance, 'negative_return_count'),
+    plannedNotional: metricNumber(targetPerformance, 'planned_notional_total'),
+    selectedTop10: metricNumber(stockSelection, 'selected_top_10_count'),
+    scoredCandidates: metricNumber(stockSelection, 'scored_candidate_row_count'),
+    replacementTriggered: metricNumber(replacementReview, 'replacement_triggered_count'),
+    replacementBlocked: metricNumber(replacementReview, 'replacement_blocked_by_switch_threshold_count'),
+    meanRegretToBest: metricNumber(decisionReview, 'mean_regret_to_best_available'),
   };
-}
-
-function performanceMetricSeries(entries: ReplayVersionEntry[], key: keyof ReturnType<typeof replayVersionPerformanceSummary>): Array<{ label: string; value: number; status?: string | null }> {
-  const points: Array<{ label: string; value: number; status?: string | null }> = [];
-  entries.forEach(({ version, index }) => {
-    const row = replayVersionPerformanceSummary(version, index);
-    const value = row[key];
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      points.push({ label: row.label, value, status: version.decision_status });
-    }
-  });
-  return points;
 }
 
 function replayOutcomeMetricSeries(entries: ReplayVersionEntry[], key: keyof ReturnType<typeof replayVersionOutcomeSummary>): Array<{ label: string; value: number; status?: string | null }> {
@@ -3470,23 +3502,25 @@ function ReplayDecisionVersionSelector({
 
 function ReplayPerformanceSummaryTable({
   entries,
+  reviewRuns,
   selectedIds,
   onChange,
 }: {
   entries: ReplayVersionEntry[];
+  reviewRuns: Array<Record<string, unknown>>;
   selectedIds: string[];
   onChange: (ids: string[]) => void;
 }) {
   const [filter, setFilter] = useState('');
-  const [sort, setSort] = useState<SortState<'label' | 'target' | 'nav' | 'totalReturn' | 'excessReturn' | 'maxDrawdown' | 'annualizedReturn' | 'volatility' | 'sharpe' | 'sortino' | 'calmar' | 'beta' | 'winRate'>>({ key: 'totalReturn', direction: 'desc' });
+  const [sort, setSort] = useState<SortState<'label' | 'target' | 'totalReturn' | 'maxDrawdown' | 'volatility' | 'sharpe' | 'sortino' | 'calmar' | 'beta' | 'filledCount' | 'meanRealizedReturn' | 'meanRegretToBest'>>({ key: 'totalReturn', direction: 'desc' });
   const query = filter.trim().toLowerCase();
   const rows: ReplayPerformanceSummary[] = entries
-    .map(({ version, index }) => ({ ...replayVersionPerformanceSummary(version, index), index }))
-    .filter((row) => !query || searchText(row.label, row.target, row.identity, row.nav, row.totalReturn, row.excessReturn, row.maxDrawdown, row.annualizedReturn, row.volatility, row.sharpe, row.sortino, row.calmar, row.beta, row.winRate).includes(query))
+    .map(({ version, index }) => ({ ...replayVersionPerformanceSummary(version, index, replayReviewRunForVersion(version, reviewRuns)), index }))
+    .filter((row) => !query || searchText(row.label, row.target, row.identity, row.replayRun, row.totalReturn, row.maxDrawdown, row.volatility, row.sharpe, row.sortino, row.calmar, row.beta, row.filledCount, row.meanRealizedReturn, row.meanRegretToBest).includes(query))
     .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.index - right.index);
   return (
     <section className="panel replay-table-panel">
-      <div className="panel-heading">Performance Summary</div>
+      <div className="panel-heading">Model Group Replay Selector</div>
       <div className="dashboard-table-controls">
         <label>
           <span>Filter target/model</span>
@@ -3496,19 +3530,19 @@ function ReplayPerformanceSummaryTable({
       </div>
       <div className="replay-table replay-performance-summary-table">
         <div className="replay-table-row replay-table-head">
-          <SortableHeader label="Series" column="label" sort={sort} onSort={setSort} />
+          <SortableHeader label="Model Group" column="label" sort={sort} onSort={setSort} />
           <SortableHeader label="Target" column="target" sort={sort} onSort={setSort} />
-          <SortableHeader label="NAV" column="nav" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Total" column="totalReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <SortableHeader label="Excess" column="excessReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Max DD" column="maxDrawdown" sort={sort} onSort={setSort} />
-          <SortableHeader label="Ann Ret" column="annualizedReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Vol" column="volatility" sort={sort} onSort={setSort} />
           <SortableHeader label="Sharpe" column="sharpe" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Sortino" column="sortino" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Calmar" column="calmar" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Beta" column="beta" sort={sort} onSort={setSort} />
-          <SortableHeader label="Win" column="winRate" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Filled" column="filledCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Mean Trade" column="meanRealizedReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Regret" column="meanRegretToBest" sort={sort} onSort={setSort} />
+          <span>Review</span>
         </div>
         {rows.length ? rows.map((row) => {
           const selected = selectedIds.includes(row.id);
@@ -3524,17 +3558,17 @@ function ReplayPerformanceSummaryTable({
             >
               <strong><i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}</strong>
               <span>{row.target}</span>
-              <span>{formatMetricValue(row.nav, 4)}</span>
               <span>{formatMetricValue(row.totalReturn, 4)}</span>
-              <span>{formatMetricValue(row.excessReturn, 4)}</span>
               <span>{formatMetricValue(row.maxDrawdown, 4)}</span>
-              <span>{formatMetricValue(row.annualizedReturn, 4)}</span>
               <span>{formatMetricValue(row.volatility, 4)}</span>
               <span>{formatMetricValue(row.sharpe, 3)}</span>
               <span>{formatMetricValue(row.sortino, 3)}</span>
               <span>{formatMetricValue(row.calmar, 3)}</span>
               <span>{formatMetricValue(row.beta, 3)}</span>
-              <span>{formatMetricValue(row.winRate, 3)}</span>
+              <span>{formatMetricValue(row.filledCount, 0)}</span>
+              <span>{formatMetricValue(row.meanRealizedReturn, 4)}</span>
+              <span>{formatMetricValue(row.meanRegretToBest, 4)}</span>
+              <span><StatusPill status={row.reviewAvailable ? 'available' : 'missing'} severity={row.reviewAvailable ? 'low' : 'medium'} /></span>
             </button>
           );
         }) : <div className="empty-chart compact">No replay performance series published.</div>}
@@ -3783,6 +3817,76 @@ function replayReviewMetricSeries(
       return value === null ? null : { label: replayReviewRunLabel(run, index), value };
     })
     .filter((point): point is { label: string; value: number } => Boolean(point));
+}
+
+function performanceSummaryMetricSeries(
+  rows: ReplayPerformanceSummary[],
+  key: keyof ReplayPerformanceSummary,
+): Array<{ label: string; value: number; status?: string | null }> {
+  const points: Array<{ label: string; value: number; status?: string | null }> = [];
+  rows.forEach((row) => {
+    const value = row[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      points.push({ label: row.label, value, status: row.identity });
+    }
+  });
+  return points;
+}
+
+function sumMetric(rows: ReplayPerformanceSummary[], key: keyof ReplayPerformanceSummary): number | null {
+  const values = rows.map((row) => row[key]).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+}
+
+function meanMetric(rows: ReplayPerformanceSummary[], key: keyof ReplayPerformanceSummary): number | null {
+  const values = rows.map((row) => row[key]).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function MetricAvailabilityPanel({
+  title,
+  rows,
+  metricKey,
+  unavailableLabel,
+}: {
+  title: string;
+  rows: ReplayPerformanceSummary[];
+  metricKey: keyof ReplayPerformanceSummary;
+  unavailableLabel: string;
+}) {
+  const available = rows.filter((row) => typeof row[metricKey] === 'number' && Number.isFinite(row[metricKey] as number)).length;
+  if (available) {
+    return (
+      <MiniMetricBarChart
+        title={title}
+        series={performanceSummaryMetricSeries(rows, metricKey)}
+        emptyLabel={unavailableLabel}
+      />
+    );
+  }
+  return (
+    <section className="model-chart-panel">
+      <div className="model-chart-title">{title}</div>
+      <div className="empty-chart compact">{unavailableLabel} · 0/{rows.length} available</div>
+    </section>
+  );
+}
+
+function ReplayTradingPerformanceDiagnostics({ rows }: { rows: ReplayPerformanceSummary[] }) {
+  if (!rows.length) return null;
+  return (
+    <section className="panel replay-performance-diagnostics">
+      <div className="panel-heading">Trading Performance Diagnostics</div>
+      <div className="metric-grid three">
+        <MetricCard label="Filled decisions" value={formatMetricValue(sumMetric(rows, 'filledCount'), 0)} hint="Replay decisions that became simulated fills" />
+        <MetricCard label="Gross PnL" value={formatMetricValue(sumMetric(rows, 'grossPnl'), 2)} hint="Sum of matched post-replay performance PnL" />
+        <MetricCard label="Mean trade" value={formatMetricValue(meanMetric(rows, 'meanRealizedReturn'), 4)} hint="Average realized return per matched run" />
+        <MetricCard label="Positive / negative" value={`${formatMetricValue(sumMetric(rows, 'positiveReturnCount'), 0)} / ${formatMetricValue(sumMetric(rows, 'negativeReturnCount'), 0)}`} hint="Filled trade outcome counts" />
+        <MetricCard label="Mean regret" value={formatMetricValue(meanMetric(rows, 'meanRegretToBest'), 4)} hint="Average gap to best available action" />
+        <MetricCard label="Review coverage" value={`${rows.filter((row) => row.reviewAvailable).length}/${rows.length}`} hint="Model groups with matched replay review evidence" />
+      </div>
+    </section>
+  );
 }
 
 function countChips(counts: Record<string, unknown>, emptyLabel: string) {
@@ -4294,63 +4398,44 @@ function ReplayPerformanceView({
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const reviewRuns = replayReviewRuns(replayReviewChart);
-  const reviewIds = reviewRuns.map(replayReviewRunId);
-  const reviewKey = reviewIds.join('|');
-  const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
       return current.filter((id) => valid.has(id));
     });
   }, [versionKey]);
-  useEffect(() => {
-    setSelectedReviewIds((current) => {
-      const valid = new Set(reviewIds);
-      return current.filter((id) => valid.has(id));
-    });
-  }, [reviewKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
   const chartEntries = selectedEntries.length ? selectedEntries : entries;
-  const selectedReviewRuns = reviewRuns.filter((run, index) => selectedReviewIds.includes(replayReviewRunId(run, index)));
-  const chartReviewRuns = selectedReviewRuns.length ? selectedReviewRuns : reviewRuns;
+  const performanceRows = chartEntries.map(({ version, index }) => ({
+    ...replayVersionPerformanceSummary(version, index, replayReviewRunForVersion(version, reviewRuns)),
+    index,
+  }));
   return (
     <section className="replay-view">
       <ReplaySelectionModePanel
-        mode={selectedReviewRuns.length ? 'focus' : 'summary'}
-        summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in performance summary`}
-        onClear={() => setSelectedReviewIds([])}
-      />
-      <ReplayReviewRunSelector
-        title="Replay Review Performance Selector"
-        runs={reviewRuns}
-        selectedIds={selectedReviewIds}
-        onChange={setSelectedReviewIds}
-      />
-      <div className="replay-chart-grid">
-        <MiniMetricBarChart title="Gross PnL · Replay Review" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewSection(run, 'target_performance'), 'gross_pnl_total'))} emptyLabel="No replay review gross PnL published" />
-        <MiniMetricBarChart title="Mean Realized Return · Replay Review" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewSection(run, 'target_performance'), 'mean_realized_return'))} emptyLabel="No replay review realized returns published" />
-        <MiniMetricBarChart title="Filled Decisions · Replay Review" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewSection(run, 'decision_scope'), 'filled_count'))} emptyLabel="No replay review fill counts published" />
-        <MiniMetricBarChart title="Selected Top 10 · Replay Review" series={replayReviewMetricSeries(chartReviewRuns, (run) => metricNumber(replayReviewSection(run, 'stock_selection'), 'selected_top_10_count'))} emptyLabel="No replay review stock-selection evidence published" />
-      </div>
-      <ReplayReviewFocusPanel runs={selectedReviewRuns} title="Replay Performance Focus Evidence" />
-      <ReplaySelectionModePanel
         mode={selectedEntries.length ? 'focus' : 'summary'}
-        summary={selectedEntries.length ? `${selectedEntries.length} selected replay series` : `${entries.length} replay series in summary`}
+        summary={selectedEntries.length ? `${selectedEntries.length} selected model groups` : `${entries.length} replayed model groups in performance summary`}
         onClear={() => setSelectedIds([])}
       />
       <ReplayPerformanceSummaryTable
         entries={entries}
+        reviewRuns={reviewRuns}
         selectedIds={selectedIds}
         onChange={setSelectedIds}
       />
       <ReplayPerformanceNavChart entries={chartEntries} />
+      <ReplayTradingPerformanceDiagnostics rows={performanceRows} />
       <div className="replay-chart-grid">
-        <MiniMetricBarChart title="Total Return Compare" series={performanceMetricSeries(chartEntries, 'totalReturn')} emptyLabel="No replay total return metrics published" />
-        <MiniMetricBarChart title="Max Drawdown Compare" series={performanceMetricSeries(chartEntries, 'maxDrawdown')} emptyLabel="No replay drawdown metrics published" />
-        <MiniMetricBarChart title="Excess Return Compare" series={performanceMetricSeries(chartEntries, 'excessReturn')} emptyLabel="No replay excess return metrics published" />
-        <MiniMetricBarChart title="Volatility Compare" series={performanceMetricSeries(chartEntries, 'volatility')} emptyLabel="No replay volatility metrics published" />
-        <MiniMetricBarChart title="Sharpe Compare" series={performanceMetricSeries(chartEntries, 'sharpe')} emptyLabel="No replay Sharpe metrics published" />
-        <MiniMetricBarChart title="Beta Compare" series={performanceMetricSeries(chartEntries, 'beta')} emptyLabel="No benchmark beta evidence published" />
+        <MiniMetricBarChart title="Total Return" series={performanceSummaryMetricSeries(performanceRows, 'totalReturn')} emptyLabel="No replay total return metrics published" />
+        <MiniMetricBarChart title="Max Drawdown" series={performanceSummaryMetricSeries(performanceRows, 'maxDrawdown')} emptyLabel="No replay drawdown metrics published" />
+        <MiniMetricBarChart title="Excess Return" series={performanceSummaryMetricSeries(performanceRows, 'excessReturn')} emptyLabel="No replay excess return metrics published" />
+        <MiniMetricBarChart title="Volatility" series={performanceSummaryMetricSeries(performanceRows, 'volatility')} emptyLabel="No replay volatility metrics published" />
+        <MetricAvailabilityPanel title="Sharpe" rows={performanceRows} metricKey="sharpe" unavailableLabel="Sharpe unavailable: no published Sharpe and insufficient monthly return variance" />
+        <MiniMetricBarChart title="Beta" series={performanceSummaryMetricSeries(performanceRows, 'beta')} emptyLabel="No benchmark beta evidence published" />
+        <MiniMetricBarChart title="Gross PnL" series={performanceSummaryMetricSeries(performanceRows, 'grossPnl')} emptyLabel="No matched gross PnL review evidence published" />
+        <MiniMetricBarChart title="Mean Trade Return" series={performanceSummaryMetricSeries(performanceRows, 'meanRealizedReturn')} emptyLabel="No matched realized-return review evidence published" />
+        <MiniMetricBarChart title="Mean Regret" series={performanceSummaryMetricSeries(performanceRows, 'meanRegretToBest')} emptyLabel="No regret-to-best-available review evidence published" />
+        <MiniMetricBarChart title="Filled Decisions" series={performanceSummaryMetricSeries(performanceRows, 'filledCount')} emptyLabel="No matched fill-count review evidence published" />
       </div>
     </section>
   );
