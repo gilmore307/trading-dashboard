@@ -290,8 +290,8 @@ Purpose: answer “Which certified event families are in the event attention poo
 
 Visible content should include:
 
-- frame-aligned symbol/frame/center-time controls;
-- a TradingView-style K-line chart over the selected symbol and frame;
+- ETF symbol and 1D/1W frame controls;
+- a TradingView-style K-line chart over the selected ETF and frame for the current model-group replay window;
 - volume and accepted-event-density subcharts;
 - certified event-family markers for the selected time unit;
 - certified event-family counts by market-session state, family type, scope, and symbol;

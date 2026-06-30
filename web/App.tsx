@@ -5714,6 +5714,9 @@ function buildTemporalTicks(
   sourceTicks: TemporalExplorerTickPayload[],
   events: TemporalExplorerEventPayload[],
 ): TemporalExplorerTickPayload[] {
+  if (sourceTicks.length > 1) {
+    return sourceTicks.map((tick) => ({ ...tick, event_count: eventForTick(events, tick).length }));
+  }
   const parsedCenter = Date.parse(centerIso ?? '');
   if (!Number.isFinite(parsedCenter)) return sourceTicks;
   const delta = frameMilliseconds(frame);
@@ -5736,6 +5739,13 @@ function buildTemporalTicks(
     };
     return { ...shell, event_count: eventForTick(events, shell).length };
   });
+}
+
+function tickContainsTime(tick: TemporalExplorerTickPayload, value?: string | null): boolean {
+  const at = Date.parse(value ?? '');
+  const start = Date.parse(tick.tick_start_utc);
+  const end = Date.parse(tick.tick_end_utc);
+  return Number.isFinite(at) && Number.isFinite(start) && Number.isFinite(end) && at >= start && at < end;
 }
 
 function temporalPositionPercent(value?: string | null, start?: string | null, end?: string | null): number {
@@ -6303,8 +6313,8 @@ function App() {
     const viewport = temporalExplorerChart.viewport ?? {};
     const activeFrame = selectedTemporalFrame ?? viewport.frame ?? '1D';
     const activeCenter = alignTemporalCenter(selectedTemporalCenter ?? viewport.center_time_utc ?? temporalExplorerModel.generated_at_utc, activeFrame);
-    const viewportStart = shiftTemporalCenter(activeCenter, activeFrame, -10);
-    const viewportEnd = shiftTemporalCenter(activeCenter, activeFrame, 11);
+    const viewportStart = viewport.start_utc ?? shiftTemporalCenter(activeCenter, activeFrame, -10);
+    const viewportEnd = viewport.end_utc ?? shiftTemporalCenter(activeCenter, activeFrame, 11);
     const events = temporalExplorerChart.events ?? [];
     const chartModel = temporalExplorerChart.chart ?? {};
     const availableSymbols = chartModel.available_symbols?.length ? chartModel.available_symbols : [chartModel.symbol ?? 'SPY', 'QQQ', 'IWM', 'DIA'];
@@ -6314,12 +6324,11 @@ function App() {
       bar.symbol === activeSymbol && bar.timeframe === activeChartTimeframe
     ));
     const ticks = buildTemporalTicks(activeCenter, activeFrame, temporalExplorerChart.timewheel_ticks ?? [], events);
-    const selectedTick = ticks.find((tick) => tick.is_center) ?? ticks[10] ?? ticks[0];
+    const selectedTick = ticks.find((tick) => tickContainsTime(tick, activeCenter)) ?? ticks.find((tick) => tick.is_center) ?? ticks[Math.floor(ticks.length / 2)] ?? ticks[0];
     const selectedTickEvents = selectedTick ? eventForTick(events, selectedTick) : [];
     const volumeValues = chartBars.map((bar) => bar.volume ?? 0).filter((value) => Number.isFinite(value));
     const maxVolume = Math.max(...volumeValues, 1);
     const maxTickEvents = Math.max(...ticks.map((tick) => tick.event_count ?? 0), 1);
-    const shiftCenter = (offset: number) => setSelectedTemporalCenter((current) => shiftTemporalCenter(current ?? activeCenter, activeFrame, offset));
     return (
       <>
         <section className="panel timewheel-chart-panel integrated-timewheel">
@@ -6334,40 +6343,24 @@ function App() {
                   {availableSymbols.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}
                 </select>
               </label>
-              <label className="temporal-control">
-                Center
-                <input
-                  type="datetime-local"
-                  value={activeCenter.slice(0, 16)}
-                  onChange={(event) => setSelectedTemporalCenter(alignTemporalCenter(`${event.currentTarget.value}:00Z`, activeFrame))}
-                />
-              </label>
-              <div className="frame-switcher">
-                {(viewport.available_frames ?? ['30m', '1h', '1D', '1W']).map((frame) => (
-                  <button
-                    className={frame === activeFrame ? 'selected' : ''}
-                    key={frame}
-                    onClick={() => setSelectedTemporalFrame(frame)}
-                    type="button"
-                  >
-                    {frame}
-                  </button>
-                ))}
-              </div>
-              <div className="axis-nudge-controls">
-                <button type="button" onClick={() => shiftCenter(-1)}>Prev</button>
-                <button type="button" onClick={() => shiftCenter(1)}>Next</button>
+              <div className="temporal-control">
+                Frame
+                <div className="frame-switcher">
+                  {(viewport.available_frames ?? ['1D', '1W']).map((frame) => (
+                    <button
+                      className={frame === activeFrame ? 'selected' : ''}
+                      key={frame}
+                      onClick={() => setSelectedTemporalFrame(frame)}
+                      type="button"
+                    >
+                      {frame}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-          <div
-            className="temporal-chart-frame"
-            onWheel={(event) => {
-              if (Math.abs(event.deltaY) < 8) return;
-              event.preventDefault();
-              shiftCenter(event.deltaY > 0 ? 1 : -1);
-            }}
-          >
+          <div className="temporal-chart-frame">
             <TemporalTradingViewChart
               symbol={activeSymbol}
               timeframe={activeChartTimeframe}
@@ -6396,7 +6389,7 @@ function App() {
               <div className="subchart-heading">Volume</div>
               {chartBars.length ? (
                 <div className="volume-subchart">
-                  {chartBars.slice(-90).map((bar) => (
+                  {chartBars.map((bar) => (
                     <span
                       key={`${bar.symbol}-${bar.timeframe}-${bar.bucket_start}-volume`}
                       style={{ height: `${Math.max(((bar.volume ?? 0) / maxVolume) * 100, 2)}%` }}

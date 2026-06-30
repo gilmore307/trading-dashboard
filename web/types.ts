@@ -66,6 +66,7 @@ export interface TemporalExplorerChartBarPayload {
   close: number;
   volume?: number;
   bar_count?: number;
+  source?: string;
 }
 
 export interface TemporalExplorerChartPayload {
@@ -75,6 +76,9 @@ export interface TemporalExplorerChartPayload {
     available_frames?: string[];
     start_utc?: string;
     end_utc?: string;
+    window_kind?: string;
+    replay_start_month?: string;
+    replay_end_month?: string;
   };
   timewheel_ticks?: TemporalExplorerTickPayload[];
   left_lanes?: TemporalExplorerLanePayload[];

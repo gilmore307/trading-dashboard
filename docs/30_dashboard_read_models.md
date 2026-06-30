@@ -181,7 +181,7 @@ If realtime monitoring has not started, `realtime_signal_summary` should say `no
 
 Purpose: support the event timeline section of the Events page.
 
-Current implementation: `trading-storage` builds this summary from accepted event-attention-pool inputs, market-session context, and chart bars. The dashboard Events page renders the primary chart as a TradingView-style K-line surface, lets the user select symbol/frame/center time locally with ticks aligned to frame boundaries, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to M06 accepted event families; ordinary scheduled events, released macro results, and news index rows remain evidence inputs until M06 promotes them. Chart bars are display context only, not training truth.
+Current implementation: `trading-storage` builds this summary from accepted event-attention-pool inputs, market-session context, and ETF chart bars for the current model-group replay window. The dashboard Events page renders the primary chart as a TradingView-style K-line surface, lets the user select SPY/QQQ/IWM/DIA and 1D/1W locally, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to M06 accepted event families; ordinary scheduled events, released macro results, and news index rows remain evidence inputs until M06 promotes them. Chart bars are display context only, not training truth.
 
 Owner-facing fields:
 

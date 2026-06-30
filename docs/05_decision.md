@@ -101,7 +101,7 @@ The dashboard calendar route is a Temporal Explorer, not a raw event browser. Th
 
 ### Decision
 
-Add a read-only Temporal Explorer page backed by `temporal_explorer_summary` from `trading-storage`. The primary chart is a TradingView-style K-line surface: selected frame, M06 accepted event markers, visible tick labels, and center time all live around the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, symbol/frame/center-time selectors, and selected-unit event details. The former narrow event-calendar summary is no longer part of the public dashboard surface.
+Add a read-only Temporal Explorer page backed by `temporal_explorer_summary` from `trading-storage`. The primary chart is a TradingView-style K-line surface over the current model-group replay window: selected ETF, selected frame, M06 accepted event markers, and visible tick labels all live around the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, symbol/frame selectors, and selected-unit event details. The former narrow event-calendar summary is no longer part of the public dashboard surface.
 
 ### Consequences
 
