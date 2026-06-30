@@ -3816,6 +3816,7 @@ function replayLayerShortLabel(row: Record<string, unknown>): string {
 function replayLayerEvidenceSeverity(status: unknown): string {
   const normalized = String(status ?? '').toLowerCase();
   if (normalized === 'published') return 'low';
+  if (normalized === 'effective_trace_unscored') return 'medium';
   if (normalized === 'coverage_only_missing_decision_quality') return 'medium';
   if (normalized === 'not_published') return 'info';
   return modelStatusSeverity(normalized);

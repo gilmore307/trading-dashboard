@@ -754,11 +754,11 @@ The existing replay review summary exposed attribution counts such as `miss_attr
 
 Replay Decisions consumes the `review_runs[].replay_decisions_m01_m05` projection from `model_group_replay_review_summary` as its primary page contract:
 
-- macro mode renders five separate layer chapters, one each for M01 through M05; each chapter compares model groups for that layer using effective decision count, coverage count, acceptable rate, harmful-error rate, missed-good rate, mean regret, mean impact, and evidence status;
-- micro mode keeps the same five layer chapters for one model group; each chapter owns its layer cards, charts, summary table, and effective layer-decision ledger with timestamp, target, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
+- macro mode renders five separate layer chapters, one each for M01 through M05; each chapter compares model groups for that layer using effective decision count, scored decision count, coverage count, acceptable rate, harmful-error rate, missed-good rate, mean regret, mean impact, and evidence status;
+- micro mode keeps the same five layer chapters for one model group; each chapter owns its layer cards, charts, summary table, and effective layer-decision ledger with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
 - M06 is explicitly listed as excluded from the Replay Decisions layer-quality contract;
 - future returns remain post-replay labels only and must not be presented as decision-time inputs;
-- layers with coverage but no effective decision-quality rows are shown as evidence gaps rather than inferred as correct or incorrect.
+- layers with effective trace but no layer-specific candidate-outcome label are shown as `effective_trace_unscored`, not as missing data and not as inferred correct or incorrect.
 
 ### Consequences
 

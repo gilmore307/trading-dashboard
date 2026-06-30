@@ -272,9 +272,10 @@ Visible content should include:
 
 - replay decision-version selector with the same selector format used by the replay page family;
 - five separate layer chapters, one each for M01 through M05;
-- in macro mode, each layer chapter compares model groups with that layer's summary table and charts for effective decisions, acceptable rate, harmful-error rate, and mean regret;
+- in macro mode, each layer chapter compares model groups with that layer's summary table and charts for effective decisions, scored decisions, acceptable rate, harmful-error rate, and mean regret;
 - in focused mode, each layer chapter shows that model group's layer cards, charts, summary table, and effective decision ledger;
-- effective layer-decision ledger rows with timestamp, target, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
+- effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
+- `effective_trace_unscored` rows remain visible so M01-M03 trace evidence is not confused with layer-correctness labels that are not yet published;
 - explicit exclusion of M06 residual-event governance from the layer-decision correctness scope;
 - clear separation between point-in-time decision evidence and future-return/counterfactual labels.
 
