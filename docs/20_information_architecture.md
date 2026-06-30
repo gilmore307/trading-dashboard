@@ -240,27 +240,28 @@ Purpose: answer “Did the replay machinery expose, route, compute, and execute 
 
 Visible content should include:
 
-- C01-C07 decision timelines and summaries;
-- M01-M06 input/output summaries where available;
-- component health, coverage, and missing-evidence diagnostics;
-- summary mode when no replay version is selected, focus mode when one or more replay versions are selected;
-- monthly replay operation status;
-- replay source-data readiness and visible gaps;
-- first-gap component and first-gap mechanism counts from replay review rows;
-- option path availability, fill status, replacement mechanics, source readiness, and component/surface evidence from replay review.
+- the same model-group selector pattern used by Replay Performance and Replay Decisions;
+- C01-C07 in-page component tabs: Intake, Entry, Lifecycle, Option Review, Order Intent, Execution Gate, and Failure Review;
+- summary mode comparing the active component across replayed model groups;
+- focus mode for one selected model group, with the active component's metric cards, time-axis trend charts, summary row, and sample ledger;
+- component gap rows, sample rows, gap rate, mean regret, mean impact, cause-family count, failure-type count, and top mechanism;
+- first-gap component and first-gap mechanism evidence from replay review rows.
 
 Preferred visuals:
 
-- full-width draggable charts;
+- component tabs rather than large vertical scrolling;
 - hover readouts;
 - summary metric cards;
-- inspectable trade/outcome tables.
+- time-axis line charts in focus mode;
+- component comparison bar charts in summary mode;
+- inspectable component sample tables.
 
 Hidden by default:
 
 - model statistical validity metrics such as AUROC;
 - raw decision rows;
 - model-layer decision-quality attribution and score/threshold/cost diagnostics;
+- model-layer M01-M05 correctness sections, which belong under Replay Decisions;
 - raw provider plumbing;
 - dataset internals unless they explain replay gaps.
 

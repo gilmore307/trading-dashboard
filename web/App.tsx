@@ -83,6 +83,59 @@ const REPLAY_DECISION_LAYER_NOTES: Record<string, { title: string; role: string;
     failure: 'Expression, contract, or execution choice turned an acceptable thesis into a harmful realized outcome.',
   },
 };
+const REPLAY_OPERATION_COMPONENT_ORDER = [
+  'component_01_intake',
+  'component_02_entry',
+  'component_03_lifecycle',
+  'component_04_option_review',
+  'component_05_order_intent',
+  'component_06_execution_gate',
+  'component_07_failure_review',
+];
+const REPLAY_OPERATION_COMPONENT_NOTES: Record<string, { title: string; role: string; review: string; failure: string }> = {
+  component_01_intake: {
+    title: 'C01 Intake',
+    role: 'Validates source readiness, target universe, candidate scope, and point-in-time inputs before replay action routing.',
+    review: 'Audit whether the replay had the required source and candidate evidence before downstream components acted.',
+    failure: 'Source, universe, or candidate input gaps made the later replay path unreliable.',
+  },
+  component_02_entry: {
+    title: 'C02 Entry',
+    role: 'Turns model outputs and candidate context into the underlying entry/action surface.',
+    review: 'Audit whether the underlying entry path was exposed and routed correctly before option expression.',
+    failure: 'The replay entered or skipped the wrong underlying action path before expression and execution.',
+  },
+  component_03_lifecycle: {
+    title: 'C03 Lifecycle',
+    role: 'Handles open-position lifecycle, replacement review, and position-management transitions.',
+    review: 'Audit whether held/replaced/closed state transitions followed the replay policy.',
+    failure: 'Position lifecycle or replacement mechanics created an avoidable path error.',
+  },
+  component_04_option_review: {
+    title: 'C04 Option Review',
+    role: 'Checks option expression, contract availability, selected path materialization, and expression feasibility.',
+    review: 'Audit whether the option surface preserved the intended underlying action with an executable contract path.',
+    failure: 'The option path was unavailable, malformed, too costly, or inconsistent with the accepted thesis.',
+  },
+  component_05_order_intent: {
+    title: 'C05 Order Intent',
+    role: 'Builds order intent, sizing, notional, allocation, and capacity constraints for replay execution.',
+    review: 'Audit whether sizing and order construction respected replay budget and allocation policy.',
+    failure: 'Sizing, notional, or order-intent construction distorted an otherwise valid replay action.',
+  },
+  component_06_execution_gate: {
+    title: 'C06 Execution Gate',
+    role: 'Applies execution, fill, path, and position-management gates after order intent.',
+    review: 'Audit whether execution/fill mechanics accepted, blocked, or altered the path correctly.',
+    failure: 'Execution, fill, or position-management mechanics caused the first replay gap.',
+  },
+  component_07_failure_review: {
+    title: 'C07 Failure Review',
+    role: 'Settles replay failure review, residual attribution, no-gap cases, and post-replay evidence linkage.',
+    review: 'Audit whether the final attribution explains the replay outcome without hiding upstream gaps.',
+    failure: 'The review could not isolate a gap, over-attributed it, or missed residual event/context evidence.',
+  },
+};
 
 const SOURCE_LABELS: Record<string, string> = {
   'trading-storage': 'System Monitor',
@@ -3981,6 +4034,7 @@ type ReplayLayerTrendPoint = {
   incorrectRate: number | null;
   missedGoodRate: number | null;
   meanRegret: number | null;
+  meanImpact: number | null;
   worstRegret: number | null;
 };
 
@@ -4021,6 +4075,8 @@ function replayLayerTrendPoints(rows: Array<Record<string, unknown>>): ReplayLay
   let missedGood = 0;
   let regretSum = 0;
   let regretCount = 0;
+  let impactSum = 0;
+  let impactCount = 0;
   let worstRegret: number | null = null;
   return Array.from(bucketed.entries())
     .sort((left, right) => left[0].localeCompare(right[0]))
@@ -4037,6 +4093,11 @@ function replayLayerTrendPoints(rows: Array<Record<string, unknown>>): ReplayLay
           regretCount += 1;
           worstRegret = worstRegret === null ? regret : Math.max(worstRegret, regret);
         }
+        const impact = metricNumber(row, 'impact_normalized_severity_score');
+        if (impact !== null) {
+          impactSum += impact;
+          impactCount += 1;
+        }
       });
       return {
         label,
@@ -4047,6 +4108,7 @@ function replayLayerTrendPoints(rows: Array<Record<string, unknown>>): ReplayLay
         incorrectRate: cumulativeEffective ? incorrect / cumulativeEffective : null,
         missedGoodRate: cumulativeEffective ? missedGood / cumulativeEffective : null,
         meanRegret: regretCount ? regretSum / regretCount : null,
+        meanImpact: impactCount ? impactSum / impactCount : null,
         worstRegret,
       };
     });
@@ -4078,6 +4140,162 @@ function aggregateCounts(runs: Array<Record<string, unknown>>, section: (run: Re
     }
   }
   return counts;
+}
+
+function replayOperationRows(run: Record<string, unknown>): Array<Record<string, unknown>> {
+  return nestedArray(replayReviewDecision(run), 'sample_rows');
+}
+
+function replayOperationComponentIdForText(...values: unknown[]): string {
+  const text = searchText(...values);
+  if (!text || text.includes('no_gap') || text.includes('no gap')) return 'component_07_failure_review';
+  if (text.includes('source') || text.includes('readiness') || text.includes('universe') || text.includes('intake') || text.includes('candidate_scope')) return 'component_01_intake';
+  if (text.includes('replacement') || text.includes('lifecycle') || text.includes('held') || text.includes('position_lifecycle')) return 'component_03_lifecycle';
+  if (text.includes('option') || text.includes('contract') || text.includes('expression') || text.includes('model_05')) return 'component_04_option_review';
+  if (text.includes('order') || text.includes('intent') || text.includes('sizing') || text.includes('notional') || text.includes('allocation') || text.includes('capacity')) return 'component_05_order_intent';
+  if (text.includes('execution') || text.includes('fill') || text.includes('path') || text.includes('position_management')) return 'component_06_execution_gate';
+  if (text.includes('target') || text.includes('entry') || text.includes('underlying') || text.includes('model_04') || text.includes('decision')) return 'component_02_entry';
+  if (text.includes('event') || text.includes('residual') || text.includes('review')) return 'component_07_failure_review';
+  return 'component_07_failure_review';
+}
+
+function replayOperationComponentIdForRow(row: Record<string, unknown>): string {
+  return replayOperationComponentIdForText(
+    row.first_gap_component,
+    row.first_gap_mechanism,
+    row.failure_type,
+    row.cause_family,
+    row.chosen_action,
+    row.best_available_action_by_future_outcome,
+  );
+}
+
+function replayOperationRowsForComponent(run: Record<string, unknown> | null, componentId: string): Array<Record<string, unknown>> {
+  return run ? replayOperationRows(run).filter((row) => replayOperationComponentIdForRow(row) === componentId) : [];
+}
+
+function replayOperationGapRowsFromCounts(run: Record<string, unknown>, componentId: string): number {
+  const counts = countRecord(replayReviewDecision(run), 'first_gap_component_counts');
+  return Object.entries(counts).reduce((total, [key, value]) => {
+    if (replayOperationComponentIdForText(key) !== componentId) return total;
+    const numeric = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(numeric) ? total + numeric : total;
+  }, 0);
+}
+
+function replayOperationMechanismLabel(rows: Array<Record<string, unknown>>): string {
+  const counts: Record<string, number> = {};
+  rows.forEach((row) => {
+    const label = String(row.first_gap_mechanism ?? row.first_gap_component ?? 'not_reported');
+    counts[label] = (counts[label] ?? 0) + 1;
+  });
+  return countSeriesFromRecord(counts)[0]?.label ?? 'Not reported';
+}
+
+function replayOperationMean(rows: Array<Record<string, unknown>>, key: string): number | null {
+  const values = rows.map((row) => metricNumber(row, key)).filter((value): value is number => value !== null);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function replayOperationDistinctCount(rows: Array<Record<string, unknown>>, key: string): number {
+  return new Set(rows.map((row) => String(row[key] ?? '').trim()).filter(Boolean)).size;
+}
+
+function replayOperationComponentRows(runs: Array<Record<string, unknown>>, componentId: string) {
+  return runs.map((run, runIndex) => {
+    const rows = replayOperationRowsForComponent(run, componentId);
+    const reviewedRows = metricNumber(replayReviewDecision(run), 'row_count') ?? replayOperationRows(run).length;
+    const gapRows = replayOperationGapRowsFromCounts(run, componentId) || rows.length;
+    const note = REPLAY_OPERATION_COMPONENT_NOTES[componentId];
+    return {
+      id: `${replayReviewRunId(run, runIndex)}-${componentId}`,
+      run,
+      runLabel: replayReviewRunLabel(run, runIndex),
+      componentId,
+      componentLabel: note?.title ?? startCase(componentId),
+      evidenceStatus: gapRows || rows.length ? 'published' : 'not_published',
+      reviewedRows,
+      gapRows,
+      sampleRows: rows.length,
+      gapRate: reviewedRows ? gapRows / reviewedRows : null,
+      meanRegret: replayOperationMean(rows, 'regret_to_best_available'),
+      meanImpact: replayOperationMean(rows, 'impact_normalized_severity_score'),
+      causeFamilyCount: replayOperationDistinctCount(rows, 'cause_family'),
+      failureTypeCount: replayOperationDistinctCount(rows, 'failure_type'),
+      topMechanism: replayOperationMechanismLabel(rows),
+    };
+  });
+}
+
+type ReplayOperationComponentRow = ReturnType<typeof replayOperationComponentRows>[number];
+
+function replayOperationMetricSeries(
+  rows: ReplayOperationComponentRow[],
+  key: 'gapRows' | 'sampleRows' | 'gapRate' | 'meanRegret' | 'meanImpact' | 'causeFamilyCount' | 'failureTypeCount',
+) {
+  const isRate = key === 'gapRate';
+  return rows
+    .map((row) => {
+      const value = row[key];
+      if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+      const valueLabel = isRate ? `${(value * 100).toFixed(1)}%` : key === 'meanRegret' || key === 'meanImpact' ? value.toFixed(4) : value.toFixed(0);
+      return {
+        label: row.runLabel,
+        value,
+        status: row.evidenceStatus,
+        valueLabel,
+        tooltip: `${row.componentLabel} · ${row.runLabel}: ${valueLabel} · ${row.topMechanism}`,
+      };
+    })
+    .filter((point): point is { label: string; value: number; status: string; valueLabel: string; tooltip: string } => Boolean(point));
+}
+
+type ReplayOperationTrendPoint = {
+  label: string;
+  cumulativeRows: number;
+  bucketCount: number;
+  meanRegret: number | null;
+  meanImpact: number | null;
+  worstRegret: number | null;
+};
+
+function replayOperationTrendPoints(rows: Array<Record<string, unknown>>): ReplayOperationTrendPoint[] {
+  const bucketed = new Map<string, Array<Record<string, unknown>>>();
+  rows.forEach((row) => {
+    const label = replayLayerBucketLabel(row);
+    if (!bucketed.has(label)) bucketed.set(label, []);
+    bucketed.get(label)?.push(row);
+  });
+  let cumulativeRows = 0;
+  let regretSum = 0;
+  let regretCount = 0;
+  let impactSum = 0;
+  let impactCount = 0;
+  let worstRegret: number | null = null;
+  return Array.from(bucketed.entries()).sort((left, right) => left[0].localeCompare(right[0])).map(([label, bucketRows]) => {
+    bucketRows.forEach((row) => {
+      cumulativeRows += 1;
+      const regret = metricNumber(row, 'regret_to_best_available');
+      if (regret !== null) {
+        regretSum += regret;
+        regretCount += 1;
+        worstRegret = worstRegret === null ? regret : Math.max(worstRegret, regret);
+      }
+      const impact = metricNumber(row, 'impact_normalized_severity_score');
+      if (impact !== null) {
+        impactSum += impact;
+        impactCount += 1;
+      }
+    });
+    return {
+      label,
+      cumulativeRows,
+      bucketCount: bucketRows.length,
+      meanRegret: regretCount ? regretSum / regretCount : null,
+      meanImpact: impactCount ? impactSum / impactCount : null,
+      worstRegret,
+    };
+  });
 }
 
 function replayReviewMetricSeries(
@@ -4579,6 +4797,7 @@ function ReplayLayerFocusTrendCharts({ rows }: { rows: Array<Record<string, unkn
       <ReplayLayerTrendChart title="Cumulative Incorrect %" points={points} valueForPoint={(point) => point.incorrectRate} valueLabel={percentLabel} emptyLabel="No correctness labels published for this layer" />
       <ReplayLayerTrendChart title="Cumulative Missed %" points={points} valueForPoint={(point) => point.missedGoodRate} valueLabel={percentLabel} emptyLabel="No missed-good labels published for this layer" />
       <ReplayLayerTrendChart title="Cumulative Mean Regret" points={points} valueForPoint={(point) => point.meanRegret} valueLabel={numberLabel} emptyLabel="No regret labels published for this layer" />
+      <ReplayLayerTrendChart title="Cumulative Mean Impact" points={points} valueForPoint={(point) => point.meanImpact} valueLabel={numberLabel} emptyLabel="No impact labels published for this layer" />
       <ReplayLayerTrendChart title="Worst Regret Seen" points={points} valueForPoint={(point) => point.worstRegret} valueLabel={numberLabel} emptyLabel="No worst-regret labels published for this layer" />
     </div>
   );
@@ -5072,6 +5291,191 @@ function ReplayDecisionsView({
   );
 }
 
+function ReplayOperationComponentTabs({
+  activeComponentId,
+  runs,
+  onChange,
+}: {
+  activeComponentId: string;
+  runs: Array<Record<string, unknown>>;
+  onChange: (componentId: string) => void;
+}) {
+  return (
+    <section className="replay-layer-tabs replay-operation-tabs" aria-label="Replay operation components">
+      {REPLAY_OPERATION_COMPONENT_ORDER.map((componentId) => {
+        const note = REPLAY_OPERATION_COMPONENT_NOTES[componentId];
+        const count = replayOperationComponentRows(runs, componentId).reduce((total, row) => total + row.gapRows, 0);
+        return (
+          <button
+            className={activeComponentId === componentId ? 'selected' : ''}
+            key={componentId}
+            onClick={() => onChange(componentId)}
+            type="button"
+          >
+            <span>{note?.title ?? startCase(componentId)}</span>
+            <small>{formatMetricValue(count, 0)} gap rows</small>
+          </button>
+        );
+      })}
+    </section>
+  );
+}
+
+function ReplayOperationComponentTable({ rows }: { rows: ReplayOperationComponentRow[] }) {
+  const [sort, setSort] = useState<SortState<'runLabel' | 'evidenceStatus' | 'gapRows' | 'sampleRows' | 'gapRate' | 'meanRegret' | 'meanImpact' | 'causeFamilyCount' | 'failureTypeCount' | 'topMechanism'>>({ key: 'runLabel', direction: 'asc' });
+  const sortedRows = [...rows].sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.runLabel.localeCompare(right.runLabel));
+  return (
+    <div className="replay-table replay-operation-component-table">
+      <div className="replay-table-row replay-table-head">
+        <SortableHeader label="Model Group" column="runLabel" sort={sort} onSort={setSort} />
+        <SortableHeader label="Evidence" column="evidenceStatus" sort={sort} onSort={setSort} />
+        <SortableHeader label="Gap Rows" column="gapRows" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Samples" column="sampleRows" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Gap %" column="gapRate" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Regret" column="meanRegret" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Impact" column="meanImpact" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Causes" column="causeFamilyCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Failures" column="failureTypeCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Top Mechanism" column="topMechanism" sort={sort} onSort={setSort} />
+      </div>
+      {sortedRows.length ? sortedRows.map((row) => (
+        <div className="replay-table-row" key={row.id}>
+          <strong>{row.runLabel}</strong>
+          <span><StatusPill status={startCase(row.evidenceStatus)} severity={replayLayerEvidenceSeverity(row.evidenceStatus)} /></span>
+          <span>{formatMetricValue(row.gapRows, 0)}</span>
+          <span>{formatMetricValue(row.sampleRows, 0)}</span>
+          <span>{row.gapRate === null ? 'Not reported' : `${(row.gapRate * 100).toFixed(1)}%`}</span>
+          <span>{formatMetricValue(row.meanRegret, 4)}</span>
+          <span>{formatMetricValue(row.meanImpact, 4)}</span>
+          <span>{formatMetricValue(row.causeFamilyCount, 0)}</span>
+          <span>{formatMetricValue(row.failureTypeCount, 0)}</span>
+          <span>{row.topMechanism}</span>
+        </div>
+      )) : <div className="empty-chart compact">No replay operation rows are published for this component.</div>}
+    </div>
+  );
+}
+
+function ReplayOperationComponentCharts({ rows }: { rows: ReplayOperationComponentRow[] }) {
+  return (
+    <div className="replay-chart-grid">
+      <MiniMetricBarChart title="Gap Rows" series={replayOperationMetricSeries(rows, 'gapRows')} emptyLabel="No first-gap rows published for this component" />
+      <MiniMetricBarChart title="Sample Rows" series={replayOperationMetricSeries(rows, 'sampleRows')} emptyLabel="No sample rows published for this component" />
+      <MiniMetricBarChart title="Gap Rate" series={replayOperationMetricSeries(rows, 'gapRate')} emptyLabel="No component gap-rate metrics published" />
+      <MiniMetricBarChart title="Mean Regret" series={replayOperationMetricSeries(rows, 'meanRegret')} emptyLabel="No component regret metrics published" />
+      <MiniMetricBarChart title="Mean Impact" series={replayOperationMetricSeries(rows, 'meanImpact')} emptyLabel="No component impact metrics published" />
+      <MiniMetricBarChart title="Cause Families" series={replayOperationMetricSeries(rows, 'causeFamilyCount')} emptyLabel="No component cause-family metrics published" />
+      <MiniMetricBarChart title="Failure Types" series={replayOperationMetricSeries(rows, 'failureTypeCount')} emptyLabel="No component failure-type metrics published" />
+    </div>
+  );
+}
+
+function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unknown>> }) {
+  const trendPoints = replayOperationTrendPoints(rows).map((point): ReplayLayerTrendPoint => ({
+    label: point.label,
+    cumulativeEffective: point.cumulativeRows,
+    bucketCount: point.bucketCount,
+    acceptRate: null,
+    harmRate: null,
+    incorrectRate: null,
+    missedGoodRate: null,
+    meanRegret: point.meanRegret,
+    meanImpact: point.meanImpact,
+    worstRegret: point.worstRegret,
+  }));
+  const numberLabel = (value: number) => value.toFixed(4);
+  return (
+    <div className="replay-chart-grid replay-trend-grid">
+      <ReplayLayerTrendChart title="Cumulative Component Gap Rows" points={trendPoints} valueForPoint={(point) => point.cumulativeEffective} valueLabel={(value) => value.toFixed(0)} emptyLabel="No component rows published" />
+      <ReplayLayerTrendChart title="Cumulative Mean Regret" points={trendPoints} valueForPoint={(point) => point.meanRegret} valueLabel={numberLabel} emptyLabel="No component regret values published" />
+      <ReplayLayerTrendChart title="Cumulative Mean Impact" points={trendPoints} valueForPoint={(point) => point.meanImpact} valueLabel={numberLabel} emptyLabel="No component impact values published" />
+      <ReplayLayerTrendChart title="Worst Regret Seen" points={trendPoints} valueForPoint={(point) => point.worstRegret} valueLabel={numberLabel} emptyLabel="No component worst-regret values published" />
+    </div>
+  );
+}
+
+function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
+  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'first_gap_component' | 'first_gap_mechanism' | 'cause_family' | 'failure_type' | 'chosen_action' | 'best_available_action_by_future_outcome' | 'regret_to_best_available' | 'impact_normalized_severity_score'>>({ key: 'decision_time', direction: 'asc' });
+  const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
+  return (
+    <div className="replay-table replay-operation-ledger-table">
+      <div className="replay-table-row replay-table-head">
+        <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
+        <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
+        <SortableHeader label="Gap Component" column="first_gap_component" sort={sort} onSort={setSort} />
+        <SortableHeader label="Mechanism" column="first_gap_mechanism" sort={sort} onSort={setSort} />
+        <SortableHeader label="Cause" column="cause_family" sort={sort} onSort={setSort} />
+        <SortableHeader label="Failure" column="failure_type" sort={sort} onSort={setSort} />
+        <SortableHeader label="Chosen" column="chosen_action" sort={sort} onSort={setSort} />
+        <SortableHeader label="Best Available" column="best_available_action_by_future_outcome" sort={sort} onSort={setSort} />
+        <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Impact" column="impact_normalized_severity_score" sort={sort} onSort={setSort} defaultDirection="desc" />
+      </div>
+      {sortedRows.length ? sortedRows.map((row, index) => (
+        <div className="replay-table-row" key={`${String(row.review_id ?? 'row')}-${index}`}>
+          <strong>{String(row.decision_time ?? row.replay_month ?? 'Not reported')}</strong>
+          <span>{String(row.target_symbol ?? 'Not reported')}</span>
+          <span>{startCase(String(row.first_gap_component ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.first_gap_mechanism ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.chosen_action ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.best_available_action_by_future_outcome ?? 'not_reported'))}</span>
+          <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
+          <span>{formatMetricValue(metricNumber(row, 'impact_normalized_severity_score'), 4)}</span>
+        </div>
+      )) : <div className="empty-chart compact">No sample rows are published for this replay component.</div>}
+    </div>
+  );
+}
+
+function ReplayOperationComponentSection({
+  runs,
+  focusedRun,
+  componentId,
+}: {
+  runs: Array<Record<string, unknown>>;
+  focusedRun: Record<string, unknown> | null;
+  componentId: string;
+}) {
+  const rows = replayOperationComponentRows(runs, componentId);
+  const focusedSummary = focusedRun ? replayOperationComponentRows([focusedRun], componentId)[0] ?? null : null;
+  const ledgerRows = replayOperationRowsForComponent(focusedRun, componentId);
+  const note = REPLAY_OPERATION_COMPONENT_NOTES[componentId];
+  return (
+    <section className="panel replay-layer-section replay-operation-section">
+      <div className="panel-heading">{note?.title ?? startCase(componentId)}</div>
+      {note ? (
+        <div className="replay-layer-intro">
+          <strong>{note.role}</strong>
+          <span>{note.review}</span>
+          <small>{note.failure}</small>
+        </div>
+      ) : null}
+      {focusedSummary ? (
+        <div className="metric-grid replay-layer-metrics">
+          <MetricCard label="Gap Rows" value={formatMetricValue(focusedSummary.gapRows, 0)} hint={`${formatMetricValue(focusedSummary.reviewedRows, 0)} reviewed rows`} />
+          <MetricCard label="Sample Rows" value={formatMetricValue(focusedSummary.sampleRows, 0)} hint={startCase(focusedSummary.evidenceStatus)} />
+          <MetricCard label="Gap %" value={focusedSummary.gapRate === null ? 'Not reported' : `${(focusedSummary.gapRate * 100).toFixed(1)}%`} hint="Component first-gap share" />
+          <MetricCard label="Mean Regret" value={formatMetricValue(focusedSummary.meanRegret, 4)} hint={focusedSummary.topMechanism} />
+          <MetricCard label="Mean Impact" value={formatMetricValue(focusedSummary.meanImpact, 4)} hint="Normalized severity where published" />
+          <MetricCard label="Cause Families" value={formatMetricValue(focusedSummary.causeFamilyCount, 0)} hint={`${formatMetricValue(focusedSummary.failureTypeCount, 0)} failure types`} />
+        </div>
+      ) : null}
+      {focusedRun ? <ReplayOperationTrendCharts rows={ledgerRows} /> : <ReplayOperationComponentCharts rows={rows} />}
+      <div className="replay-table-panel">
+        <ReplayOperationComponentTable rows={rows} />
+      </div>
+      {focusedRun ? (
+        <div className="replay-table-panel">
+          <div className="panel-heading">Component Sample Rows</div>
+          <ReplayOperationComponentLedger rows={ledgerRows} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function ReplayOperationsView({
   promotionChart,
   replayReviewChart,
@@ -5079,12 +5483,14 @@ function ReplayOperationsView({
   promotionChart: ModelPromotionPostureChartPayload;
   replayReviewChart: ReplayReviewChartPayload;
 }) {
-  const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const reviewRuns = replayReviewRuns(replayReviewChart);
+  const promotionVersions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const versions = promotionVersions.length ? promotionVersions : reviewRuns.map(replayReviewRunVersion);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const versionKey = versionIds.join('|');
-  const reviewRuns = replayReviewRuns(replayReviewChart);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeComponentId, setActiveComponentId] = useState(REPLAY_OPERATION_COMPONENT_ORDER[0]);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
@@ -5096,68 +5502,32 @@ function ReplayOperationsView({
     .map(({ version }) => replayReviewRunForVersion(version, reviewRuns))
     .filter((run): run is Record<string, unknown> => Boolean(run));
   const chartReviewRuns = selectedEntries.length ? selectedReviewRuns : reviewRuns;
-  const firstGapCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewDecision(run), 'first_gap_component_counts'));
-  const optionPathCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewSection(run, 'option_expression'), 'path_status_counts'));
-  const replacementCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewSection(run, 'replacement_review'), 'replacement_status_counts'));
-  const fillCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewSection(run, 'decision_scope'), 'fill_status_counts'));
-  const operationReadyCount = versions.filter((version) => {
-    const metrics = version.metrics ?? {};
-    return Boolean(
-      nestedRecord(metrics, 'component_health_diagnostics')
-      ?? nestedRecord(metrics, 'replay_operation_diagnostics')
-      ?? nestedRecord(metrics, 'source_data_readiness'),
-    );
-  }).length;
+  const focusedRun = selectedEntries.length === 1 ? selectedReviewRuns[0] ?? null : null;
   return (
     <section className="replay-view">
       <ReplaySelectionModePanel
-        mode={selectedEntries.length ? 'focus' : 'summary'}
-        summary={selectedEntries.length ? `${selectedEntries.length} model group replay selections` : `${versions.length} model group replay versions in operation summary`}
-        onClear={() => setSelectedIds([])}
+        mode={focusedRun ? 'focus' : 'summary'}
+        summary={
+          focusedRun
+            ? `Focused on ${compactVersionLabel(selectedEntries[0].version, selectedEntries[0].index)} by replay operation component`
+            : selectedEntries.length
+              ? `${selectedEntries.length} selected model groups in operation-component comparison`
+              : `${chartReviewRuns.length} reviewed model groups in operation-component comparison`
+        }
+        onClear={selectedIds.length ? () => setSelectedIds([]) : undefined}
       />
-      <ReplayPerformanceSummaryTable
-        entries={entries}
-        reviewRuns={reviewRuns}
+      <ReplayDecisionVersionSelector
+        versions={versions}
         selectedIds={selectedIds}
         onChange={setSelectedIds}
       />
-      <div className="replay-chart-grid">
-        <MiniMetricBarChart title="First Gap Component" series={countSeriesFromRecord(firstGapCounts)} emptyLabel="No first-gap component counts published" />
-        <MiniMetricBarChart title="Option Path Status" series={countSeriesFromRecord(optionPathCounts)} emptyLabel="No option path status counts published" />
-        <MiniMetricBarChart title="Replacement Status" series={countSeriesFromRecord(replacementCounts)} emptyLabel="No replacement review counts published" />
-        <MiniMetricBarChart title="Fill Status" series={countSeriesFromRecord(fillCounts)} emptyLabel="No fill-status counts published" />
-      </div>
-      <ReplayReviewFocusPanel runs={selectedReviewRuns} title="Replay Operation Focus Evidence" />
-      <ReplaySelectionModePanel
-        mode="summary"
-        summary={`${versions.length} promotion-posture replay versions · ${operationReadyCount} with legacy operation diagnostics`}
+      <ReplayOperationComponentTabs activeComponentId={activeComponentId} runs={chartReviewRuns} onChange={setActiveComponentId} />
+      <ReplayOperationComponentSection
+        key={activeComponentId}
+        runs={focusedRun ? [focusedRun] : chartReviewRuns}
+        focusedRun={focusedRun}
+        componentId={activeComponentId}
       />
-      <section className="panel replay-operations-placeholder">
-        <div className="panel-heading">Legacy Operation Evidence</div>
-        <p className="panel-subtitle">Component execution surfaces now come from replay review when published. This legacy section only reports operation diagnostics still embedded in promotion posture.</p>
-        <div className="metric-grid three">
-          <MetricCard label="Replay versions" value={versions.length} hint="Published model-group replay versions" />
-          <MetricCard label="Operation diagnostics" value={operationReadyCount} hint="Component operation evidence with current read model fields" />
-          <MetricCard label="Decision evidence" value="Moved" hint="Use Replay Decisions for component decision drilldown" />
-        </div>
-        {operationReadyCount ? (
-          <div className="replay-operation-list">
-            {versions.map((version, index) => {
-              const metrics = version.metrics ?? {};
-              const diagnostics = nestedRecord(metrics, 'replay_operation_diagnostics') ?? nestedRecord(metrics, 'component_health_diagnostics') ?? nestedRecord(metrics, 'source_data_readiness');
-              if (!diagnostics) return null;
-              return (
-                <div className="replay-operation-row" key={versionStableId(version, index)}>
-                  <strong>{compactVersionLabel(version, index)}</strong>
-                  <span>{startCase(String(diagnostics.status ?? version.decision_status ?? 'reported'))}</span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="empty-chart compact">No replay operation timeline, component health, or source-readiness diagnostics are published in the current read model.</div>
-        )}
-      </section>
     </section>
   );
 }
