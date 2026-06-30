@@ -1130,6 +1130,22 @@ function progressPayloadView(
       failed: status === 'failed',
     };
   }
+  if (progress.progress_display_mode === 'percent_only' && typeof progress.progress_percent === 'number' && Number.isFinite(progress.progress_percent)) {
+    const percent = Math.max(0, Math.min(100, progress.progress_percent));
+    const failedCount = Math.max(0, progress.failed_count ?? 0);
+    const acceptedSkipCount = Math.max(0, progress.accepted_failed_count ?? 0);
+    const updated = progress.updated_at_utc ? ` · Updated ${formatTimestamp(progress.updated_at_utc)}` : '';
+    const source = progress.progress_source ? ` · ${startCase(progress.progress_source)}` : '';
+    const basis = progress.progress_basis ? ` · ${progress.progress_basis}` : '';
+    return {
+      percent,
+      label: formatPercent(percent),
+      hint: `Failed ${failedCount} · Accepted skips ${acceptedSkipCount}${source}${updated}${basis}`,
+      hasEvidence: true,
+      hasBar: true,
+      failed: failedCount > 0 || String(progress.status || statusValue || '').toLowerCase() === 'failed',
+    };
+  }
   const expected = Math.max(0, progress.expected_count ?? 0);
   const ready = Math.max(0, progress.ready_count ?? 0);
   const active = Math.max(0, progress.active_count ?? progress.current_count ?? ready);

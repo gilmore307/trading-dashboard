@@ -134,6 +134,10 @@ export interface StageCoveragePayload {
   ready_count?: number;
   active_count?: number;
   current_count?: number;
+  progress_percent?: number;
+  progress_display_mode?: string | null;
+  estimated_expected_seconds?: number;
+  estimated_ready_seconds?: number;
   active_month?: string | null;
   current_month?: string | null;
   active_time_pointer?: string | null;
