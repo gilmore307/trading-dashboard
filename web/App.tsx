@@ -1279,6 +1279,8 @@ function compactVersionLabel(version: ModelGroupPromotionVersionPayload, index: 
   const label = String(version.version_label ?? '').trim();
   if (label) return label;
   const target = String(version.target_symbol ?? '').trim().toUpperCase();
+  const targetYearFold = modelTargetYearFoldLabel(String(version.fold_id ?? version.candidate_fold_id ?? ''), target);
+  if (targetYearFold) return targetYearFold;
   const compactFold = /(?<year>20\d{2})[-_ ]?fold[-_ ]?(?<fold>\d+)/iu.exec(String(version.fold_id ?? ''));
   if (compactFold?.groups) {
     const foldLabel = `${compactFold.groups.year} fold${Number(compactFold.groups.fold)}`;
@@ -1290,6 +1292,13 @@ function compactVersionLabel(version: ModelGroupPromotionVersionPayload, index: 
     return target ? `${target} ${foldLabel}` : foldLabel;
   }
   return String(version.version_id ?? '').trim() || `v${index + 1}`;
+}
+
+function modelTargetYearFoldLabel(foldId: string, fallbackTarget = ''): string | null {
+  const match = /^fold[_-](?<target>[a-z0-9]+)[_-](?<year>20\d{2})$/iu.exec(foldId.trim());
+  if (!match?.groups) return null;
+  const target = (fallbackTarget.trim() || match.groups.target).toUpperCase();
+  return `${target} ${match.groups.year}`;
 }
 
 function versionMetricSeries(versions: ModelGroupPromotionVersionPayload[], key: string): Array<{ label: string; value: number; status?: string | null }> {
@@ -3720,7 +3729,10 @@ function replayReviewRunId(run: Record<string, unknown>, index: number): string 
 
 function replayReviewRunLabel(run: Record<string, unknown>, index: number): string {
   const target = String(run.target_symbol ?? run.candidate_training_target ?? '').trim().toUpperCase();
-  const fold = String(run.candidate_fold_id ?? '').replace(/^fold_/u, '').replace('_', ' to ');
+  const foldId = String(run.candidate_fold_id ?? '');
+  const targetYearFold = modelTargetYearFoldLabel(foldId, target);
+  if (targetYearFold) return targetYearFold;
+  const fold = foldId.replace(/^fold_/u, '').replace('_', ' to ');
   if (target && fold) return `${target} ${fold}`;
   if (target) return target;
   if (fold) return fold;
