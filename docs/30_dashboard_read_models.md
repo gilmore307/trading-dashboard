@@ -286,11 +286,12 @@ Replay Performance presentation:
 - Replay Performance initially consumes `model_promotion_posture_summary.group_versions` for historical replay economics because that is where current version-level replay diagnostics are published;
 - published replay group versions must come from the live-flow candidate-policy route: M01/M02 base context is only reusable context, while trade candidates must be evidenced by the M02 target-candidate handoff or an explicit reviewed preview override;
 - Performance charts must normalize every strategy, ETF, M01, M02, and context comparison series to `1.0` at the selected start. The replay `25000 USD` initial capital is execution/risk-limit metadata, not the chart scale;
-- Replay Performance owns one normalized NAV chart slot: a single selected series renders as a monthly normalized NAV K-line, while multiple selected series render as normalized NAV lines on one shared chart for readability;
-- no selected replay series means summary mode across all published versions; selected replay series mean focus mode over the selected set;
+- Replay Performance owns one normalized NAV chart slot: no selected model group renders all published model groups as simple normalized NAV lines on one shared chart, while one selected model group renders as a monthly normalized NAV K-line;
+- no selected replay model group means summary mode across all published versions; selecting one replay model group means focus mode for that model group; Performance does not support multi-selected focus because the unselected summary already owns cross-model comparison;
 - monthly normalized NAV K-line uses replay return slices compounded from `1.0`; when a slice publishes `net_return_path_ohlc`, the candle high/low must come from that row-level replay return path rather than from endpoint-only open/close values;
 - performance summary is table-first: series identity, target, normalized NAV, total return, excess return, max drawdown, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and monthly win rate are shown in one selector table;
-- metric comparison charts show total return, drawdown, excess return, volatility, Sharpe, and beta when published;
+- metric comparison charts show total return, drawdown, excess return, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and win rate when published;
+- Trading Performance Diagnostics is selected-model-only and may show detailed return, risk, trade outcome, funnel, replacement, regret, notional, and review-coverage statistics for that model group;
 - ETF, M01, M02, and sector-anchor comparison series stay absent until a read model publishes them; the dashboard must not fabricate benchmark rows from missing evidence.
 
 Replay Decisions legacy presentation:

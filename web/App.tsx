@@ -3552,8 +3552,7 @@ function ReplayPerformanceSummaryTable({
               key={row.id}
               type="button"
               onClick={() => {
-                const next = selected ? selectedIds.filter((item) => item !== row.id) : [...selectedIds, row.id];
-                onChange(next);
+                onChange(selected ? [] : [row.id]);
               }}
             >
               <strong><i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}</strong>
@@ -3716,13 +3715,19 @@ function ReplayNormalizedNavCandles({
   );
 }
 
-function ReplayPerformanceNavChart({ entries }: { entries: ReplayVersionEntry[] }) {
-  if (entries.length === 1) {
+function ReplayPerformanceNavChart({
+  entries,
+  focused,
+}: {
+  entries: ReplayVersionEntry[];
+  focused: boolean;
+}) {
+  if (focused && entries.length === 1) {
     return <ReplayNormalizedNavCandles version={entries[0]?.version ?? null} />;
   }
   return (
     <ReplayOverlayChart
-      title="Normalized NAV"
+      title="Normalized NAV Lines"
       series={replayNormalizedNavSeriesForVersions(entries)}
       yLabel="Normalized NAV"
       emptyLabel="No replay NAV slices published"
@@ -3833,16 +3838,6 @@ function performanceSummaryMetricSeries(
   return points;
 }
 
-function sumMetric(rows: ReplayPerformanceSummary[], key: keyof ReplayPerformanceSummary): number | null {
-  const values = rows.map((row) => row[key]).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
-}
-
-function meanMetric(rows: ReplayPerformanceSummary[], key: keyof ReplayPerformanceSummary): number | null {
-  const values = rows.map((row) => row[key]).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-}
-
 function MetricAvailabilityPanel({
   title,
   rows,
@@ -3872,20 +3867,180 @@ function MetricAvailabilityPanel({
   );
 }
 
-function ReplayTradingPerformanceDiagnostics({ rows }: { rows: ReplayPerformanceSummary[] }) {
-  if (!rows.length) return null;
+function replayMonthlyRowSeriesForEntry(
+  entry: ReplayVersionEntry,
+  specs: Array<{ key: keyof Pick<ReplayMonthRow, 'rowCount' | 'auroc' | 'brierScore'>; label: string }>,
+): ReplaySeries[] {
+  const rows = replayMonthlyRows(entry.version, entry.index);
+  const id = versionStableId(entry.version, entry.index);
+  return specs.map((spec, specIndex) => {
+    const points = rows
+      .map((row) => ({ label: row.month, value: row[spec.key] }))
+      .filter((point): point is { label: string; value: number } => typeof point.value === 'number' && Number.isFinite(point.value));
+    return {
+      id: `${id}-${spec.key}`,
+      label: spec.label,
+      color: SCATTER_GROUP_COLORS[specIndex % SCATTER_GROUP_COLORS.length],
+      points,
+      valueByMonth: new Map(points.map((point) => [point.label, point.value])),
+    };
+  }).filter((series) => series.points.length);
+}
+
+function SelectedReplayTradingDiagnostics({ row }: { row: ReplayPerformanceSummary | null }) {
+  if (!row) return null;
   return (
     <section className="panel replay-performance-diagnostics">
       <div className="panel-heading">Trading Performance Diagnostics</div>
       <div className="metric-grid three">
-        <MetricCard label="Filled decisions" value={formatMetricValue(sumMetric(rows, 'filledCount'), 0)} hint="Replay decisions that became simulated fills" />
-        <MetricCard label="Gross PnL" value={formatMetricValue(sumMetric(rows, 'grossPnl'), 2)} hint="Sum of matched post-replay performance PnL" />
-        <MetricCard label="Mean trade" value={formatMetricValue(meanMetric(rows, 'meanRealizedReturn'), 4)} hint="Average realized return per matched run" />
-        <MetricCard label="Positive / negative" value={`${formatMetricValue(sumMetric(rows, 'positiveReturnCount'), 0)} / ${formatMetricValue(sumMetric(rows, 'negativeReturnCount'), 0)}`} hint="Filled trade outcome counts" />
-        <MetricCard label="Mean regret" value={formatMetricValue(meanMetric(rows, 'meanRegretToBest'), 4)} hint="Average gap to best available action" />
-        <MetricCard label="Review coverage" value={`${rows.filter((row) => row.reviewAvailable).length}/${rows.length}`} hint="Model groups with matched replay review evidence" />
+        <MetricCard label="Total return" value={formatMetricValue(row.totalReturn, 4)} hint="Replay normalized NAV endpoint minus start" />
+        <MetricCard label="Annualized return" value={formatMetricValue(row.annualizedReturn, 4)} hint={`${row.months} monthly replay slices`} />
+        <MetricCard label="Max drawdown" value={formatMetricValue(row.maxDrawdown, 4)} hint="Worst normalized NAV peak-to-trough move" />
+        <MetricCard label="Volatility" value={formatMetricValue(row.volatility, 4)} hint="Annualized monthly replay volatility" />
+        <MetricCard label="Sharpe / Sortino" value={`${formatMetricValue(row.sharpe, 3)} / ${formatMetricValue(row.sortino, 3)}`} hint="Risk-adjusted replay return" />
+        <MetricCard label="Calmar / Beta" value={`${formatMetricValue(row.calmar, 3)} / ${formatMetricValue(row.beta, 3)}`} hint="Drawdown-adjusted return and benchmark beta" />
+        <MetricCard label="Win rate" value={row.winRate === null ? 'Not reported' : `${(row.winRate * 100).toFixed(1)}%`} hint="Share of positive monthly replay slices" />
+        <MetricCard label="Filled decisions" value={formatMetricValue(row.filledCount, 0)} hint={`${formatMetricValue(row.decisionRows, 0)} decision rows`} />
+        <MetricCard label="Gross PnL" value={formatMetricValue(row.grossPnl, 2)} hint="Matched post-replay performance PnL" />
+        <MetricCard label="Mean / median trade" value={`${formatMetricValue(row.meanRealizedReturn, 4)} / ${formatMetricValue(row.medianRealizedReturn, 4)}`} hint="Filled trade realized-return center" />
+        <MetricCard label="Positive / negative" value={`${formatMetricValue(row.positiveReturnCount, 0)} / ${formatMetricValue(row.negativeReturnCount, 0)}`} hint="Filled trade outcome counts" />
+        <MetricCard label="Mean regret" value={formatMetricValue(row.meanRegretToBest, 4)} hint="Average gap to best available action" />
+        <MetricCard label="Scored candidates" value={formatMetricValue(row.scoredCandidates, 0)} hint={`${formatMetricValue(row.selectedTargets, 0)} selected targets`} />
+        <MetricCard label="Planned notional" value={formatMetricValue(row.plannedNotional, 2)} hint="Total planned notional in matched review evidence" />
+        <MetricCard label="Replacement trigger/block" value={`${formatMetricValue(row.replacementTriggered, 0)} / ${formatMetricValue(row.replacementBlocked, 0)}`} hint="Replacement review outcomes" />
       </div>
     </section>
+  );
+}
+
+function compactMetricSeries(
+  points: Array<{ label: string; value: number | null; status?: string | null }>,
+): Array<{ label: string; value: number; status?: string | null }> {
+  return points.filter((point): point is { label: string; value: number; status?: string | null } => typeof point.value === 'number' && Number.isFinite(point.value));
+}
+
+function ReplayPerformanceSummaryCharts({ rows }: { rows: ReplayPerformanceSummary[] }) {
+  return (
+    <div className="replay-chart-grid">
+      <MiniMetricBarChart title="Total Return" series={performanceSummaryMetricSeries(rows, 'totalReturn')} emptyLabel="No replay total return metrics published" />
+      <MiniMetricBarChart title="Max Drawdown" series={performanceSummaryMetricSeries(rows, 'maxDrawdown')} emptyLabel="No replay drawdown metrics published" />
+      <MiniMetricBarChart title="Excess Return" series={performanceSummaryMetricSeries(rows, 'excessReturn')} emptyLabel="No replay excess return metrics published" />
+      <MiniMetricBarChart title="Annualized Return" series={performanceSummaryMetricSeries(rows, 'annualizedReturn')} emptyLabel="No replay annualized return metrics published" />
+      <MiniMetricBarChart title="Volatility" series={performanceSummaryMetricSeries(rows, 'volatility')} emptyLabel="No replay volatility metrics published" />
+      <MetricAvailabilityPanel title="Sharpe" rows={rows} metricKey="sharpe" unavailableLabel="Sharpe unavailable: no published Sharpe and insufficient monthly return variance" />
+      <MiniMetricBarChart title="Sortino" series={performanceSummaryMetricSeries(rows, 'sortino')} emptyLabel="No replay Sortino metrics published" />
+      <MiniMetricBarChart title="Calmar" series={performanceSummaryMetricSeries(rows, 'calmar')} emptyLabel="No replay Calmar metrics published" />
+      <MiniMetricBarChart title="Beta" series={performanceSummaryMetricSeries(rows, 'beta')} emptyLabel="No benchmark beta evidence published" />
+      <MiniMetricBarChart title="Win Rate" series={performanceSummaryMetricSeries(rows, 'winRate')} emptyLabel="No monthly win-rate evidence published" />
+    </div>
+  );
+}
+
+function ReplayPerformanceFocusCharts({
+  entry,
+  row,
+}: {
+  entry: ReplayVersionEntry;
+  row: ReplayPerformanceSummary;
+}) {
+  const entries = [entry];
+  return (
+    <>
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart
+          title="Return And Risk"
+          series={compactMetricSeries([
+            { label: 'Total', value: row.totalReturn, status: row.identity },
+            { label: 'Excess', value: row.excessReturn, status: row.identity },
+            { label: 'Annualized', value: row.annualizedReturn, status: row.identity },
+            { label: 'Volatility', value: row.volatility, status: row.identity },
+            { label: 'Max DD', value: row.maxDrawdown, status: row.identity },
+          ])}
+          emptyLabel="No return/risk metrics published for this model group"
+        />
+        <MiniMetricBarChart
+          title="Risk Ratios"
+          series={compactMetricSeries([
+            { label: 'Sharpe', value: row.sharpe, status: row.identity },
+            { label: 'Sortino', value: row.sortino, status: row.identity },
+            { label: 'Calmar', value: row.calmar, status: row.identity },
+            { label: 'Beta', value: row.beta, status: row.identity },
+            { label: 'Win %', value: row.winRate === null ? null : row.winRate * 100, status: row.identity },
+          ])}
+          emptyLabel="No risk-ratio metrics published for this model group"
+        />
+        <MiniMetricBarChart
+          title="Trade Outcomes"
+          series={compactMetricSeries([
+            { label: 'Filled', value: row.filledCount, status: row.identity },
+            { label: 'Positive', value: row.positiveReturnCount, status: row.identity },
+            { label: 'Negative', value: row.negativeReturnCount, status: row.identity },
+            { label: 'Mean Trade', value: row.meanRealizedReturn, status: row.identity },
+            { label: 'Median Trade', value: row.medianRealizedReturn, status: row.identity },
+          ])}
+          emptyLabel="No matched trade outcome evidence published for this model group"
+        />
+        <MiniMetricBarChart
+          title="Decision Funnel"
+          series={compactMetricSeries([
+            { label: 'Decision Rows', value: row.decisionRows, status: row.identity },
+            { label: 'Scored', value: row.scoredCandidates, status: row.identity },
+            { label: 'Selected', value: row.selectedTargets, status: row.identity },
+            { label: 'Filled', value: row.filledCount, status: row.identity },
+          ])}
+          emptyLabel="No decision-funnel counts published for this model group"
+        />
+        <MiniMetricBarChart
+          title="Replacement And Regret"
+          series={compactMetricSeries([
+            { label: 'Replacement Triggered', value: row.replacementTriggered, status: row.identity },
+            { label: 'Replacement Blocked', value: row.replacementBlocked, status: row.identity },
+            { label: 'Mean Regret', value: row.meanRegretToBest, status: row.identity },
+            { label: 'Gross PnL', value: row.grossPnl, status: row.identity },
+            { label: 'Return/Notional', value: row.grossReturnOnUsedNotional, status: row.identity },
+          ])}
+          emptyLabel="No replacement/regret metrics published for this model group"
+        />
+        <MiniMetricBarChart
+          title="Replay Coverage"
+          series={compactMetricSeries([
+            { label: 'Months', value: row.months, status: row.identity },
+            { label: 'Review', value: row.reviewAvailable ? 1 : 0, status: row.identity },
+            { label: 'Planned Notional', value: row.plannedNotional, status: row.identity },
+          ])}
+          emptyLabel="No replay coverage metrics published for this model group"
+        />
+      </div>
+      <div className="replay-chart-grid">
+        <ReplayOverlayChart
+          title="Monthly Net Return"
+          series={replaySeriesForVersions(entries, 'net_return_total', 'raw')}
+          yLabel="Net return"
+          emptyLabel="No monthly net-return slices published for this model group"
+        />
+        <ReplayOverlayChart
+          title="Monthly Drawdown"
+          series={replaySeriesForVersions(entries, 'max_drawdown', 'raw')}
+          yLabel="Max drawdown"
+          emptyLabel="No monthly drawdown slices published for this model group"
+        />
+        <ReplayOverlayChart
+          title="Monthly Replay Rows"
+          series={replayMonthlyRowSeriesForEntry(entry, [{ key: 'rowCount', label: 'Rows' }])}
+          yLabel="Rows"
+          emptyLabel="No monthly row-count slices published for this model group"
+        />
+        <ReplayOverlayChart
+          title="Monthly Statistical Quality"
+          series={replayMonthlyRowSeriesForEntry(entry, [
+            { key: 'auroc', label: 'AUROC' },
+            { key: 'brierScore', label: 'Brier' },
+          ])}
+          yLabel="Score"
+          emptyLabel="No monthly AUROC/Brier slices published for this model group"
+        />
+      </div>
+    </>
   );
 }
 
@@ -4405,16 +4560,18 @@ function ReplayPerformanceView({
     });
   }, [versionKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
-  const chartEntries = selectedEntries.length ? selectedEntries : entries;
+  const focusedEntry = selectedEntries.length === 1 ? selectedEntries[0] : null;
+  const chartEntries = focusedEntry ? [focusedEntry] : entries;
   const performanceRows = chartEntries.map(({ version, index }) => ({
     ...replayVersionPerformanceSummary(version, index, replayReviewRunForVersion(version, reviewRuns)),
     index,
   }));
+  const focusedRow = focusedEntry ? performanceRows[0] ?? null : null;
   return (
     <section className="replay-view">
       <ReplaySelectionModePanel
-        mode={selectedEntries.length ? 'focus' : 'summary'}
-        summary={selectedEntries.length ? `${selectedEntries.length} selected model groups` : `${entries.length} replayed model groups in performance summary`}
+        mode={focusedEntry ? 'focus' : 'summary'}
+        summary={focusedEntry ? `Focused on ${compactVersionLabel(focusedEntry.version, focusedEntry.index)}` : `${entries.length} replayed model groups in performance summary`}
         onClear={() => setSelectedIds([])}
       />
       <ReplayPerformanceSummaryTable
@@ -4423,20 +4580,15 @@ function ReplayPerformanceView({
         selectedIds={selectedIds}
         onChange={setSelectedIds}
       />
-      <ReplayPerformanceNavChart entries={chartEntries} />
-      <ReplayTradingPerformanceDiagnostics rows={performanceRows} />
-      <div className="replay-chart-grid">
-        <MiniMetricBarChart title="Total Return" series={performanceSummaryMetricSeries(performanceRows, 'totalReturn')} emptyLabel="No replay total return metrics published" />
-        <MiniMetricBarChart title="Max Drawdown" series={performanceSummaryMetricSeries(performanceRows, 'maxDrawdown')} emptyLabel="No replay drawdown metrics published" />
-        <MiniMetricBarChart title="Excess Return" series={performanceSummaryMetricSeries(performanceRows, 'excessReturn')} emptyLabel="No replay excess return metrics published" />
-        <MiniMetricBarChart title="Volatility" series={performanceSummaryMetricSeries(performanceRows, 'volatility')} emptyLabel="No replay volatility metrics published" />
-        <MetricAvailabilityPanel title="Sharpe" rows={performanceRows} metricKey="sharpe" unavailableLabel="Sharpe unavailable: no published Sharpe and insufficient monthly return variance" />
-        <MiniMetricBarChart title="Beta" series={performanceSummaryMetricSeries(performanceRows, 'beta')} emptyLabel="No benchmark beta evidence published" />
-        <MiniMetricBarChart title="Gross PnL" series={performanceSummaryMetricSeries(performanceRows, 'grossPnl')} emptyLabel="No matched gross PnL review evidence published" />
-        <MiniMetricBarChart title="Mean Trade Return" series={performanceSummaryMetricSeries(performanceRows, 'meanRealizedReturn')} emptyLabel="No matched realized-return review evidence published" />
-        <MiniMetricBarChart title="Mean Regret" series={performanceSummaryMetricSeries(performanceRows, 'meanRegretToBest')} emptyLabel="No regret-to-best-available review evidence published" />
-        <MiniMetricBarChart title="Filled Decisions" series={performanceSummaryMetricSeries(performanceRows, 'filledCount')} emptyLabel="No matched fill-count review evidence published" />
-      </div>
+      <ReplayPerformanceNavChart entries={chartEntries} focused={Boolean(focusedEntry)} />
+      {focusedEntry ? (
+        <>
+          <SelectedReplayTradingDiagnostics row={focusedRow} />
+          {focusedRow ? <ReplayPerformanceFocusCharts entry={focusedEntry} row={focusedRow} /> : null}
+        </>
+      ) : (
+        <ReplayPerformanceSummaryCharts rows={performanceRows} />
+      )}
     </section>
   );
 }
