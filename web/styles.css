@@ -88,6 +88,7 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
   .metric-grid, .visual-grid, .detail-grid { grid-template-columns: 1fr; }
   .summary-card, .hero, .top-status-bar { flex-direction: column; align-items: flex-start; }
   .summary-meta { text-align: left; }
+  .metric-donut-layout { grid-template-columns: 1fr; justify-items: start; }
 }
 
 /* Models view */
@@ -147,6 +148,19 @@ p { margin: 0; color: #a8b7ca; line-height: 1.55; max-width: 780px; }
 .model-bar-chart .model-bar-retired { fill: #fbbf24; }
 .model-bar-chart .model-bar-candidate { fill: #a78bfa; }
 .model-bar-chart text { fill: #8fa2ba; font-size: 12px; font-weight: 750; }
+.replay-focus-metric-panel .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.replay-focus-metric-panel .metric-card { min-height: 92px; padding: 14px; background: rgba(15, 23, 42, .46); }
+.replay-focus-metric-panel .metric-value { font-size: 20px; letter-spacing: 0; }
+.metric-donut-layout { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; align-items: center; min-height: 210px; }
+.metric-donut-chart { width: 160px; height: 160px; overflow: visible; }
+.metric-donut-track { fill: none; stroke: rgba(30, 41, 59, .88); stroke-width: 18; }
+.metric-donut-segment { fill: none; stroke-width: 18; stroke-linecap: butt; transform: rotate(-90deg); transform-origin: 75px 75px; }
+.metric-donut-chart text:first-of-type { fill: #f8fbff; font-size: 20px; font-weight: 900; }
+.metric-donut-chart text:last-of-type { fill: #8fa2ba; font-size: 11px; font-weight: 850; text-transform: uppercase; }
+.metric-donut-legend { display: grid; gap: 10px; min-width: 0; }
+.metric-donut-legend span { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: center; color: #8fa2ba; font-size: 12px; font-weight: 800; }
+.metric-donut-legend i { width: 10px; height: 10px; border-radius: 999px; }
+.metric-donut-legend strong { color: #dbeafe; overflow-wrap: anywhere; }
 .diagnostic-line-chart .diagnostic-series-0 polyline { stroke: #67e8f9; }
 .diagnostic-line-chart .diagnostic-series-1 polyline { stroke: #fbbf24; }
 .diagnostic-line-chart .diagnostic-series-2 polyline { stroke: #a78bfa; }

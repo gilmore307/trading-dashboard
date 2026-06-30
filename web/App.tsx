@@ -3552,7 +3552,7 @@ function ReplayPerformanceSummaryTable({
               key={row.id}
               type="button"
               onClick={() => {
-                onChange(selected ? [] : [row.id]);
+                onChange(selected ? selectedIds.filter((id) => id !== row.id) : [...selectedIds, row.id]);
               }}
             >
               <strong><i style={{ background: SCATTER_GROUP_COLORS[row.index % SCATTER_GROUP_COLORS.length] }} />{row.label}</strong>
@@ -3751,7 +3751,7 @@ function ReplaySelectionModePanel({
         <span>{mode === 'summary' ? 'Summary View' : 'Focus View'}</span>
         <strong>{summary}</strong>
       </div>
-      {mode === 'focus' && onClear ? <button type="button" onClick={onClear}>Clear selection</button> : null}
+      {onClear ? <button type="button" onClick={onClear}>Clear selection</button> : null}
     </section>
   );
 }
@@ -3867,6 +3867,94 @@ function MetricAvailabilityPanel({
   );
 }
 
+function ReplayFocusMetricCards({
+  title,
+  items,
+}: {
+  title: string;
+  items: Array<{ label: string; value: string; hint?: string }>;
+}) {
+  if (!items.length) return null;
+  return (
+    <section className="model-chart-panel replay-focus-metric-panel">
+      <div className="model-chart-title">{title}</div>
+      <div className="metric-grid two">
+        {items.map((item) => (
+          <MetricCard key={item.label} label={item.label} value={item.value} hint={item.hint} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MiniMetricDonutChart({
+  title,
+  slices,
+  emptyLabel,
+}: {
+  title: string;
+  slices: Array<{ label: string; value: number | null; color?: string }>;
+  emptyLabel: string;
+}) {
+  const cleanSlices = slices
+    .map((slice, index) => ({
+      ...slice,
+      value: typeof slice.value === 'number' && Number.isFinite(slice.value) ? Math.max(0, slice.value) : 0,
+      color: slice.color ?? SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length],
+    }))
+    .filter((slice) => slice.value > 0);
+  const total = cleanSlices.reduce((sum, slice) => sum + slice.value, 0);
+  if (!total) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">{title}</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  const radius = 54;
+  const circumference = Math.PI * 2 * radius;
+  let offset = 0;
+  return (
+    <section className="model-chart-panel metric-donut-panel">
+      <div className="model-chart-title">{title}</div>
+      <div className="metric-donut-layout">
+        <svg className="metric-donut-chart" viewBox="0 0 150 150" role="img" aria-label={title}>
+          <circle cx="75" cy="75" r={radius} className="metric-donut-track" />
+          {cleanSlices.map((slice) => {
+            const dash = (slice.value / total) * circumference;
+            const segment = (
+              <circle
+                key={slice.label}
+                cx="75"
+                cy="75"
+                r={radius}
+                className="metric-donut-segment"
+                style={{ stroke: slice.color, strokeDasharray: `${dash} ${circumference - dash}`, strokeDashoffset: -offset }}
+              >
+                <title>{`${slice.label}: ${formatMetricValue(slice.value, 0)} (${((slice.value / total) * 100).toFixed(1)}%)`}</title>
+              </circle>
+            );
+            offset += dash;
+            return segment;
+          })}
+          <text x="75" y="70" textAnchor="middle">{formatMetricValue(total, 0)}</text>
+          <text x="75" y="88" textAnchor="middle">total</text>
+        </svg>
+        <div className="metric-donut-legend">
+          {cleanSlices.map((slice) => (
+            <span key={slice.label}>
+              <i style={{ background: slice.color }} />
+              <strong>{slice.label}</strong>
+              {formatMetricValue(slice.value, 0)} · {((slice.value / total) * 100).toFixed(1)}%
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function replayMonthlyRowSeriesForEntry(
   entry: ReplayVersionEntry,
   specs: Array<{ key: keyof Pick<ReplayMonthRow, 'rowCount' | 'auroc' | 'brierScore'>; label: string }>,
@@ -3913,12 +4001,6 @@ function SelectedReplayTradingDiagnostics({ row }: { row: ReplayPerformanceSumma
   );
 }
 
-function compactMetricSeries(
-  points: Array<{ label: string; value: number | null; status?: string | null }>,
-): Array<{ label: string; value: number; status?: string | null }> {
-  return points.filter((point): point is { label: string; value: number; status?: string | null } => typeof point.value === 'number' && Number.isFinite(point.value));
-}
-
 function ReplayPerformanceSummaryCharts({ rows }: { rows: ReplayPerformanceSummary[] }) {
   return (
     <div className="replay-chart-grid">
@@ -3944,71 +4026,77 @@ function ReplayPerformanceFocusCharts({
   row: ReplayPerformanceSummary;
 }) {
   const entries = [entry];
+  const flatTradeCount = row.filledCount !== null
+    && row.positiveReturnCount !== null
+    && row.negativeReturnCount !== null
+    ? Math.max(0, row.filledCount - row.positiveReturnCount - row.negativeReturnCount)
+    : null;
   return (
     <>
       <div className="replay-chart-grid">
-        <MiniMetricBarChart
+        <ReplayFocusMetricCards
           title="Return And Risk"
-          series={compactMetricSeries([
-            { label: 'Total', value: row.totalReturn, status: row.identity },
-            { label: 'Excess', value: row.excessReturn, status: row.identity },
-            { label: 'Annualized', value: row.annualizedReturn, status: row.identity },
-            { label: 'Volatility', value: row.volatility, status: row.identity },
-            { label: 'Max DD', value: row.maxDrawdown, status: row.identity },
-          ])}
-          emptyLabel="No return/risk metrics published for this model group"
+          items={[
+            { label: 'Total', value: formatMetricValue(row.totalReturn, 4), hint: 'Replay normalized NAV endpoint minus start' },
+            { label: 'Excess', value: formatMetricValue(row.excessReturn, 4), hint: 'Replay return over benchmark context' },
+            { label: 'Annualized', value: formatMetricValue(row.annualizedReturn, 4), hint: `${row.months} monthly replay slices` },
+            { label: 'Volatility', value: formatMetricValue(row.volatility, 4), hint: 'Annualized monthly replay volatility' },
+            { label: 'Max DD', value: formatMetricValue(row.maxDrawdown, 4), hint: 'Worst normalized NAV peak-to-trough move' },
+          ]}
         />
-        <MiniMetricBarChart
+        <ReplayFocusMetricCards
           title="Risk Ratios"
-          series={compactMetricSeries([
-            { label: 'Sharpe', value: row.sharpe, status: row.identity },
-            { label: 'Sortino', value: row.sortino, status: row.identity },
-            { label: 'Calmar', value: row.calmar, status: row.identity },
-            { label: 'Beta', value: row.beta, status: row.identity },
-            { label: 'Win %', value: row.winRate === null ? null : row.winRate * 100, status: row.identity },
-          ])}
-          emptyLabel="No risk-ratio metrics published for this model group"
+          items={[
+            { label: 'Sharpe', value: formatMetricValue(row.sharpe, 3), hint: 'Annualized return per unit volatility' },
+            { label: 'Sortino', value: formatMetricValue(row.sortino, 3), hint: 'Return per unit downside deviation' },
+            { label: 'Calmar', value: formatMetricValue(row.calmar, 3), hint: 'Annualized return divided by max drawdown magnitude' },
+            { label: 'Beta', value: formatMetricValue(row.beta, 3), hint: 'Benchmark beta from replay monthly returns' },
+            { label: 'Win %', value: row.winRate === null ? 'Not reported' : `${(row.winRate * 100).toFixed(1)}%`, hint: 'Positive monthly replay slices' },
+          ]}
         />
-        <MiniMetricBarChart
+        <MiniMetricDonutChart
           title="Trade Outcomes"
-          series={compactMetricSeries([
-            { label: 'Filled', value: row.filledCount, status: row.identity },
-            { label: 'Positive', value: row.positiveReturnCount, status: row.identity },
-            { label: 'Negative', value: row.negativeReturnCount, status: row.identity },
-            { label: 'Mean Trade', value: row.meanRealizedReturn, status: row.identity },
-            { label: 'Median Trade', value: row.medianRealizedReturn, status: row.identity },
-          ])}
+          slices={[
+            { label: 'Positive', value: row.positiveReturnCount, color: '#34d399' },
+            { label: 'Negative', value: row.negativeReturnCount, color: '#fb7185' },
+            { label: 'Flat / unreported', value: flatTradeCount, color: '#94a3b8' },
+          ]}
           emptyLabel="No matched trade outcome evidence published for this model group"
         />
-        <MiniMetricBarChart
-          title="Decision Funnel"
-          series={compactMetricSeries([
-            { label: 'Decision Rows', value: row.decisionRows, status: row.identity },
-            { label: 'Scored', value: row.scoredCandidates, status: row.identity },
-            { label: 'Selected', value: row.selectedTargets, status: row.identity },
-            { label: 'Filled', value: row.filledCount, status: row.identity },
-          ])}
-          emptyLabel="No decision-funnel counts published for this model group"
+        <ReplayFocusMetricCards
+          title="Trade Return Center"
+          items={[
+            { label: 'Mean Trade', value: formatMetricValue(row.meanRealizedReturn, 4), hint: 'Average filled trade realized return' },
+            { label: 'Median Trade', value: formatMetricValue(row.medianRealizedReturn, 4), hint: 'Median filled trade realized return' },
+            { label: 'Gross PnL', value: formatMetricValue(row.grossPnl, 2), hint: 'Matched replay review gross PnL' },
+            { label: 'Return/Notional', value: formatMetricValue(row.grossReturnOnUsedNotional, 4), hint: 'Gross return on used notional' },
+          ]}
         />
-        <MiniMetricBarChart
+        <ReplayFocusMetricCards
+          title="Decision Scale"
+          items={[
+            { label: 'Decision Rows', value: formatMetricValue(row.decisionRows, 0), hint: 'Concrete replay decisions reviewed' },
+            { label: 'Scored Candidates', value: formatMetricValue(row.scoredCandidates, 0), hint: 'Candidate rows scored before selection' },
+            { label: 'Selected Targets', value: formatMetricValue(row.selectedTargets, 0), hint: 'Selected target count in review evidence' },
+            { label: 'Filled Decisions', value: formatMetricValue(row.filledCount, 0), hint: 'Replay decisions that filled' },
+          ]}
+        />
+        <MiniMetricDonutChart
           title="Replacement And Regret"
-          series={compactMetricSeries([
-            { label: 'Replacement Triggered', value: row.replacementTriggered, status: row.identity },
-            { label: 'Replacement Blocked', value: row.replacementBlocked, status: row.identity },
-            { label: 'Mean Regret', value: row.meanRegretToBest, status: row.identity },
-            { label: 'Gross PnL', value: row.grossPnl, status: row.identity },
-            { label: 'Return/Notional', value: row.grossReturnOnUsedNotional, status: row.identity },
-          ])}
+          slices={[
+            { label: 'Triggered', value: row.replacementTriggered, color: '#38bdf8' },
+            { label: 'Blocked', value: row.replacementBlocked, color: '#fbbf24' },
+          ]}
           emptyLabel="No replacement/regret metrics published for this model group"
         />
-        <MiniMetricBarChart
+        <ReplayFocusMetricCards
           title="Replay Coverage"
-          series={compactMetricSeries([
-            { label: 'Months', value: row.months, status: row.identity },
-            { label: 'Review', value: row.reviewAvailable ? 1 : 0, status: row.identity },
-            { label: 'Planned Notional', value: row.plannedNotional, status: row.identity },
-          ])}
-          emptyLabel="No replay coverage metrics published for this model group"
+          items={[
+            { label: 'Months', value: formatMetricValue(row.months, 0), hint: 'Replay months with return slices' },
+            { label: 'Review Evidence', value: row.reviewAvailable ? 'Available' : 'Missing', hint: 'Post-replay review matched to this model group' },
+            { label: 'Planned Notional', value: formatMetricValue(row.plannedNotional, 2), hint: 'Total planned notional in matched review evidence' },
+            { label: 'Mean Regret', value: formatMetricValue(row.meanRegretToBest, 4), hint: 'Average gap to best available action' },
+          ]}
         />
       </div>
       <div className="replay-chart-grid">
@@ -4561,18 +4649,23 @@ function ReplayPerformanceView({
   }, [versionKey]);
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
   const focusedEntry = selectedEntries.length === 1 ? selectedEntries[0] : null;
-  const chartEntries = focusedEntry ? [focusedEntry] : entries;
+  const chartEntries = selectedEntries.length ? selectedEntries : entries;
   const performanceRows = chartEntries.map(({ version, index }) => ({
     ...replayVersionPerformanceSummary(version, index, replayReviewRunForVersion(version, reviewRuns)),
     index,
   }));
   const focusedRow = focusedEntry ? performanceRows[0] ?? null : null;
+  const selectionSummary = focusedEntry
+    ? `Focused on ${compactVersionLabel(focusedEntry.version, focusedEntry.index)}`
+    : selectedEntries.length
+      ? `Comparing ${selectedEntries.length} selected model groups`
+      : `${entries.length} replayed model groups in performance summary`;
   return (
     <section className="replay-view">
       <ReplaySelectionModePanel
         mode={focusedEntry ? 'focus' : 'summary'}
-        summary={focusedEntry ? `Focused on ${compactVersionLabel(focusedEntry.version, focusedEntry.index)}` : `${entries.length} replayed model groups in performance summary`}
-        onClear={() => setSelectedIds([])}
+        summary={selectionSummary}
+        onClear={selectedIds.length ? () => setSelectedIds([]) : undefined}
       />
       <ReplayPerformanceSummaryTable
         entries={entries}

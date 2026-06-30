@@ -218,11 +218,12 @@ Visible content should include:
 
 - normalized replay net-asset-value series with every displayed strategy, ETF, layer, or context comparison rebased to `1.0` at the selected start;
 - one replay performance chart slot: single-selection views show the monthly normalized NAV K-line using row-path OHLC when the replay read model publishes it, while multi-selection views switch to normalized NAV lines for readability;
-- summary mode when no replay series is selected, focus mode when one or more replay series are selected;
+- summary comparison mode when no replay series is selected, selected comparison mode when multiple replay series are selected, and focus mode only when exactly one replay series is selected;
 - strategy, ETF, M01, M02, and sector-anchor performance summary rows when those comparison series are published;
 - trading performance metrics such as total return, excess return, max drawdown, annualized return, volatility, Sharpe, Sortino, Calmar, beta, and monthly win rate when available;
 - replay review performance evidence such as decision rows, fill counts, gross PnL, mean realized return, selected-target counts, replacement benefit, opportunity capture, and regret when `model_group_replay_review_summary` publishes it;
-- metric comparison charts for total return, drawdown, excess return, volatility, Sharpe, beta, gross PnL, filled decisions, and selected-top-rank evidence when available.
+- metric comparison charts for cross-model return and risk statistics when no model group or multiple model groups are selected;
+- selected-model diagnostics with detailed return, risk, trade-outcome, decision-scale, replacement, regret, notional, and review-coverage statistics when exactly one model group is selected.
 
 The replay initial capital of `25000 USD` is an execution/risk-limit input. It may appear as metadata, but Performance charts compare normalized values from `1.0` so strategy and ETF/context series share one scale.
 
