@@ -275,7 +275,7 @@ Visible content should include:
 - in macro mode, each layer chapter compares model groups with that layer's summary table and charts for effective decisions, scored decisions, acceptable rate, harmful-error rate, and mean regret;
 - in focused mode, each layer chapter shows that model group's layer cards, charts, summary table, and effective decision ledger;
 - effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
-- `effective_trace_unscored` rows remain visible so M01-M03 trace evidence is not confused with layer-correctness labels that are not yet published;
+- current review runs publish one scored M01-M05 layer row per replay decision per layer; `effective_trace_unscored` is retained only as a legacy fallback for older artifacts without dedicated layer review rows;
 - explicit exclusion of M06 residual-event governance from the layer-decision correctness scope;
 - clear separation between point-in-time decision evidence and future-return/counterfactual labels.
 

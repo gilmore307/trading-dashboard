@@ -327,7 +327,7 @@ Producer rule:
 Dashboard presentation:
 
 - Replay Performance consumes `review_runs[].performance` for trading-performance evidence such as decision rows, fill counts, target performance, stock selection, option expression, and replacement review;
-- Replay Decisions consumes `review_runs[].replay_decisions_m01_m05` as its primary contract; the page renders five separate M01-M05 layer chapters, each with its own layer-quality comparison table, charts, and focused effective layer-decision ledger; layer traces come from replay decision rows, while replay review rows overlay scored correctness/regret where that evidence exists; `decision_review` and `parameter_review` remain supporting attribution/parameter context, not the primary correctness surface;
+- Replay Decisions consumes `review_runs[].replay_decisions_m01_m05` as its primary contract; the page renders five separate M01-M05 layer chapters, each with its own layer-quality comparison table, charts, and focused effective layer-decision ledger; current runs read dedicated `layer_review_rows_ref` evidence with one scored row per replay decision per included layer, while replay decision-row synthesis is only a legacy fallback; `decision_review` and `parameter_review` remain supporting attribution/parameter context, not the primary correctness surface;
 - Replay Operations uses the same Model Group Replay Selector as Replay Performance and consumes first-gap component/mechanism, option path status, fill status, replacement mechanics, and other component/surface diagnostics projected from the matching replay review run;
 - every page keeps the same three dimensions: model-group comparison, individual model-group analysis, and Focus/detail drilldown by source refs.
 
