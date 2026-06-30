@@ -3409,12 +3409,10 @@ function ReplayDecisionVersionSelector({
   versions,
   selectedIds,
   onChange,
-  onOpenMonthly,
 }: {
   versions: ModelGroupPromotionVersionPayload[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
-  onOpenMonthly: (id: string) => void;
 }) {
   const [filter, setFilter] = useState('');
   const [sort, setSort] = useState<SortState<'label' | 'identity' | 'netReturn' | 'excessReturn' | 'maxDrawdown' | 'decisionRows' | 'accepted' | 'filled' | 'takenGood' | 'avoidedBad' | 'missedGood'>>({ key: 'netReturn', direction: 'desc' });
@@ -3434,7 +3432,7 @@ function ReplayDecisionVersionSelector({
         </label>
         <small>Showing {rows.length} of {versions.length}</small>
       </div>
-      <div className="replay-table replay-summary-table">
+      <div className="replay-table replay-selector-table replay-summary-table">
         <div className="replay-table-row replay-table-head">
           <SortableHeader label="Version" column="label" sort={sort} onSort={setSort} />
           <SortableHeader label="Role" column="identity" sort={sort} onSort={setSort} />
@@ -3447,7 +3445,6 @@ function ReplayDecisionVersionSelector({
           <SortableHeader label="Good / Bad" column="takenGood" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Avoided" column="avoidedBad" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Missed" column="missedGood" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <span>Action</span>
         </div>
         {rows.length ? rows.map((row) => {
           const selected = selectedIds.includes(row.id);
@@ -3482,16 +3479,6 @@ function ReplayDecisionVersionSelector({
               <span>{row.takenGood.toFixed(0)} / {row.takenBad.toFixed(0)}</span>
               <span>{row.avoidedBad.toFixed(0)}</span>
               <span>{row.missedGood.toFixed(0)}</span>
-              <button
-                className="replay-inline-action"
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onOpenMonthly(row.id);
-                }}
-              >
-                Focus
-              </button>
             </div>
           );
         }) : <div className="empty-chart compact">No replay versions match the current filter.</div>}
@@ -3528,7 +3515,7 @@ function ReplayPerformanceSummaryTable({
         </label>
         <small>Showing {rows.length} of {entries.length}</small>
       </div>
-      <div className="replay-table replay-performance-summary-table">
+      <div className="replay-table replay-selector-table replay-performance-summary-table">
         <div className="replay-table-row replay-table-head">
           <SortableHeader label="Model Group" column="label" sort={sort} onSort={setSort} />
           <SortableHeader label="Target" column="target" sort={sort} onSort={setSort} />
@@ -3542,7 +3529,6 @@ function ReplayPerformanceSummaryTable({
           <SortableHeader label="Filled" column="filledCount" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Mean Trade" column="meanRealizedReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Regret" column="meanRegretToBest" sort={sort} onSort={setSort} />
-          <span>Review</span>
         </div>
         {rows.length ? rows.map((row) => {
           const selected = selectedIds.includes(row.id);
@@ -3567,7 +3553,6 @@ function ReplayPerformanceSummaryTable({
               <span>{formatMetricValue(row.filledCount, 0)}</span>
               <span>{formatMetricValue(row.meanRealizedReturn, 4)}</span>
               <span>{formatMetricValue(row.meanRegretToBest, 4)}</span>
-              <span><StatusPill status={row.reviewAvailable ? 'available' : 'missing'} severity={row.reviewAvailable ? 'low' : 'medium'} /></span>
             </button>
           );
         }) : <div className="empty-chart compact">No replay performance series published.</div>}
@@ -4141,91 +4126,6 @@ function countChips(counts: Record<string, unknown>, emptyLabel: string) {
   ) : <span className="muted">{emptyLabel}</span>;
 }
 
-function ReplayReviewRunSelector({
-  title,
-  runs,
-  selectedIds,
-  onChange,
-  onFocus,
-}: {
-  title: string;
-  runs: Array<Record<string, unknown>>;
-  selectedIds: string[];
-  onChange: (ids: string[]) => void;
-  onFocus?: (id: string) => void;
-}) {
-  if (!runs.length) {
-    return (
-      <section className="panel replay-table-panel">
-        <div className="panel-heading">{title}</div>
-        <div className="empty-chart compact">No replay review runs are published in the current read model.</div>
-      </section>
-    );
-  }
-  return (
-    <section className="panel replay-table-panel">
-      <div className="panel-heading">{title}</div>
-      <div className="replay-table replay-review-summary-table">
-        <div className="replay-table-row replay-table-head">
-          <span>Model Group</span>
-          <span>Rows</span>
-          <span>Filled</span>
-          <span>PnL</span>
-          <span>Mean Return</span>
-          <span>Best Regret</span>
-          <span>Events</span>
-          <span>Action</span>
-        </div>
-        {runs.map((run, index) => {
-          const id = replayReviewRunId(run, index);
-          const selected = selectedIds.includes(id);
-          const decisionScope = replayReviewSection(run, 'decision_scope');
-          const performance = replayReviewSection(run, 'target_performance');
-          const decision = replayReviewDecision(run);
-          const toggleSelected = () => {
-            onChange(selected ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]);
-          };
-          return (
-            <div
-              className={selected ? 'replay-table-row selected' : 'replay-table-row'}
-              key={id}
-              role="button"
-              tabIndex={0}
-              onClick={toggleSelected}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  toggleSelected();
-                }
-              }}
-            >
-              <strong><i style={{ background: SCATTER_GROUP_COLORS[index % SCATTER_GROUP_COLORS.length] }} />{replayReviewRunLabel(run, index)}</strong>
-              <span>{formatMetricValue(metricNumber(decisionScope, 'decision_row_count'), 0)}</span>
-              <span>{formatMetricValue(metricNumber(decisionScope, 'filled_count'), 0)}</span>
-              <span>{formatMetricValue(metricNumber(performance, 'gross_pnl_total'), 2)}</span>
-              <span>{formatMetricValue(metricNumber(performance, 'mean_realized_return'), 4)}</span>
-              <span>{formatMetricValue(metricNumber(decision, 'mean_regret_to_best_available'), 4)}</span>
-              <span>{formatMetricValue(metricNumber(run, 'event_candidate_count'), 0)}</span>
-              {onFocus ? (
-                <button
-                  className="replay-inline-action"
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onFocus(id);
-                  }}
-                >
-                  Focus
-                </button>
-              ) : <span />}
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
 function ReplayReviewFocusPanel({
   runs,
   title,
@@ -4555,79 +4455,6 @@ function ReplayDecisionDetailTable({
   );
 }
 
-function ReplayMonthlyWindow({
-  entry,
-  selectedMonth,
-  onSelectMonth,
-  onClose,
-}: {
-  entry: ReplayVersionEntry;
-  selectedMonth: string | null;
-  onSelectMonth: (month: string) => void;
-  onClose: () => void;
-}) {
-  const [filter, setFilter] = useState('');
-  const [sort, setSort] = useState<SortState<'month' | 'netReturn' | 'cumulative' | 'drawdown' | 'rowCount'>>({ key: 'month', direction: 'asc' });
-  const rows = replayMonthlyRows(entry.version, entry.index);
-  const label = compactVersionLabel(entry.version, entry.index);
-  const versionId = versionStableId(entry.version, entry.index);
-  const activeMonth = selectedMonth ?? rows[0]?.month ?? null;
-  const activeRow = rows.find((row) => row.month === activeMonth) ?? null;
-  const query = filter.trim().toLowerCase();
-  const displayedRows = rows
-    .filter((row) => !query || searchText(row.month, row.netReturn, row.cumulative, row.drawdown, row.rowCount).includes(query))
-    .sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction));
-  return (
-    <section className="replay-detail-window" aria-label="Model Monthly Replay">
-      <div className="replay-detail-surface">
-        <div className="replay-detail-head">
-          <div>
-            <span>Historical Replay Detail</span>
-            <strong>{label}</strong>
-            <small>{rows[0]?.month ?? 'No slices'} to {rows[rows.length - 1]?.month ?? 'No slices'} · {rows.length} evaluated months</small>
-          </div>
-          <button type="button" onClick={onClose}>Close</button>
-        </div>
-
-        <div className="replay-detail-grid">
-          <div className="replay-table replay-monthly-table">
-            <div className="dashboard-table-controls">
-              <label>
-                <span>Filter</span>
-                <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter months…" />
-              </label>
-              <small>Showing {displayedRows.length} of {rows.length}</small>
-            </div>
-            <div className="replay-table-row replay-table-head">
-              <SortableHeader label="Month" column="month" sort={sort} onSort={setSort} />
-              <SortableHeader label="Net Return" column="netReturn" sort={sort} onSort={setSort} defaultDirection="desc" />
-              <SortableHeader label="Cumulative" column="cumulative" sort={sort} onSort={setSort} defaultDirection="desc" />
-              <SortableHeader label="Max DD" column="drawdown" sort={sort} onSort={setSort} />
-              <SortableHeader label="Rows" column="rowCount" sort={sort} onSort={setSort} defaultDirection="desc" />
-            </div>
-            {displayedRows.length ? displayedRows.map((row) => (
-              <button
-                className={row.month === activeMonth ? 'replay-table-row selected' : 'replay-table-row'}
-                key={row.key}
-                type="button"
-                onClick={() => onSelectMonth(row.month)}
-              >
-                <strong>{row.month}</strong>
-                <span>{formatMetricValue(row.netReturn, 4)}</span>
-                <span>{formatMetricValue(row.cumulative, 4)}</span>
-                <span>{formatMetricValue(row.drawdown, 4)}</span>
-                <span>{row.rowCount === null ? 'Not reported' : row.rowCount.toFixed(0)}</span>
-              </button>
-            )) : <div className="empty-chart compact">No monthly replay slices match the current filter.</div>}
-          </div>
-
-          <ReplayDecisionDetailTable versionId={versionId} month={activeMonth} activeRow={activeRow} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function ReplayPerformanceView({
   promotionChart,
   replayReviewChart,
@@ -4699,8 +4526,6 @@ function ReplayDecisionsView({
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const reviewRuns = replayReviewRuns(replayReviewChart);
-  const [monthlyVersionId, setMonthlyVersionId] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
@@ -4710,7 +4535,6 @@ function ReplayDecisionsView({
   const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
   const selectedVersion = selectedEntries[0]?.version ?? null;
   const chartEntries = selectedEntries.length ? selectedEntries : entries;
-  const monthlyEntry = entries.find(({ version, index }) => versionStableId(version, index) === monthlyVersionId) ?? null;
   const selectedReviewRuns = selectedEntries
     .map(({ version }) => replayReviewRunForVersion(version, reviewRuns))
     .filter((run): run is Record<string, unknown> => Boolean(run));
@@ -4725,19 +4549,12 @@ function ReplayDecisionsView({
         summary={selectedEntries.length === 1 ? `Focused on ${compactVersionLabel(selectedEntries[0].version, selectedEntries[0].index)}` : selectedEntries.length ? `${selectedEntries.length} selected replay versions` : `${entries.length} replay versions in decision summary`}
         onClear={() => {
           setSelectedIds([]);
-          setMonthlyVersionId(null);
-          setSelectedMonth(null);
         }}
       />
       <ReplayDecisionVersionSelector
         versions={versions}
         selectedIds={selectedIds}
         onChange={setSelectedIds}
-        onOpenMonthly={(id) => {
-          setSelectedIds([id]);
-          setMonthlyVersionId(id);
-          setSelectedMonth(null);
-        }}
       />
       <div className="replay-chart-grid">
         <MiniMetricBarChart title="Miss Attribution Layer" series={countSeriesFromRecord(layerCounts)} emptyLabel="No layer attribution counts published" />
@@ -4763,17 +4580,6 @@ function ReplayDecisionsView({
           <MiniMetricBarChart title="Missed Good Compare" series={replayOutcomeMetricSeries(chartEntries, 'missedGood')} emptyLabel="No missed-good counts published" />
         </div>
       )}
-      {monthlyEntry ? (
-        <ReplayMonthlyWindow
-          entry={monthlyEntry}
-          selectedMonth={selectedMonth}
-          onSelectMonth={setSelectedMonth}
-          onClose={() => {
-            setMonthlyVersionId(null);
-            setSelectedMonth(null);
-          }}
-        />
-      ) : null}
     </section>
   );
 }
