@@ -738,3 +738,30 @@ The expanded row detail shows Live only for the current/running task. Live rende
 - Running task progress can legitimately use different denominators across task types.
 - Past and future task rows do not show live/log areas.
 - The dashboard remains read-only: it reads sanitized manager/storage summaries and does not expose a global raw log explorer.
+
+## D034 - Replay Decisions uses an explicit M01-M05 layer-quality contract
+
+Date: 2026-06-30
+Status: Accepted
+
+### Context
+
+Chentong clarified that Replay Decisions must show whether each replay-time model-layer decision was correct. The macro view should compare model groups by layer-level statistics, while the micro view should decompose one model group's effective M01-M05 decisions. M06 is a post-replay residual-event governance model and must not be included in this decision-correctness surface.
+
+The existing replay review summary exposed attribution counts such as `miss_attribution_layer_counts` and parameter review classes. That evidence can explain failures, but it cannot by itself prove every M01-M05 layer's effective decision or correctness. `performance.layer_differentiation` is coverage/differentiation context, not correctness evidence.
+
+### Decision
+
+Replay Decisions consumes the `review_runs[].replay_decisions_m01_m05` projection from `model_group_replay_review_summary` as its primary page contract:
+
+- macro mode renders model-group by M01-M05 layer quality: effective decision count, coverage count, acceptable rate, harmful-error rate, missed-good rate, mean regret, mean impact, and evidence status;
+- micro mode renders one model group's M01-M05 breakdown plus an effective layer-decision ledger with timestamp, target, layer, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
+- M06 is explicitly listed as excluded from the Replay Decisions layer-quality contract;
+- future returns remain post-replay labels only and must not be presented as decision-time inputs;
+- layers with coverage but no effective decision-quality rows are shown as evidence gaps rather than inferred as correct or incorrect.
+
+### Consequences
+
+- Replay Decisions no longer uses generic decision-result counts, score-decile curves, threshold-return curves, cost-sensitivity, or slice-distribution panels as its primary content.
+- The dashboard may still display missing evidence states; it must not fake M01-M05 correctness from attribution-only fields.
+- Replay Operations remains the owner for component/surface/fill/source mechanics, including first-gap component evidence.

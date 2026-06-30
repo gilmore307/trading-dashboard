@@ -270,20 +270,20 @@ Purpose: answer “Did each model layer choose reasonably with point-in-time evi
 
 Visible content should include:
 
-- replay decision-version selector with role, performance context, decision row count, accepted/fill counts, and taken/avoided/missed outcome counts;
-- decision-result comparison charts for row count, accepted, filled, taken-good, avoided-bad, and missed-good evidence;
-- six-layer model attribution from replay review rows, including cause family, failure type, miss attribution layer, first affected model layer, and impact/regret;
-- parameter replay review classifications such as directionally useful, weak/sample-limited, empirical signal present but direction-unassigned, and suspect requiring redesign;
-- chosen action versus best-available post-replay outcome label, with clear separation between point-in-time evidence and hindsight/counterfactual labels;
-- score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics as supporting context for the focused replay version;
-- monthly replay decision window with return, drawdown, cumulative result, and row-count context when row-level decision APIs publish it;
-- inspectable raw replay decision rows with timestamp, target, instrument type, action, disposition, fill status, score, realized return, cost, net return, reason codes, component trace, and model evidence refs.
+- replay decision-version selector with the same selector format used by the replay page family;
+- macro M01-M05 layer-quality matrix by model group, including effective decision count, coverage count, acceptable rate, harmful-error rate, missed-good rate, mean regret, mean impact, and evidence status;
+- macro charts comparing effective layer decisions, acceptable rate, harmful-error rate, and mean regret across selected model groups;
+- focused M01-M05 layer breakdown for one model group, with missing evidence shown as gaps rather than inferred correctness;
+- effective layer-decision ledger with timestamp, target, layer, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
+- explicit exclusion of M06 residual-event governance from the layer-decision correctness scope;
+- clear separation between point-in-time decision evidence and future-return/counterfactual labels.
 
 Hidden by default:
 
 - normalized NAV and professional performance metrics, which belong under Replay Performance;
 - replay source-data readiness, component health, and execution graph diagnostics, which belong under Replay Operations;
-- model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure.
+- model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure;
+- score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics as primary content because they do not answer per-layer replay correctness.
 
 ### Events
 

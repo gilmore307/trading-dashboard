@@ -311,6 +311,11 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-summary-table .replay-table-row { grid-template-columns: minmax(170px, 1.2fr) minmax(92px, .72fr) repeat(9, minmax(76px, .62fr)); }
 .replay-performance-summary-table { min-width: 1370px; }
 .replay-performance-summary-table .replay-table-row { grid-template-columns: minmax(190px, 1.2fr) minmax(82px, .55fr) repeat(10, minmax(82px, .58fr)); }
+.replay-layer-quality-table { min-width: 1260px; }
+.replay-layer-quality-table .replay-table-row { grid-template-columns: minmax(170px, 1.05fr) minmax(190px, 1.05fr) minmax(150px, .78fr) repeat(6, minmax(86px, .52fr)); }
+.replay-layer-ledger-table { min-width: 1680px; }
+.replay-layer-ledger-table .replay-table-row { grid-template-columns: minmax(185px, 1.05fr) minmax(90px, .48fr) minmax(180px, .9fr) minmax(92px, .48fr) minmax(100px, .52fr) minmax(82px, .42fr) minmax(82px, .42fr) minmax(150px, .76fr) minmax(185px, .9fr) minmax(118px, .62fr) minmax(128px, .66fr) minmax(210px, 1fr); }
+.replay-layer-focus-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .replay-event-summary-table strong { display: flex; align-items: center; gap: 8px; }
 .replay-event-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
 .replay-event-summary-table { min-width: 1080px; }
@@ -378,7 +383,7 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-lightweight-legend .negative { color: #f23645; }
 
 @media (max-width: 1220px) {
-  .model-chart-grid, .replay-chart-grid { grid-template-columns: 1fr; }
+  .model-chart-grid, .replay-chart-grid, .replay-layer-focus-grid { grid-template-columns: 1fr; }
   .identity-panel .identity-bars { grid-template-columns: 1fr; }
   .decision-variable-stats, .variable-coverage-grid, .variable-coverage-grid.compact { grid-template-columns: 1fr; }
   .model-scorecard-head { display: grid; }
