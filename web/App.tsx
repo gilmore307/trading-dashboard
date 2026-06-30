@@ -1185,7 +1185,11 @@ function progressPayloadView(
 }
 
 function taskProgressView(task: HistoricalTaskTimelineItemPayload): ProgressView {
-  return progressPayloadView(task.detail?.progress, task.status, task.reason, task.detail?.progress ? undefined : taskProgressFallback(task));
+  const view = progressPayloadView(task.detail?.progress, task.status, task.reason, task.detail?.progress ? undefined : taskProgressFallback(task));
+  return {
+    ...view,
+    label: formatPercent(view.percent),
+  };
 }
 
 function normalizeModelRef(value: unknown): string {
