@@ -20,7 +20,7 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 The left sidebar is grouped by user intent:
 
 - General — Status, Definitions, and Diagnostics.
-- Historical Models — Tasks, Data, Models, Replay Performance, Replay Decisions, Replay Operations, and Events.
+- Historical Models — Tasks, Data, Model Groups, Replay Performance, Replay Decisions, Replay Operations, and Replay Attribution.
 - Realtime — Realtime Signals.
 
 ## Page Contracts
@@ -157,7 +157,7 @@ Hidden by default:
 - dataset and promotion internals;
 - diagnostics internals.
 
-### Models
+### Model Groups
 
 Purpose: answer “Is this model group statistically and structurally credible as machine learning, and how are model-group versions evolving?”
 
@@ -286,30 +286,29 @@ Hidden by default:
 - model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure;
 - score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics as primary content because they do not answer per-layer replay correctness.
 
-### Events
+### Replay Attribution
 
-Purpose: answer “Which certified event families are in the event attention pool, and how do they correspond to market session and chart state?”
+Purpose: answer “Which replay errors occurred, where were they attributed in the replay/model stack, and are any of them linked to event evidence?”
 
 Visible content should include:
 
-- ETF symbol and 1D/1W frame controls;
-- a TradingView-style K-line chart over the selected ETF and frame for the current model-group replay window;
-- volume and accepted-event-density subcharts;
-- certified event-family markers for the selected time unit;
-- certified event-family counts by market-session state, family type, scope, and symbol;
-- event-family to market-state pairs with event time, session state, scope, symbol, and available OHLCV bar context.
+- replay error attribution counts by cause family, failure type, miss-attribution layer, and first-gap component;
+- replay error sample rows with model group, decision time, target, layer, cause, failure, gap, regret, and event-link status;
+- event-linkage readiness that clearly separates "event refs published" from "no event refs published";
+- event-candidate counts only when replay review rows publish them.
 
 Preferred visuals:
 
-- event timeline candlesticks with visible event markers;
-- event density and volume subcharts;
-- event-family to market-session distribution charts;
-- a dense relation table for accepted event-family markers and corresponding market state.
+- attribution distribution charts;
+- event-link readiness cards;
+- dense replay error sample table;
+- future event-linked error timelines after review rows publish event refs.
 
 Hidden by default:
 
-- raw event payloads unless needed for a focused event explanation;
-- event promotion or pool mutation controls.
+- raw event payloads unless needed for a focused replay-error explanation;
+- event promotion or pool mutation controls;
+- event-timeline exploration that is not tied to replay error attribution.
 
 ### Realtime Signals
 

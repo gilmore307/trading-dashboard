@@ -766,3 +766,27 @@ Replay Decisions consumes the `review_runs[].replay_decisions_m01_m05` projectio
 - Replay Decisions no longer uses generic decision-result counts, score-decile curves, threshold-return curves, cost-sensitivity, or slice-distribution panels as its primary content.
 - The dashboard may still display missing evidence states; it must not fake M01-M05 correctness from attribution-only fields.
 - Replay Operations remains the owner for component/surface/fill/source mechanics, including first-gap component evidence.
+
+## D035 - Replay pages use layer tabs, focus trends, and replay attribution
+
+Date: 2026-06-30
+Status: Accepted
+
+### Context
+
+Chentong clarified that Replay Decisions should not force the five model layers into one long mixed page. In single-model-group focus mode, the charts should show how each metric changes over replay time instead of comparing static bars. Chentong also renamed the model-evaluation page from Models to Model Groups and redirected Events away from a generic event timeline toward replay error attribution and event linkage.
+
+### Decision
+
+Replay Decisions renders M01-M05 through an in-page layer tab control. Each layer tab owns that layer's short role explanation, metric cards, charts, summary table, and effective decision ledger. Summary mode can keep cross-model comparison charts; focus mode uses cumulative time-axis line charts over replay month because current layer-review buckets are sparse and raw monthly percentages would overstate precision.
+
+The focus-mode metric set is expanded beyond Effective, Accept %, Harm %, and Mean Regret. Effective remains the denominator/context. Accept % is treated as an acceptability rate, not accuracy. Harm % remains the primary harmful-error rate. Incorrect %, Missed %, and worst-regret context are displayed alongside Mean Regret so tails and missed-good decisions are visible.
+
+The page formerly named Models is now Model Groups. The page formerly named Events is now Replay Attribution. Replay Attribution consumes replay-review attribution from `model_group_replay_review_summary`; it focuses on replay process errors, cause families, failure types, miss-attribution layers, first-gap components, and whether review rows publish event candidate references. It must not claim event causality unless event refs are actually published on replay review rows.
+
+### Consequences
+
+- D032's Events-as-temporal-explorer route is superseded for the public navigation surface.
+- The `temporal_explorer_summary` contract may remain available as an internal/source read model, but it is not the current public Events page contract.
+- Replay Decisions table columns must wrap within fixed-width tracks so long decision, cause, or evidence text does not overflow the page.
+- Future replay-review producers should add event refs to failed replay rows before the dashboard can draw event-linked attribution timelines.

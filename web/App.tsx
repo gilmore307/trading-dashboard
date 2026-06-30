@@ -33,11 +33,6 @@ import type {
   ModelPromotionItemPayload,
   ModelPromotionPostureChartPayload,
   RealtimeSignalChartPayload,
-  TemporalExplorerChartBarPayload,
-  TemporalExplorerChartPayload,
-  TemporalExplorerEventPayload,
-  TemporalExplorerEventFamilyPayload,
-  TemporalExplorerTickPayload,
   StageCoveragePayload,
 } from './types';
 import './styles.css';
@@ -45,7 +40,6 @@ import './styles.css';
 const CURRENT_SYSTEM_STATUS = 'current_system_status_summary';
 const HISTORICAL_TASK_PROGRESS = 'historical_task_progress_summary';
 const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
-const TEMPORAL_EXPLORER_SUMMARY = 'temporal_explorer_summary';
 const MODEL_READINESS = 'model_readiness_summary';
 const MODEL_PROMOTION_POSTURE = 'model_promotion_posture_summary';
 const MODEL_GROUP_REPLAY_REVIEW = 'model_group_replay_review_summary';
@@ -57,6 +51,38 @@ const REPLAY_DECISION_LAYER_ORDER = [
   'model_04_unified_decision',
   'model_05_option_expression',
 ];
+const REPLAY_DECISION_LAYER_NOTES: Record<string, { title: string; role: string; review: string; failure: string }> = {
+  model_01_background_context: {
+    title: 'M01 Background Context',
+    role: 'Builds the point-in-time market and background state that frames later target and action choices.',
+    review: 'Audit whether the accepted context state was usable enough for downstream replay decisions.',
+    failure: 'Weak or stressed background context was accepted without being withheld or downweighted.',
+  },
+  model_02_target_state: {
+    title: 'M02 Target State',
+    role: 'Evaluates target candidates and tradability before the replay path commits to a symbol.',
+    review: 'Audit selected target quality, rank, and tradability against the candidates visible at that replay time.',
+    failure: 'A lower-quality or weakly tradable target displaced a better point-in-time candidate.',
+  },
+  model_03_event_state: {
+    title: 'M03 Event State',
+    role: 'Summarizes event pressure, uncertainty, and path risk around the selected target and date.',
+    review: 'Audit whether event-state pressure should have allowed, blocked, or downweighted the path.',
+    failure: 'Event risk was underweighted, or normal event state was overblocked.',
+  },
+  model_04_unified_decision: {
+    title: 'M04 Unified Decision',
+    role: 'Combines target, context, event, and model signals into the underlying action intent.',
+    review: 'Audit whether the underlying action was acceptable among the point-in-time action choices.',
+    failure: 'The unified action took a harmful path or missed a better available action.',
+  },
+  model_05_option_expression: {
+    title: 'M05 Option Expression',
+    role: 'Translates the accepted underlying intent into an option expression and selected contract path.',
+    review: 'Audit whether the selected expression and contract path preserved the underlying thesis after costs and fills.',
+    failure: 'Expression, contract, or execution choice turned an acceptable thesis into a harmful realized outcome.',
+  },
+};
 
 const SOURCE_LABELS: Record<string, string> = {
   'trading-storage': 'System Monitor',
@@ -134,11 +160,11 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { id: 'tasks', label: 'Tasks' },
       { id: 'data', label: 'Data' },
-      { id: 'models', label: 'Models' },
+      { id: 'models', label: 'Model Groups' },
       { id: 'performance', label: 'Replay Performance' },
       { id: 'decisions', label: 'Replay Decisions' },
       { id: 'replay', label: 'Replay Operations' },
-      { id: 'events', label: 'Events' },
+      { id: 'events', label: 'Replay Attribution' },
     ],
   },
   {
@@ -157,10 +183,6 @@ function isRealtimeSignalChart(payload: DashboardReadModel['chart_payload']): pa
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
 
-function isTemporalExplorerChart(payload: DashboardReadModel['chart_payload']): payload is TemporalExplorerChartPayload {
-  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
-}
-
 function isModelLayerReadinessChart(payload: DashboardReadModel['chart_payload']): payload is ModelLayerReadinessChartPayload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
@@ -176,6 +198,11 @@ function isExecutionRuntimeChart(payload: DashboardReadModel['chart_payload']): 
 type ReplayReviewChartPayload = {
   review_runs?: Array<Record<string, unknown>>;
   contract_matrix?: Record<string, unknown>;
+};
+
+type ReplayAttributionRow = Record<string, unknown> & {
+  runLabel: string;
+  rowKey: string;
 };
 
 function isReplayReviewChart(payload: DashboardReadModel['chart_payload']): payload is ReplayReviewChartPayload {
@@ -3884,7 +3911,37 @@ function replayLayerRowsForLayer(runs: Array<Record<string, unknown>>, layerId: 
 
 function replayLayerDefinition(runs: Array<Record<string, unknown>>, layerId: string): { layerId: string; layerLabel: string } {
   const row = replayLayerRowsForLayer(runs, layerId)[0];
-  return { layerId, layerLabel: row?.layerLabel ?? startCase(layerId) };
+  return { layerId, layerLabel: row?.layerLabel ?? REPLAY_DECISION_LAYER_NOTES[layerId]?.title ?? startCase(layerId) };
+}
+
+function ReplayLayerTabs({
+  activeLayerId,
+  runs,
+  onChange,
+}: {
+  activeLayerId: string;
+  runs: Array<Record<string, unknown>>;
+  onChange: (layerId: string) => void;
+}) {
+  return (
+    <section className="replay-layer-tabs" aria-label="Replay decision model layers">
+      {REPLAY_DECISION_LAYER_ORDER.map((layerId) => {
+        const { layerLabel } = replayLayerDefinition(runs, layerId);
+        const count = replayLayerRowsForLayer(runs, layerId).reduce((total, row) => total + (row.effectiveDecisionCount ?? 0), 0);
+        return (
+          <button
+            className={activeLayerId === layerId ? 'selected' : ''}
+            key={layerId}
+            onClick={() => onChange(layerId)}
+            type="button"
+          >
+            <span>{layerLabel}</span>
+            <small>{formatMetricValue(count, 0)} effective</small>
+          </button>
+        );
+      })}
+    </section>
+  );
 }
 
 function replayLayerMetricSeries(
@@ -3903,6 +3960,86 @@ function replayLayerMetricSeries(
 
 function replayDecisionRowsForLayer(run: Record<string, unknown> | null, layerId: string): Array<Record<string, unknown>> {
   return run ? replayDecisionRows(run).filter((row) => String(row.layer_id ?? '') === layerId) : [];
+}
+
+type ReplayLayerTrendPoint = {
+  label: string;
+  cumulativeEffective: number;
+  bucketCount: number;
+  acceptRate: number | null;
+  harmRate: number | null;
+  incorrectRate: number | null;
+  missedGoodRate: number | null;
+  meanRegret: number | null;
+  worstRegret: number | null;
+};
+
+function replayLayerBucketLabel(row: Record<string, unknown>): string {
+  const raw = String(row.decision_time ?? row.replay_month ?? '').trim();
+  if (/^20\d{2}-\d{2}/u.test(raw)) return raw.slice(0, 7);
+  return 'unknown';
+}
+
+function rowCorrectness(row: Record<string, unknown>): string {
+  return String(row.correctness_class ?? '').trim().toLowerCase();
+}
+
+function rowAcceptability(row: Record<string, unknown>): string {
+  return String(row.acceptability_class ?? '').trim().toLowerCase();
+}
+
+function replayLayerRowMissedGood(row: Record<string, unknown>): boolean {
+  const text = searchText(row.failure_type, row.cause_family, row.first_gap_component, row.first_gap_mechanism);
+  return text.includes('missed_good') || text.includes('missed good') || text.includes('missed');
+}
+
+function replayLayerRowHarmful(row: Record<string, unknown>): boolean {
+  return rowCorrectness(row) === 'incorrect' && !replayLayerRowMissedGood(row);
+}
+
+function replayLayerTrendPoints(rows: Array<Record<string, unknown>>): ReplayLayerTrendPoint[] {
+  const bucketed = new Map<string, Array<Record<string, unknown>>>();
+  rows.forEach((row) => {
+    const label = replayLayerBucketLabel(row);
+    if (!bucketed.has(label)) bucketed.set(label, []);
+    bucketed.get(label)?.push(row);
+  });
+  let cumulativeEffective = 0;
+  let acceptable = 0;
+  let incorrect = 0;
+  let harmful = 0;
+  let missedGood = 0;
+  let regretSum = 0;
+  let regretCount = 0;
+  let worstRegret: number | null = null;
+  return Array.from(bucketed.entries())
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([label, bucketRows]) => {
+      bucketRows.forEach((row) => {
+        cumulativeEffective += 1;
+        if (rowAcceptability(row) === 'acceptable') acceptable += 1;
+        if (rowCorrectness(row) === 'incorrect') incorrect += 1;
+        if (replayLayerRowHarmful(row)) harmful += 1;
+        if (replayLayerRowMissedGood(row)) missedGood += 1;
+        const regret = metricNumber(row, 'regret_to_best_available');
+        if (regret !== null) {
+          regretSum += regret;
+          regretCount += 1;
+          worstRegret = worstRegret === null ? regret : Math.max(worstRegret, regret);
+        }
+      });
+      return {
+        label,
+        cumulativeEffective,
+        bucketCount: bucketRows.length,
+        acceptRate: cumulativeEffective ? acceptable / cumulativeEffective : null,
+        harmRate: cumulativeEffective ? harmful / cumulativeEffective : null,
+        incorrectRate: cumulativeEffective ? incorrect / cumulativeEffective : null,
+        missedGoodRate: cumulativeEffective ? missedGood / cumulativeEffective : null,
+        meanRegret: regretCount ? regretSum / regretCount : null,
+        worstRegret,
+      };
+    });
 }
 
 function comparableTableValue(value: unknown): string | number | null {
@@ -4338,6 +4475,93 @@ function ReplayLayerQualityCharts({ rows }: { rows: ReplayLayerComparisonRow[] }
   );
 }
 
+function ReplayLayerTrendChart({
+  title,
+  points,
+  valueForPoint,
+  valueLabel,
+  emptyLabel,
+}: {
+  title: string;
+  points: ReplayLayerTrendPoint[];
+  valueForPoint: (point: ReplayLayerTrendPoint) => number | null;
+  valueLabel: (value: number) => string;
+  emptyLabel: string;
+}) {
+  const chartPoints = points
+    .map((point) => ({ ...point, value: valueForPoint(point) }))
+    .filter((point): point is ReplayLayerTrendPoint & { value: number } => typeof point.value === 'number' && Number.isFinite(point.value));
+  if (!chartPoints.length) {
+    return (
+      <section className="model-chart-panel">
+        <div className="model-chart-title">{title}</div>
+        <div className="empty-chart compact">{emptyLabel}</div>
+      </section>
+    );
+  }
+  const width = 680;
+  const height = 235;
+  const padding = 38;
+  const bottomPadding = 54;
+  const values = chartPoints.map((point) => point.value);
+  const minValue = Math.min(0, ...values);
+  const maxValue = Math.max(0, ...values);
+  const range = maxValue - minValue || 1;
+  const projectX = (index: number) => padding + (chartPoints.length === 1 ? 0.5 : index / (chartPoints.length - 1)) * (width - padding * 2);
+  const projectY = (value: number) => height - bottomPadding - ((value - minValue) / range) * (height - padding - bottomPadding);
+  const projected = chartPoints.map((point, index) => ({ ...point, x: projectX(index), y: projectY(point.value) }));
+  const linePoints = projected.map((point) => `${point.x},${point.y}`).join(' ');
+  const zeroY = projectY(0);
+  const latest = projected[projected.length - 1];
+  const lowNCount = chartPoints.filter((point) => point.bucketCount < 3).length;
+  return (
+    <section className="model-chart-panel replay-trend-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">{title}</span>
+        <strong>{valueLabel(latest.value)}</strong>
+      </div>
+      <svg className="model-diagnostic-curve replay-trend-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
+        <line className="curve-axis" x1={padding} y1={padding} x2={padding} y2={height - bottomPadding} />
+        <line className="curve-axis" x1={padding} y1={height - bottomPadding} x2={width - padding} y2={height - bottomPadding} />
+        <line className="curve-zero-line" x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} />
+        <polyline className="curve-line" points={linePoints} />
+        {projected.map((point, index) => {
+          const showLabel = projected.length <= 8 || index === 0 || index === projected.length - 1 || index % Math.ceil(projected.length / 6) === 0;
+          return (
+            <g key={`${point.label}-${index}`}>
+              <circle className={point.bucketCount < 3 ? 'low-sample-point' : ''} cx={point.x} cy={point.y} r={point.bucketCount < 3 ? 3.3 : 4.2}>
+                <title>{`${point.label}: ${valueLabel(point.value)} · n=${point.bucketCount} · cumulative n=${point.cumulativeEffective}`}</title>
+              </circle>
+              {showLabel ? <text x={point.x} y={height - 24} textAnchor="middle">{compactMonthLabel(point.label)}</text> : null}
+            </g>
+          );
+        })}
+      </svg>
+      <div className="replay-trend-note">
+        <span>Cumulative audit over replay time</span>
+        <span>{lowNCount ? `${lowNCount} low-n buckets marked` : 'All visible buckets n>=3'}</span>
+      </div>
+    </section>
+  );
+}
+
+function ReplayLayerFocusTrendCharts({ rows }: { rows: Array<Record<string, unknown>> }) {
+  const points = replayLayerTrendPoints(rows);
+  const percentLabel = (value: number) => `${(value * 100).toFixed(1)}%`;
+  const numberLabel = (value: number) => value.toFixed(4);
+  return (
+    <div className="replay-chart-grid replay-trend-grid">
+      <ReplayLayerTrendChart title="Cumulative Effective Decisions" points={points} valueForPoint={(point) => point.cumulativeEffective} valueLabel={(value) => value.toFixed(0)} emptyLabel="No effective decisions published for this layer" />
+      <ReplayLayerTrendChart title="Cumulative Accept %" points={points} valueForPoint={(point) => point.acceptRate} valueLabel={percentLabel} emptyLabel="No acceptability labels published for this layer" />
+      <ReplayLayerTrendChart title="Cumulative Harm %" points={points} valueForPoint={(point) => point.harmRate} valueLabel={percentLabel} emptyLabel="No harmful-error labels published for this layer" />
+      <ReplayLayerTrendChart title="Cumulative Incorrect %" points={points} valueForPoint={(point) => point.incorrectRate} valueLabel={percentLabel} emptyLabel="No correctness labels published for this layer" />
+      <ReplayLayerTrendChart title="Cumulative Missed %" points={points} valueForPoint={(point) => point.missedGoodRate} valueLabel={percentLabel} emptyLabel="No missed-good labels published for this layer" />
+      <ReplayLayerTrendChart title="Cumulative Mean Regret" points={points} valueForPoint={(point) => point.meanRegret} valueLabel={numberLabel} emptyLabel="No regret labels published for this layer" />
+      <ReplayLayerTrendChart title="Worst Regret Seen" points={points} valueForPoint={(point) => point.worstRegret} valueLabel={numberLabel} emptyLabel="No worst-regret labels published for this layer" />
+    </div>
+  );
+}
+
 function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
   const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type'>>({ key: 'decision_time', direction: 'asc' });
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
@@ -4385,21 +4609,31 @@ function ReplayLayerSection({
   layerId: string;
 }) {
   const { layerLabel } = replayLayerDefinition(runs, layerId);
+  const layerNote = REPLAY_DECISION_LAYER_NOTES[layerId];
   const rows = replayLayerRowsForLayer(runs, layerId);
   const focusedSummary = focusedRun ? rows[0] ?? null : null;
   const ledgerRows = focusedRun ? replayDecisionRowsForLayer(focusedRun, layerId) : [];
   return (
     <section className="panel replay-layer-section">
       <div className="panel-heading">{layerLabel}</div>
+      {layerNote ? (
+        <div className="replay-layer-intro">
+          <strong>{layerNote.role}</strong>
+          <span>{layerNote.review}</span>
+          <small>{layerNote.failure}</small>
+        </div>
+      ) : null}
       {focusedSummary ? (
-        <div className="metric-grid four">
+        <div className="metric-grid replay-layer-metrics">
           <MetricCard label="Effective" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint={`Coverage ${formatMetricValue(focusedSummary.coverageRowCount, 0)}`} />
           <MetricCard label="Accept %" value={focusedSummary.acceptableRate === null ? 'Not reported' : `${(focusedSummary.acceptableRate * 100).toFixed(1)}%`} hint={startCase(focusedSummary.evidenceStatus)} />
           <MetricCard label="Harm %" value={focusedSummary.harmfulErrorRate === null ? 'Not reported' : `${(focusedSummary.harmfulErrorRate * 100).toFixed(1)}%`} hint="Harmful error rate" />
+          <MetricCard label="Incorrect %" value={focusedSummary.incorrectRate === null ? 'Not reported' : `${(focusedSummary.incorrectRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
+          <MetricCard label="Missed %" value={focusedSummary.missedGoodRate === null ? 'Not reported' : `${(focusedSummary.missedGoodRate * 100).toFixed(1)}%`} hint="Missed good opportunity rate" />
           <MetricCard label="Mean Regret" value={formatMetricValue(focusedSummary.meanRegret, 4)} hint={focusedSummary.sourceGapCodes.length ? focusedSummary.sourceGapCodes.map(startCase).join(' | ') : 'Layer decision quality rows'} />
         </div>
       ) : null}
-      <ReplayLayerQualityCharts rows={rows} />
+      {focusedRun ? <ReplayLayerFocusTrendCharts rows={ledgerRows} /> : <ReplayLayerQualityCharts rows={rows} />}
       <div className="replay-table-panel">
         <ReplayLayerQualityTable rows={rows} />
       </div>
@@ -4779,6 +5013,7 @@ function ReplayDecisionsView({
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeLayerId, setActiveLayerId] = useState(REPLAY_DECISION_LAYER_ORDER[0]);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
@@ -4803,18 +5038,11 @@ function ReplayDecisionsView({
         selectedIds={selectedIds}
         onChange={setSelectedIds}
       />
+      <ReplayLayerTabs activeLayerId={activeLayerId} runs={chartReviewRuns} onChange={setActiveLayerId} />
       {focusedRun ? (
-        <>
-          {REPLAY_DECISION_LAYER_ORDER.map((layerId) => (
-            <ReplayLayerSection key={layerId} runs={[focusedRun]} focusedRun={focusedRun} layerId={layerId} />
-          ))}
-        </>
+        <ReplayLayerSection key={activeLayerId} runs={[focusedRun]} focusedRun={focusedRun} layerId={activeLayerId} />
       ) : (
-        <>
-          {REPLAY_DECISION_LAYER_ORDER.map((layerId) => (
-            <ReplayLayerSection key={layerId} runs={chartReviewRuns} focusedRun={null} layerId={layerId} />
-          ))}
-        </>
+        <ReplayLayerSection key={activeLayerId} runs={chartReviewRuns} focusedRun={null} layerId={activeLayerId} />
       )}
     </section>
   );
@@ -4910,215 +5138,83 @@ function ReplayOperationsView({
   );
 }
 
-function parseTimeMs(value?: string | null): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : null;
+function replayAttributionRows(runs: Array<Record<string, unknown>>): ReplayAttributionRow[] {
+  return runs.flatMap((run, runIndex) => {
+    const decision = replayReviewDecision(run);
+    const sampleRows = nestedArray(decision, 'sample_rows');
+    return sampleRows.map((row, rowIndex) => ({
+      ...row,
+      runLabel: replayReviewRunLabel(run, runIndex),
+      rowKey: `${replayReviewRunId(run, runIndex)}-${rowIndex}`,
+    }));
+  });
 }
 
-function tickForEvent(event: TemporalExplorerEventPayload, ticks: TemporalExplorerTickPayload[]): TemporalExplorerTickPayload | null {
-  const eventMs = parseTimeMs(event.event_time);
-  if (eventMs === null) return null;
-  return ticks.find((tick) => {
-    const startMs = parseTimeMs(tick.tick_start_utc);
-    const endMs = parseTimeMs(tick.tick_end_utc);
-    return startMs !== null && endMs !== null && eventMs >= startMs && eventMs < endMs;
-  }) ?? null;
-}
-
-function chartBarForEvent(event: TemporalExplorerEventPayload, bars: TemporalExplorerChartBarPayload[]): TemporalExplorerChartBarPayload | null {
-  const eventMs = parseTimeMs(event.event_time);
-  if (eventMs === null) return null;
-  return bars.find((bar) => {
-    const startMs = parseTimeMs(bar.bucket_start);
-    const endMs = parseTimeMs(bar.bucket_end);
-    return startMs !== null && endMs !== null && eventMs >= startMs && eventMs < endMs;
-  }) ?? null;
-}
-
-function eventRelationCounts(
-  events: TemporalExplorerEventPayload[],
-  ticks: TemporalExplorerTickPayload[],
-  key: 'market_session_status' | 'event_type' | 'scope' | 'symbol',
-): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const event of events) {
-    const tick = tickForEvent(event, ticks);
-    const value = key === 'market_session_status'
-      ? eventMarketState(event, ticks)
-      : event[key];
-    const label = String(value || 'unknown');
-    counts[label] = (counts[label] ?? 0) + 1;
-  }
-  return counts;
-}
-
-function familyMarketStateCount(family: TemporalExplorerEventFamilyPayload): number {
-  return Object.keys(family.market_state_counts ?? {}).length;
-}
-
-function familyReturnStatistic(
-  family: TemporalExplorerEventFamilyPayload | undefined,
-  symbol: string,
-): NonNullable<TemporalExplorerEventFamilyPayload['return_statistics']>[number] | undefined {
-  return family?.return_statistics?.find((stat) => stat.symbol === symbol);
-}
-
-function eventFamilyId(event: TemporalExplorerEventPayload): string {
-  return event.family_id ?? event.event_type ?? 'unknown';
-}
-
-function eventMarketState(event: TemporalExplorerEventPayload, ticks: TemporalExplorerTickPayload[]): string {
-  if (event.market_state) return event.market_state;
-  return tickForEvent(event, ticks)?.market_session_status ?? 'unknown';
-}
-
-function EventAttentionPoolView({
-  events,
-  eventFamilies,
-  selectedFamilyId,
-  setSelectedFamilyId,
-  ticks,
-  chartBars,
-  activeFrame,
-}: {
-  events: TemporalExplorerEventPayload[];
-  eventFamilies: TemporalExplorerEventFamilyPayload[];
-  selectedFamilyId: string | null;
-  setSelectedFamilyId: (familyId: string | null) => void;
-  ticks: TemporalExplorerTickPayload[];
-  chartBars: TemporalExplorerChartBarPayload[];
-  activeFrame: string;
-}) {
-  const selectedFamily = eventFamilies.find((family) => family.family_id === selectedFamilyId);
-  const focusedEvents = selectedFamily ? events.filter((event) => eventFamilyId(event) === selectedFamily.family_id) : events;
-  const visibleEvents = focusedEvents.slice(-30).reverse();
-  const marketStates = new Set(ticks.map((tick) => tick.market_session_status).filter(Boolean));
-  const aggregateReturnSeries = eventFamilies.map((family) => ({
-    label: family.family_label,
-    value: familyReturnStatistic(family, 'SPY')?.average_same_bar_return_pct ?? 0,
-  }));
-  const aggregatePositiveSeries = eventFamilies.map((family) => ({
-    label: family.family_label,
-    value: (familyReturnStatistic(family, 'SPY')?.positive_rate ?? 0) * 100,
-  }));
-  const selectedReturnSeries = (selectedFamily?.return_statistics ?? []).map((stat) => ({
-    label: stat.symbol,
-    value: stat.average_same_bar_return_pct ?? 0,
-  }));
-  const selectedPositiveSeries = (selectedFamily?.return_statistics ?? []).map((stat) => ({
-    label: stat.symbol,
-    value: (stat.positive_rate ?? 0) * 100,
-  }));
-  const allFirstSeen = eventFamilies
-    .map((family) => family.first_seen_utc)
-    .filter((value): value is string => Boolean(value))
-    .sort()[0];
-  const allLastSeen = eventFamilies
-    .map((family) => family.last_seen_utc)
-    .filter((value): value is string => Boolean(value))
-    .sort()
-    .at(-1);
+function ReplayAttributionView({ replayReviewChart }: { replayReviewChart: ReplayReviewChartPayload }) {
+  const runs = replayReviewRuns(replayReviewChart);
+  const causeCounts = aggregateCounts(runs, (run) => countRecord(replayReviewDecision(run), 'cause_family_counts'));
+  const failureCounts = aggregateCounts(runs, (run) => countRecord(replayReviewDecision(run), 'failure_type_counts'));
+  const layerCounts = aggregateCounts(runs, (run) => countRecord(replayReviewDecision(run), 'miss_attribution_layer_counts'));
+  const firstGapCounts = aggregateCounts(runs, (run) => countRecord(replayReviewDecision(run), 'first_gap_component_counts'));
+  const totalReviewed = runs.reduce((sum, run) => sum + (metricNumber(replayReviewDecision(run), 'row_count') ?? 0), 0);
+  const eventCandidateCount = runs.reduce((sum, run) => sum + (metricNumber(run, 'event_candidate_count') ?? 0), 0);
+  const sampleRows = replayAttributionRows(runs);
   return (
-    <section className="event-attention-pool">
-      <section className="panel">
-        <div className="panel-heading">Certified Event Families / Market State</div>
-        <div className="metric-grid four">
-          <MetricCard label="Event families" value={eventFamilies.length} hint={selectedFamily ? selectedFamily.family_label : 'All certified families'} />
-          <MetricCard label="Occurrences" value={focusedEvents.length} hint={selectedFamily ? 'Selected family' : 'All event-family occurrences'} />
-          <MetricCard label="Market states" value={marketStates.size} hint="Distinct market-session states in the current viewport" />
-          <MetricCard label="ETF bars" value={chartBars.length} hint={`${activeFrame} replay-window bars available for relation checks`} />
+    <section className="replay-view">
+      <ReplaySelectionModePanel
+        mode="summary"
+        summary={`${runs.length} reviewed model groups · ${totalReviewed.toFixed(0)} replay error attribution rows`}
+      />
+      <section className="metric-grid replay-attribution-metrics">
+        <MetricCard label="Reviewed Rows" value={totalReviewed.toFixed(0)} hint="Post-replay error attribution rows" />
+        <MetricCard label="Event Links" value={eventCandidateCount.toFixed(0)} hint={eventCandidateCount ? 'Replay rows with candidate event linkage' : 'No event linkage published yet'} />
+        <MetricCard label="Cause Families" value={Object.keys(causeCounts).length} hint="Distinct replay cause families" />
+        <MetricCard label="Attributed Layers" value={Object.keys(layerCounts).length} hint="Replay miss attribution layers" />
+      </section>
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart title="Replay Cause Family" series={countSeriesFromRecord(causeCounts)} emptyLabel="No replay cause-family counts published" />
+        <MiniMetricBarChart title="Failure Type" series={countSeriesFromRecord(failureCounts)} emptyLabel="No failure-type counts published" />
+        <MiniMetricBarChart title="Miss Attribution Layer" series={countSeriesFromRecord(layerCounts)} emptyLabel="No layer-attribution counts published" />
+        <MiniMetricBarChart title="First Gap Component" series={countSeriesFromRecord(firstGapCounts)} emptyLabel="No first-gap component counts published" />
+      </div>
+      <section className="panel replay-event-linkage-panel">
+        <div className="panel-heading">Event Linkage</div>
+        <p className="panel-subtitle">
+          Replay Attribution is scoped to replay errors. Current review artifacts do not publish event candidate refs, so this page does not claim an event caused any error yet.
+        </p>
+        <div className="metric-grid three">
+          <MetricCard label="Event candidates" value={eventCandidateCount.toFixed(0)} hint="Published on review run metadata" />
+          <MetricCard label="Link status" value={eventCandidateCount ? 'Published' : 'Not published'} hint="Needs event refs on replay review rows" />
+          <MetricCard label="Next evidence" value="Event refs" hint="Attach event candidates to failed replay rows before causal display" />
         </div>
       </section>
       <section className="panel replay-table-panel">
-        <div className="panel-heading">Event Family Selector</div>
-        <div className="replay-table event-family-selector-table">
+        <div className="panel-heading">Replay Error Samples</div>
+        <div className="replay-table replay-attribution-table">
           <div className="replay-table-row replay-table-head">
-            <span>Event Family</span>
-            <span>Occurrences</span>
-            <span>Market States</span>
-            <span>Scope</span>
-            <span>Symbol</span>
-            <span>First Seen</span>
-            <span>Last Seen</span>
-          </div>
-          <button
-            className={selectedFamilyId === null ? 'replay-table-row selected' : 'replay-table-row'}
-            onClick={() => setSelectedFamilyId(null)}
-            type="button"
-          >
-            <strong>All certified event families</strong>
-            <span>{events.length}</span>
-            <span>{marketStates.size}</span>
-            <span>All</span>
-            <span>All</span>
-            <span>{allFirstSeen ? formatTimestamp(allFirstSeen) : 'None'}</span>
-            <span>{allLastSeen ? formatTimestamp(allLastSeen) : 'None'}</span>
-          </button>
-          {eventFamilies.length ? eventFamilies.map((family) => {
-            const selected = family.family_id === selectedFamilyId;
-            return (
-              <button
-                className={selected ? 'replay-table-row selected' : 'replay-table-row'}
-                key={family.family_id}
-                onClick={() => setSelectedFamilyId(family.family_id)}
-                type="button"
-              >
-                <strong>{startCase(family.family_label)}</strong>
-                <span>{family.occurrence_count}</span>
-                <span>{familyMarketStateCount(family)}</span>
-                <span>{Object.keys(family.scope_counts ?? {}).map(startCase).join(', ') || 'Unknown'}</span>
-                <span>{Object.keys(family.symbol_counts ?? {}).join(', ') || 'Market'}</span>
-                <span>{family.first_seen_utc ? formatTimestamp(family.first_seen_utc) : 'None'}</span>
-                <span>{family.last_seen_utc ? formatTimestamp(family.last_seen_utc) : 'None'}</span>
-              </button>
-            );
-          }) : (
-            <div className="empty-chart compact">No certified event families are currently published in the event attention pool.</div>
-          )}
-        </div>
-      </section>
-      {selectedFamily ? (
-        <div className="replay-chart-grid">
-          <MiniMetricBarChart title={`${startCase(selectedFamily.family_label)} · Market State`} series={countSeriesFromRecord(selectedFamily.market_state_counts ?? {})} emptyLabel="No market-state counts published for this event family" />
-          <MiniMetricBarChart title={`${startCase(selectedFamily.family_label)} · ETF Same-Bar Return %`} series={selectedReturnSeries} emptyLabel="No ETF same-bar return statistics published for this event family" />
-          <MiniMetricBarChart title={`${startCase(selectedFamily.family_label)} · ETF Positive Rate %`} series={selectedPositiveSeries} emptyLabel="No ETF positive-rate statistics published for this event family" />
-          <MiniMetricBarChart title={`${startCase(selectedFamily.family_label)} · Source Mix`} series={countSeriesFromRecord(selectedFamily.source_counts ?? {})} emptyLabel="No source counts published for this event family" />
-        </div>
-      ) : (
-        <div className="replay-chart-grid">
-          <MiniMetricBarChart title="Occurrence Count · Family Compare" series={eventFamilies.map((family) => ({ label: family.family_label, value: family.occurrence_count }))} emptyLabel="No certified event families in the current event attention pool" />
-          <MiniMetricBarChart title="SPY Same-Bar Return % · Family Compare" series={aggregateReturnSeries} emptyLabel="No SPY same-bar return statistics published" />
-          <MiniMetricBarChart title="SPY Positive Rate % · Family Compare" series={aggregatePositiveSeries} emptyLabel="No SPY positive-rate statistics published" />
-          <MiniMetricBarChart title="Events By Market State" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'market_session_status'))} emptyLabel="No certified event-family market-state relation published" />
-        </div>
-      )}
-      <section className="panel replay-table-panel">
-        <div className="panel-heading">{selectedFamily ? `${startCase(selectedFamily.family_label)} Occurrences` : 'Recent Certified Occurrences'}</div>
-        <div className="replay-table event-occurrence-table">
-          <div className="replay-table-row replay-table-head">
-            <span>Occurrence</span>
+            <span>Model Group</span>
             <span>Time</span>
-            <span>Market State</span>
-            <span>Scope</span>
-            <span>Symbol</span>
-            <span>Market Bar</span>
+            <span>Target</span>
+            <span>Layer</span>
+            <span>Cause</span>
+            <span>Failure</span>
+            <span>Gap</span>
+            <span>Regret</span>
+            <span>Event Link</span>
           </div>
-          {visibleEvents.length ? visibleEvents.map((event) => {
-            const bar = chartBarForEvent(event, chartBars);
-            return (
-              <div className="replay-table-row" key={`${event.lane}-${event.event_id}`}>
-                <strong>{event.title || event.event_id}</strong>
-                <span>{formatTimestamp(event.event_time)}</span>
-                <span>{startCase(eventMarketState(event, ticks))}</span>
-                <span>{startCase(event.scope ?? 'unknown')}</span>
-                <span>{event.symbol ?? 'Market'}</span>
-                <span>{bar ? `O ${formatMetricValue(bar.open, 2)} C ${formatMetricValue(bar.close, 2)} V ${formatMetricValue(bar.volume ?? null, 0)}` : 'No bar'}</span>
-              </div>
-            );
-          }) : (
-            <div className="empty-chart compact">No certified occurrences match the selected event family.</div>
-          )}
+          {sampleRows.length ? sampleRows.map((row) => (
+            <div className="replay-table-row" key={String(row.rowKey)}>
+              <strong>{String(row.runLabel)}</strong>
+              <span>{String(row.decision_time ?? 'Not reported')}</span>
+              <span>{String(row.target_symbol ?? 'Not reported')}</span>
+              <span>{startCase(String(row.miss_attribution_layer ?? 'not_reported'))}</span>
+              <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
+              <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
+              <span>{startCase(String(row.first_gap_component ?? 'not_reported'))}</span>
+              <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
+              <span>{row.event_refs || row.event_candidate_count ? 'Published' : 'Not published'}</span>
+            </div>
+          )) : <div className="empty-chart compact">No replay attribution sample rows published.</div>}
         </div>
       </section>
     </section>
@@ -6121,332 +6217,6 @@ function DiagnosticsSummaryView({
   );
 }
 
-function temporalLaneSeverity(status?: string | null): string {
-  if (status === 'populated' || status === 'regular' || status === 'crypto_continuous' || status === 'ready') return 'low';
-  if (status === 'empty' || status === 'not_populated' || status === 'not_connected') return 'medium';
-  if (status === 'missing' || status === 'unavailable' || status === 'driver_missing') return 'high';
-  return 'info';
-}
-
-function eventForTick(events: TemporalExplorerEventPayload[], tick: TemporalExplorerTickPayload): TemporalExplorerEventPayload[] {
-  const start = Date.parse(tick.tick_start_utc);
-  const end = Date.parse(tick.tick_end_utc);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
-  return events.filter((event) => {
-    const at = Date.parse(event.event_time);
-    return Number.isFinite(at) && at >= start && at < end;
-  });
-}
-
-function frameMilliseconds(frame?: string | null): number {
-  if (frame === '30m') return 30 * 60 * 1000;
-  if (frame === '1h') return 60 * 60 * 1000;
-  if (frame === '1W') return 7 * 24 * 60 * 60 * 1000;
-  return 24 * 60 * 60 * 1000;
-}
-
-function alignTemporalMilliseconds(value: number, frame?: string | null): number {
-  if (!Number.isFinite(value)) return Date.now();
-  const date = new Date(value);
-  if (frame === '30m') {
-    date.setUTCSeconds(0, 0);
-    date.setUTCMinutes(Math.floor(date.getUTCMinutes() / 30) * 30);
-    return date.getTime();
-  }
-  if (frame === '1h') {
-    date.setUTCMinutes(0, 0, 0);
-    return date.getTime();
-  }
-  if (frame === '1W') {
-    date.setUTCHours(0, 0, 0, 0);
-    date.setUTCDate(date.getUTCDate() - date.getUTCDay());
-    return date.getTime();
-  }
-  date.setUTCHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-function alignTemporalCenter(centerIso?: string | null, frame?: string | null): string {
-  const parsed = Date.parse(centerIso ?? '');
-  return new Date(alignTemporalMilliseconds(parsed, frame)).toISOString();
-}
-
-function chartTimeframeForFrame(frame?: string | null): string {
-  if (frame === '30m') return '10min';
-  if (frame === '1h') return '30min';
-  if (frame === '1W') return '1W';
-  return '1D';
-}
-
-function shiftTemporalCenter(centerIso?: string | null, frame?: string | null, offset = 0): string {
-  const base = Date.parse(alignTemporalCenter(centerIso, frame));
-  return new Date(base + frameMilliseconds(frame) * offset).toISOString();
-}
-
-function temporalCenterInsideViewport(centerIso?: string | null, startIso?: string | null, endIso?: string | null): boolean {
-  const center = Date.parse(centerIso ?? '');
-  const start = Date.parse(startIso ?? '');
-  const end = Date.parse(endIso ?? '');
-  if (!Number.isFinite(center) || !Number.isFinite(start) || !Number.isFinite(end)) return false;
-  return center >= start && center < end;
-}
-
-function temporalTickLabel(value: Date, frame?: string | null): string {
-  if (frame === '30m' || frame === '1h') {
-    return value.toISOString().slice(5, 16).replace('T', ' ');
-  }
-  return value.toISOString().slice(0, 10);
-}
-
-function calendarInputDate(value?: string | null): string {
-  const parsed = Date.parse(value ?? '');
-  if (!Number.isFinite(parsed)) return new Date().toISOString().slice(0, 10);
-  return new Date(parsed).toISOString().slice(0, 10);
-}
-
-function buildTemporalTicks(
-  centerIso: string | undefined,
-  frame: string | undefined,
-  sourceTicks: TemporalExplorerTickPayload[],
-  events: TemporalExplorerEventPayload[],
-): TemporalExplorerTickPayload[] {
-  if (sourceTicks.length > 1) {
-    return sourceTicks.map((tick) => ({ ...tick, event_count: eventForTick(events, tick).length }));
-  }
-  const parsedCenter = Date.parse(centerIso ?? '');
-  if (!Number.isFinite(parsedCenter)) return sourceTicks;
-  const delta = frameMilliseconds(frame);
-  const alignedCenter = alignTemporalMilliseconds(parsedCenter, frame);
-  const base = alignedCenter - delta * 10;
-  const statusByDate = new Map(
-    sourceTicks.map((tick) => [calendarInputDate(tick.tick_start_utc), tick.market_session_status ?? 'unknown']),
-  );
-  return Array.from({ length: 21 }, (_, index) => {
-    const tickStart = new Date(base + delta * index);
-    const tickEnd = new Date(tickStart.getTime() + delta);
-    const shell = {
-      tick_start_utc: tickStart.toISOString(),
-      tick_end_utc: tickEnd.toISOString(),
-      label: temporalTickLabel(tickStart, frame),
-      is_center: index === 10,
-      market_session_status: statusByDate.get(calendarInputDate(tickStart.toISOString())) ?? 'unknown',
-      event_count: 0,
-      chart_bar_count: 0,
-    };
-    return { ...shell, event_count: eventForTick(events, shell).length };
-  });
-}
-
-function tickContainsTime(tick: TemporalExplorerTickPayload, value?: string | null): boolean {
-  const at = Date.parse(value ?? '');
-  const start = Date.parse(tick.tick_start_utc);
-  const end = Date.parse(tick.tick_end_utc);
-  return Number.isFinite(at) && Number.isFinite(start) && Number.isFinite(end) && at >= start && at < end;
-}
-
-function temporalPositionPercent(value?: string | null, start?: string | null, end?: string | null): number {
-  const at = Date.parse(value ?? '');
-  const startAt = Date.parse(start ?? '');
-  const endAt = Date.parse(end ?? '');
-  if (!Number.isFinite(at) || !Number.isFinite(startAt) || !Number.isFinite(endAt) || endAt <= startAt) return 0;
-  return Math.max(0, Math.min(100, ((at - startAt) / (endAt - startAt)) * 100));
-}
-
-type TemporalLightweightCandle = CandlestickData & {
-  label: string;
-  volume: number;
-};
-
-function temporalBarTime(bar: TemporalExplorerChartBarPayload): CandlestickData['time'] {
-  const parsed = Date.parse(bar.bucket_start);
-  return Math.floor((Number.isFinite(parsed) ? parsed : Date.now()) / 1000) as CandlestickData['time'];
-}
-
-function temporalChartDateLabel(value?: string | null, timeframe?: string | null): string {
-  const parsed = Date.parse(value ?? '');
-  if (!Number.isFinite(parsed)) return value ?? 'Unknown';
-  const date = new Date(parsed);
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(date.getUTCDate()).padStart(2, '0');
-  const dateLabel = `${year}-${month}-${day}`;
-  if (timeframe === '1D' || timeframe === '1W') return dateLabel;
-  const timeLabel = new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'UTC',
-  }).format(date);
-  return `${dateLabel} ${timeLabel} UTC`;
-}
-
-function toTemporalLightweightCandle(bar: TemporalExplorerChartBarPayload): TemporalLightweightCandle {
-  return {
-    time: temporalBarTime(bar),
-    label: temporalChartDateLabel(bar.bucket_start, bar.timeframe),
-    open: bar.open,
-    high: bar.high,
-    low: bar.low,
-    close: bar.close,
-    volume: bar.volume ?? 0,
-  };
-}
-
-function isTemporalLightweightCandle(value: unknown): value is TemporalLightweightCandle {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Partial<TemporalLightweightCandle>;
-  return typeof candidate.label === 'string'
-    && typeof candidate.open === 'number'
-    && typeof candidate.high === 'number'
-    && typeof candidate.low === 'number'
-    && typeof candidate.close === 'number';
-}
-
-function TemporalTradingViewChart({
-  symbol,
-  timeframe,
-  bars,
-  events,
-  viewportStart,
-  viewportEnd,
-}: {
-  symbol: string;
-  timeframe: string;
-  bars: TemporalExplorerChartBarPayload[];
-  events: TemporalExplorerEventPayload[];
-  viewportStart: string;
-  viewportEnd: string;
-}) {
-  const chartData = useMemo(() => bars.slice(-180).map(toTemporalLightweightCandle), [bars]);
-  const volumeData = useMemo<HistogramData[]>(() => chartData.map((bar) => ({
-    time: bar.time,
-    value: bar.volume,
-    color: bar.close >= bar.open ? 'rgba(34, 171, 148, .42)' : 'rgba(242, 54, 69, .42)',
-  })), [chartData]);
-  const candleByTime = useMemo(() => new Map(chartData.map((candle) => [chartTimeKey(candle.time), candle])), [chartData]);
-  const chartRef = useRef<HTMLDivElement | null>(null);
-  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
-  const [hoveredCandle, setHoveredCandle] = useState<TemporalLightweightCandle | null>(null);
-
-  useEffect(() => {
-    const container = chartRef.current;
-    if (!container || !chartData.length) return undefined;
-
-    const chart: IChartApi = createChart(container, {
-      autoSize: true,
-      layout: {
-        background: { type: ColorType.Solid, color: '#0f1720' },
-        textColor: '#8b9bb0',
-        fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        attributionLogo: true,
-      },
-      grid: {
-        vertLines: { color: 'rgba(148, 163, 184, .10)' },
-        horzLines: { color: 'rgba(148, 163, 184, .14)' },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: 'rgba(209, 213, 219, .48)', style: LineStyle.LargeDashed, labelVisible: false },
-        horzLine: { color: 'rgba(209, 213, 219, .48)', style: LineStyle.LargeDashed, labelVisible: true },
-      },
-      rightPriceScale: {
-        borderColor: 'rgba(148, 163, 184, .18)',
-        scaleMargins: { top: 0.06, bottom: 0.26 },
-      },
-      timeScale: {
-        borderColor: 'rgba(148, 163, 184, .18)',
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      localization: {
-        priceFormatter: (price: number) => price.toFixed(2),
-      },
-      handleScroll: {
-        mouseWheel: true,
-        pressedMouseMove: true,
-        horzTouchDrag: true,
-        vertTouchDrag: false,
-      },
-      handleScale: {
-        axisPressedMouseMove: true,
-        mouseWheel: true,
-        pinch: true,
-      },
-    });
-
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#22ab94',
-      downColor: '#f23645',
-      borderUpColor: '#22ab94',
-      borderDownColor: '#f23645',
-      wickUpColor: '#22ab94',
-      wickDownColor: '#f23645',
-      priceLineVisible: true,
-      lastValueVisible: true,
-    });
-    seriesRef.current = candleSeries;
-    candleSeries.setData(chartData);
-
-    const volumeSeries = chart.addSeries(HistogramSeries, {
-      priceFormat: { type: 'volume' },
-      priceScaleId: 'volume',
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
-    volumeSeries.setData(volumeData);
-    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-    chart.timeScale().fitContent();
-
-    const handleCrosshairMove = (event: MouseEventParams) => {
-      const item = seriesRef.current ? event.seriesData.get(seriesRef.current) : null;
-      const timeMatch = event.time === undefined ? null : candleByTime.get(chartTimeKey(event.time));
-      setHoveredCandle(timeMatch ?? (isTemporalLightweightCandle(item) ? item : null));
-    };
-    chart.subscribeCrosshairMove(handleCrosshairMove);
-
-    const resizeObserver = new ResizeObserver(() => chart.timeScale().fitContent());
-    resizeObserver.observe(container);
-
-    return () => {
-      resizeObserver.disconnect();
-      chart.unsubscribeCrosshairMove(handleCrosshairMove);
-      seriesRef.current = null;
-      chart.remove();
-    };
-  }, [candleByTime, chartData, volumeData]);
-
-  if (!chartData.length) {
-    return <div className="empty-chart compact">{symbol} {timeframe} chart bars are unavailable for this viewport.</div>;
-  }
-
-  const latest = chartData[chartData.length - 1];
-  const legend = hoveredCandle ?? latest;
-  return (
-    <div className="temporal-tradingview-shell">
-      <div className="replay-lightweight-legend temporal-tradingview-legend">
-        <strong>{symbol} · {timeframe}</strong>
-        <span>{legend.label}</span>
-        <span>O {legend.open.toFixed(2)}</span>
-        <span>H {legend.high.toFixed(2)}</span>
-        <span>L {legend.low.toFixed(2)}</span>
-        <span>C {legend.close.toFixed(2)}</span>
-        <span>V {legend.volume.toFixed(0)}</span>
-      </div>
-      <div ref={chartRef} className="temporal-tradingview-chart" role="img" aria-label={`${symbol} ${timeframe} TradingView style chart`} />
-      <div className="event-marker-layer temporal-tradingview-events" aria-hidden="true">
-        {events.slice(0, 160).map((event) => (
-          <span
-            className="event-axis-marker"
-            key={`${event.lane}-${event.event_id}`}
-            style={{ left: `${temporalPositionPercent(event.event_time, viewportStart, viewportEnd)}%` }}
-            title={`${temporalChartDateLabel(event.event_time, timeframe)} · ${event.title}`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PlaceholderView({ title }: { title: string }) {
   return (
     <section className="panel placeholder-view">
@@ -6458,7 +6228,7 @@ function PlaceholderView({ title }: { title: string }) {
 
 function contractForView(view: ViewId): string {
   if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
-  if (view === 'events') return TEMPORAL_EXPLORER_SUMMARY;
+  if (view === 'events') return MODEL_GROUP_REPLAY_REVIEW;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   if (view === 'models') return MODEL_READINESS;
   if (view === 'replay' || view === 'performance' || view === 'decisions') return MODEL_GROUP_REPLAY_REVIEW;
@@ -6469,7 +6239,6 @@ function App() {
   const [currentStatusModel, setCurrentStatusModel] = useState<DashboardReadModel | null>(null);
   const [historicalModel, setHistoricalModel] = useState<DashboardReadModel | null>(null);
   const [realtimeModel, setRealtimeModel] = useState<DashboardReadModel | null>(null);
-  const [temporalExplorerModel, setTemporalExplorerModel] = useState<DashboardReadModel | null>(null);
   const [modelLayerModel, setModelLayerModel] = useState<DashboardReadModel | null>(null);
   const [modelPromotionModel, setModelPromotionModel] = useState<DashboardReadModel | null>(null);
   const [replayReviewModel, setReplayReviewModel] = useState<DashboardReadModel | null>(null);
@@ -6479,16 +6248,11 @@ function App() {
   const [activeView, setActiveView] = useState<ViewId>('status');
   const [lastRefresh, setLastRefresh] = useState<string | null>(null);
   const [streamStatus, setStreamStatus] = useState<ReadModelStreamStatus>('connecting');
-  const [selectedTemporalFrame, setSelectedTemporalFrame] = useState<string | null>(null);
-  const [selectedTemporalSymbol, setSelectedTemporalSymbol] = useState<string | null>(null);
-  const [selectedTemporalCenter, setSelectedTemporalCenter] = useState<string | null>(null);
-  const [selectedEventFamilyId, setSelectedEventFamilyId] = useState<string | null>(null);
 
   const applyReadModel = useCallback((payload: DashboardReadModel) => {
     if (payload.contract_type === CURRENT_SYSTEM_STATUS) setCurrentStatusModel(payload);
     if (payload.contract_type === HISTORICAL_TASK_PROGRESS) setHistoricalModel(payload);
     if (payload.contract_type === REALTIME_SIGNAL_SUMMARY) setRealtimeModel(payload);
-    if (payload.contract_type === TEMPORAL_EXPLORER_SUMMARY) setTemporalExplorerModel(payload);
     if (payload.contract_type === MODEL_READINESS) setModelLayerModel(payload);
     if (payload.contract_type === MODEL_PROMOTION_POSTURE) setModelPromotionModel(payload);
     if (payload.contract_type === MODEL_GROUP_REPLAY_REVIEW) setReplayReviewModel(payload);
@@ -6536,7 +6300,6 @@ function App() {
   useEffect(() => {
     const controller = new AbortController();
     void loadReadModel(CURRENT_SYSTEM_STATUS, controller.signal);
-    void loadReadModel(TEMPORAL_EXPLORER_SUMMARY, controller.signal);
     void loadReadModel(HISTORICAL_TASK_PROGRESS, controller.signal);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY, controller.signal);
     void loadReadModel(EXECUTION_RUNTIME_STATUS, controller.signal);
@@ -6544,7 +6307,7 @@ function App() {
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE, controller.signal);
     void loadOptionalReadModel(MODEL_GROUP_REPLAY_REVIEW, controller.signal);
     const liveContracts = new Set<string>();
-    const contracts = [CURRENT_SYSTEM_STATUS, TEMPORAL_EXPLORER_SUMMARY, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY, EXECUTION_RUNTIME_STATUS];
+    const contracts = [CURRENT_SYSTEM_STATUS, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY, EXECUTION_RUNTIME_STATUS];
     const optionalContracts = [MODEL_READINESS, MODEL_PROMOTION_POSTURE, MODEL_GROUP_REPLAY_REVIEW];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
@@ -6592,7 +6355,7 @@ function App() {
   const activeReadModel = activeView === 'status' || activeView === 'data'
     ? currentStatusModel
     : activeView === 'events'
-      ? temporalExplorerModel
+      ? replayReviewModel
     : activeView === 'realtime'
       ? realtimeModel
     : activeView === 'models'
@@ -6615,10 +6378,6 @@ function App() {
     if (!realtimeModel || !isRealtimeSignalChart(realtimeModel.chart_payload)) return {} as RealtimeSignalChartPayload;
     return realtimeModel.chart_payload;
   }, [realtimeModel]);
-  const temporalExplorerChart = useMemo(() => {
-    if (!temporalExplorerModel || !isTemporalExplorerChart(temporalExplorerModel.chart_payload)) return {} as TemporalExplorerChartPayload;
-    return temporalExplorerModel.chart_payload;
-  }, [temporalExplorerModel]);
   const modelLayerChart = useMemo(() => {
     if (!modelLayerModel || !isModelLayerReadinessChart(modelLayerModel.chart_payload)) return {} as ModelLayerReadinessChartPayload;
     return modelLayerModel.chart_payload;
@@ -6636,24 +6395,6 @@ function App() {
     return replayReviewModel.chart_payload;
   }, [replayReviewModel]);
 
-  useEffect(() => {
-    const viewport = temporalExplorerChart.viewport ?? {};
-    const chartModel = temporalExplorerChart.chart ?? {};
-    setSelectedTemporalFrame((previous) => previous ?? viewport.frame ?? '1D');
-    setSelectedTemporalSymbol((previous) => previous ?? chartModel.symbol ?? chartModel.available_symbols?.[0] ?? 'SPY');
-    setSelectedTemporalCenter((previous) => {
-      const nextCenter = viewport.center_time_utc ?? temporalExplorerModel?.generated_at_utc ?? new Date().toISOString();
-      if (!previous) return nextCenter;
-      return temporalCenterInsideViewport(previous, viewport.start_utc, viewport.end_utc) ? previous : nextCenter;
-    });
-  }, [temporalExplorerChart, temporalExplorerModel?.generated_at_utc]);
-  useEffect(() => {
-    if (!selectedEventFamilyId) return;
-    const eventFamilies = temporalExplorerChart.event_families ?? [];
-    if (!eventFamilies.some((family) => family.family_id === selectedEventFamilyId)) {
-      setSelectedEventFamilyId(null);
-    }
-  }, [selectedEventFamilyId, temporalExplorerChart]);
   const diagnosticItems = useMemo(
     () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
     [chart, currentStatusModel, historicalModel, systemChart],
@@ -6828,133 +6569,9 @@ function App() {
     );
   };
 
-  const renderEventsView = () => {
-    if (!temporalExplorerModel) {
-      return <section className="panel loading-panel">Loading event timeline…</section>;
-    }
-    const viewport = temporalExplorerChart.viewport ?? {};
-    const activeFrame = selectedTemporalFrame ?? viewport.frame ?? '1D';
-    const activeCenter = alignTemporalCenter(selectedTemporalCenter ?? viewport.center_time_utc ?? temporalExplorerModel.generated_at_utc, activeFrame);
-    const viewportStart = viewport.start_utc ?? shiftTemporalCenter(activeCenter, activeFrame, -10);
-    const viewportEnd = viewport.end_utc ?? shiftTemporalCenter(activeCenter, activeFrame, 11);
-    const events = temporalExplorerChart.events ?? [];
-    const eventFamilies = temporalExplorerChart.event_families ?? [];
-    const selectedFamily = eventFamilies.find((family) => family.family_id === selectedEventFamilyId);
-    const chartEvents = selectedFamily ? events.filter((event) => eventFamilyId(event) === selectedFamily.family_id) : events;
-    const chartModel = temporalExplorerChart.chart ?? {};
-    const availableSymbols = chartModel.available_symbols?.length ? chartModel.available_symbols : [chartModel.symbol ?? 'SPY', 'QQQ', 'IWM', 'DIA'];
-    const activeSymbol = selectedTemporalSymbol ?? availableSymbols[0] ?? 'SPY';
-    const activeChartTimeframe = chartTimeframeForFrame(activeFrame);
-    const chartBars = (chartModel.bars ?? []).filter((bar) => (
-      bar.symbol === activeSymbol && bar.timeframe === activeChartTimeframe
-    ));
-    const ticks = buildTemporalTicks(activeCenter, activeFrame, temporalExplorerChart.timewheel_ticks ?? [], chartEvents);
-    const selectedTick = ticks.find((tick) => tickContainsTime(tick, activeCenter)) ?? ticks.find((tick) => tick.is_center) ?? ticks[Math.floor(ticks.length / 2)] ?? ticks[0];
-    const volumeValues = chartBars.map((bar) => bar.volume ?? 0).filter((value) => Number.isFinite(value));
-    const maxVolume = Math.max(...volumeValues, 1);
-    const maxTickEvents = Math.max(...ticks.map((tick) => tick.event_count ?? 0), 1);
-    return (
-      <>
-        <section className="panel timewheel-chart-panel integrated-timewheel">
-          <div className="timewheel-chart-head">
-            <div>
-              <div className="panel-heading">Event Attention Pool</div>
-            </div>
-            <div className="temporal-chart-controls">
-              <label className="temporal-control">
-                Symbol
-                <select value={activeSymbol} onChange={(event) => setSelectedTemporalSymbol(event.currentTarget.value)}>
-                  {availableSymbols.map((symbol) => <option key={symbol} value={symbol}>{symbol}</option>)}
-                </select>
-              </label>
-              <div className="temporal-control">
-                Frame
-                <div className="frame-switcher">
-                  {(viewport.available_frames ?? ['1D', '1W']).map((frame) => (
-                    <button
-                      className={frame === activeFrame ? 'selected' : ''}
-                      key={frame}
-                      onClick={() => setSelectedTemporalFrame(frame)}
-                      type="button"
-                    >
-                      {frame}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="temporal-chart-frame">
-            <TemporalTradingViewChart
-              symbol={activeSymbol}
-              timeframe={activeChartTimeframe}
-              bars={chartBars}
-              events={chartEvents}
-              viewportStart={viewportStart}
-              viewportEnd={viewportEnd}
-            />
-            <div className="timeline-x-axis">
-              {ticks.map((tick) => (
-                <button
-                  className={tick.is_center ? 'timeline-axis-tick selected' : 'timeline-axis-tick'}
-                  key={tick.tick_start_utc}
-                  onClick={() => setSelectedTemporalCenter(tick.tick_start_utc)}
-                  type="button"
-                >
-                  <span />
-                  <strong>{tick.label}</strong>
-                  <small>{startCase(tick.market_session_status)}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="subchart-grid">
-            <section className="subchart-panel">
-              <div className="subchart-heading">Volume</div>
-              {chartBars.length ? (
-                <div className="volume-subchart">
-                  {chartBars.map((bar) => (
-                    <span
-                      key={`${bar.symbol}-${bar.timeframe}-${bar.bucket_start}-volume`}
-                      style={{ height: `${Math.max(((bar.volume ?? 0) / maxVolume) * 100, 2)}%` }}
-                      title={`${temporalChartDateLabel(bar.bucket_start, bar.timeframe)} · volume ${bar.volume ?? 0}`}
-                    />
-                  ))}
-                </div>
-            ) : (
-                <div className="empty-subchart">Waiting for {activeSymbol} {activeChartTimeframe} bars.</div>
-              )}
-            </section>
-            <section className="subchart-panel">
-              <div className="subchart-heading">Accepted Event Density</div>
-              <div className="event-density-subchart">
-                {ticks.map((tick) => (
-                  <span
-                    key={`${tick.tick_start_utc}-density`}
-                    style={{ height: `${Math.max(((tick.event_count ?? 0) / maxTickEvents) * 100, tick.event_count ? 8 : 2)}%` }}
-                    title={`${tick.label} · ${tick.event_count ?? 0} events`}
-                  />
-                ))}
-              </div>
-            </section>
-          </div>
-        </section>
-        <EventAttentionPoolView
-          activeFrame={activeFrame}
-          chartBars={chartBars}
-          events={events}
-          eventFamilies={eventFamilies}
-          selectedFamilyId={selectedFamily?.family_id ?? null}
-          setSelectedFamilyId={setSelectedEventFamilyId}
-          ticks={ticks}
-        />
-      </>
-    );
-  };
-
   const renderMainView = () => {
     if (activeView === 'status') return renderCurrentStatusView();
-    if (activeView === 'events') return renderEventsView();
+    if (activeView === 'events') return <ReplayAttributionView replayReviewChart={replayReviewChart} />;
     if (activeView === 'data') return <DataExplorerView />;
     if (activeView === 'performance') return <ReplayPerformanceView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
     if (activeView === 'decisions') return <ReplayDecisionsView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
@@ -7005,13 +6622,12 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'events' ? 'Events' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'events' ? 'Historical Events / Attention Pool' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'events' ? 'Replay Attribution' : activeView === 'models' ? 'Model Groups' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'events' ? 'Historical Replay / Attribution' : activeView === 'models' ? 'Historical Models / Model Groups' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);
     void loadReadModel(HISTORICAL_TASK_PROGRESS);
-    void loadReadModel(TEMPORAL_EXPLORER_SUMMARY);
     void loadReadModel(REALTIME_SIGNAL_SUMMARY);
     void loadReadModel(EXECUTION_RUNTIME_STATUS);
     void loadOptionalReadModel(MODEL_READINESS);

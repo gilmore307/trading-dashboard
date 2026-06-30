@@ -29,7 +29,7 @@ storage/06_dashboard_cache/read_models/<contract_type>.json
 
 The WebSocket route sends the current read model on connect and on current-file changes, with mtime polling as a backstop when filesystem watcher events are missed. The browser also polls `historical_task_progress_summary` as a read-only fallback so task progress does not depend on one notification path.
 
-The dashboard renders Status, Tasks, Events, Models, Replay Performance, Replay Decisions, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
+The dashboard renders Status, Tasks, Replay Attribution, Model Groups, Replay Performance, Replay Decisions, Replay Operations, Diagnostics, Data, and Realtime Signals without querying raw internals for primary page content.
 
 The dashboard reads storage-hosted read models. It does not become the component that interprets every raw operational table. `trading-storage` owns durable/materialized placement, retention, backup, restore, and lifecycle policy for these summaries; semantic generation remains with the component that understands the data.
 
@@ -56,7 +56,7 @@ Every storage-hosted dashboard read model should follow the common envelope acce
 
 ## Dashboard Read-Model Contracts
 
-The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `temporal_explorer_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_readiness_summary`, `model_promotion_posture_summary`, and `model_group_replay_review_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
+The current public storage refresh set is `current_system_status_summary`, `historical_task_progress_summary`, `realtime_signal_summary`, `execution_realtime_trading_runtime_status`, `model_readiness_summary`, `model_promotion_posture_summary`, and `model_group_replay_review_summary`. Other contracts below are accepted dashboard vocabulary only after their producer, storage layout, and presentation route are accepted.
 
 ### `current_system_status_summary`
 
@@ -135,7 +135,7 @@ Diagnostics is an owner-facing error/status summary, not a log viewer.
 
 Purpose: support Tasks in the Historical Models navigation group.
 
-Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks view. Tasks consumes the timeline as an operational work list. Models consumes dedicated model summaries for evaluation; task progress does not drive model-page wording.
+Current semantic producer: `trading-manager/scripts/tasks/build_historical_task_progress_summary.py` builds this payload from read-only scheduler/status evidence. Dashboard consumption is through `trading_dashboard.read_models.read_historical_task_progress_latest`, `scripts/read_models/read_latest_dashboard_read_model.py historical_task_progress_summary`, `/api/read-models/historical_task_progress_summary/latest`, `/ws/read-models/historical_task_progress_summary/latest`, and the Tasks view. Tasks consumes the timeline as an operational work list. Model Groups consumes dedicated model summaries for evaluation; task progress does not drive model-page wording.
 
 Owner-facing fields:
 
@@ -179,9 +179,9 @@ If realtime monitoring has not started, `realtime_signal_summary` should say `no
 
 ### `temporal_explorer_summary`
 
-Purpose: support the event timeline section of the Events page.
+Purpose: parked/internal event-timeline read model. It no longer backs a public dashboard page after Replay Attribution replaced the former Events route in the navigation.
 
-Current implementation: `trading-storage` builds this summary from accepted event-attention-pool inputs, market-session context, and ETF chart bars for the current model-group replay window. The dashboard Events page renders the primary chart as a TradingView-style K-line surface, lets the user select SPY/QQQ/IWM/DIA and 1D/1W locally, and shows lower subcharts such as volume and accepted-event density. Chart-axis event markers are restricted to M06 accepted event families; ordinary scheduled events, released macro results, and news index rows remain evidence inputs until M06 promotes them. Chart bars are display context only, not training truth.
+Current implementation: `trading-storage` may still build this summary from accepted event-attention-pool inputs, market-session context, and ETF chart bars for the current model-group replay window. The dashboard no longer subscribes to it or renders it as a public page. If a public event-timeline surface is reintroduced later, it needs a fresh page decision and must not conflict with Replay Attribution.
 
 Owner-facing fields:
 
@@ -228,7 +228,7 @@ Hidden by default:
 
 ### `model_readiness_summary`
 
-Purpose: support the Models page model-group versions view.
+Purpose: support the Model Groups page versions view.
 
 Owner-facing fields per layer readiness row:
 
@@ -244,12 +244,12 @@ Group-level fields own active/shadow/retiring/eliminated model refs when those r
 
 Dashboard presentation:
 
-- Models shows one model-group versions view;
+- Model Groups shows one model-group versions view;
 - no selected model means summary mode with global comparison charts; selecting a model switches the page into focus mode with internal diagnostics for that version;
 - group page shows active live, shadow, retiring, eliminated, evaluation, promotion, and promotion-rate posture;
 - group page charts are organized as model statistical-validity families: Ranking / Calibration, Selection Diagnostics, Feature Space, Integrity / Uncertainty, and Temporal Stability;
 - AUROC/ROC, PR-AUC, Brier, calibration, decision-variable schema/coverage, silhouette, PCA, PCoA, data integrity, uncertainty, and temporal AUROC/Brier stability carry the owner-facing model-validity interpretation when published;
-- replay normalized NAV, performance metrics, threshold utility, cost sensitivity, score-decile return, baseline/no-trade comparisons, economic robustness, trading-distribution slices, trade-level rows, and monthly replay drilldowns live under Replay Performance or Replay Decisions rather than Models;
+- replay normalized NAV, performance metrics, threshold utility, cost sensitivity, score-decile return, baseline/no-trade comparisons, economic robustness, trading-distribution slices, trade-level rows, and monthly replay drilldowns live under Replay Performance or Replay Decisions rather than Model Groups;
 - candidate refs, task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay under Tasks/Diagnostics and are not primary model-page content.
 
 Canonical model map:
@@ -263,7 +263,7 @@ Canonical model map:
 | M05 | Option Expression | `option_expression_plan` |
 | M06 | Residual Event Governance | `residual_event_governance_state` |
 
-The accepted current model map remains the model-stack reference, but the current Models tab does not expose component-model pages in the primary navigation.
+The accepted current model map remains the model-stack reference, but the current Model Groups page does not expose component-model pages in the primary navigation.
 
 ### `model_promotion_posture_summary`
 
