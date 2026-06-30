@@ -3127,7 +3127,7 @@ function betaAgainstBenchmark(strategyReturns: number[], benchmarkReturns: numbe
 function replayReviewRunForVersion(version: ModelGroupPromotionVersionPayload, reviewRuns: Array<Record<string, unknown>>): Record<string, unknown> | null {
   const replayRunId = String(version.replay_execution_run_id ?? '').trim();
   const candidateModelRef = String(version.candidate_model_ref ?? '').trim();
-  const candidateFoldId = String(version.candidate_fold_id ?? version.fold_id ?? '').trim();
+  const candidateFoldId = candidateFoldIdFromVersion(version);
   const target = String(version.target_symbol ?? version.candidate_training_target ?? '').trim().toUpperCase();
   return reviewRuns.find((run) => {
     const runReplayId = String(run.replay_execution_run_id ?? '').trim();
@@ -3768,6 +3768,39 @@ function replayReviewRunLabel(run: Record<string, unknown>, index: number): stri
   if (target) return target;
   if (fold) return fold;
   return String(run.review_run_id ?? `Review ${index + 1}`);
+}
+
+function candidateFoldIdFromVersion(version: ModelGroupPromotionVersionPayload): string {
+  const explicit = String(version.candidate_fold_id ?? version.fold_id ?? '').trim();
+  if (/^fold[_-][a-z0-9]+[_-]20\d{2}$/iu.test(explicit)) return explicit.replace(/-/gu, '_').toLowerCase();
+  const target = String(version.target_symbol ?? version.candidate_training_target ?? '').trim().toLowerCase();
+  const source = String(version.candidate_model_ref ?? version.fold_id ?? version.version_id ?? '').trim();
+  const year = /(20\d{2})[-_]?\d{2}[_/ -]+(?:20\d{2})[-_]?\d{2}/u.exec(source)?.[1]
+    ?? /(20\d{2})/u.exec(source)?.[1];
+  return target && year ? `fold_${target}_${year}` : explicit;
+}
+
+function replayReviewRunVersion(run: Record<string, unknown>, index: number): ModelGroupPromotionVersionPayload {
+  const replayDecisions = replayDecisionsLayerContract(run);
+  const decisionReview = replayReviewDecision(run);
+  return {
+    version_id: `review:${replayReviewRunId(run, index)}`,
+    version_label: replayReviewRunLabel(run, index),
+    promotion_run_id: String(run.review_run_id ?? ''),
+    fold_id: String(run.candidate_fold_id ?? ''),
+    candidate_fold_id: String(run.candidate_fold_id ?? ''),
+    target_symbol: String(run.target_symbol ?? run.candidate_training_target ?? ''),
+    candidate_training_target: String(run.candidate_training_target ?? run.target_symbol ?? ''),
+    candidate_model_ref: String(run.candidate_model_ref ?? ''),
+    replay_execution_run_id: String(run.replay_execution_run_id ?? ''),
+    identity: String(run.review_status ?? run.status ?? 'reviewed'),
+    decision_status: String(run.review_status ?? run.status ?? 'reviewed'),
+    metrics: {
+      decision_row_count: metricNumber(decisionReview, 'row_count') ?? metricNumber(replayDecisions, 'detail_row_count'),
+      mean_regret_to_best_available: metricNumber(decisionReview, 'mean_regret_to_best_available'),
+      mean_impact_normalized_severity_score: metricNumber(decisionReview, 'mean_impact_normalized_severity_score'),
+    },
+  };
 }
 
 function replayReviewSection(run: Record<string, unknown>, section: string): Record<string, unknown> | null {
@@ -4739,12 +4772,13 @@ function ReplayDecisionsView({
   promotionChart: ModelPromotionPostureChartPayload;
   replayReviewChart: ReplayReviewChartPayload;
 }) {
-  const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const reviewRuns = replayReviewRuns(replayReviewChart);
+  const promotionVersions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const versions = promotionVersions.length ? promotionVersions : reviewRuns.map(replayReviewRunVersion);
   const entries = versions.map((version, index) => ({ version, index }));
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const reviewRuns = replayReviewRuns(replayReviewChart);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
