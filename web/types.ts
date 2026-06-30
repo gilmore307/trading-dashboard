@@ -44,7 +44,10 @@ export interface TemporalExplorerEventPayload {
   event_time: string;
   title: string;
   lane: string;
+  family_id?: string | null;
+  family_label?: string | null;
   event_type: string;
+  market_state?: string | null;
   scope?: string | null;
   symbol?: string | null;
   status?: string | null;
@@ -53,6 +56,28 @@ export interface TemporalExplorerEventPayload {
   source_name?: string | null;
   reference_type?: string | null;
   reference?: string | null;
+}
+
+export interface TemporalExplorerEventFamilyReturnStatisticPayload {
+  symbol: string;
+  sample_count?: number;
+  average_same_bar_return_pct?: number | null;
+  positive_rate?: number | null;
+  average_volume?: number | null;
+}
+
+export interface TemporalExplorerEventFamilyPayload {
+  family_id: string;
+  family_label: string;
+  event_type?: string | null;
+  occurrence_count: number;
+  first_seen_utc?: string | null;
+  last_seen_utc?: string | null;
+  market_state_counts?: Record<string, number>;
+  scope_counts?: Record<string, number>;
+  symbol_counts?: Record<string, number>;
+  source_counts?: Record<string, number>;
+  return_statistics?: TemporalExplorerEventFamilyReturnStatisticPayload[];
 }
 
 export interface TemporalExplorerChartBarPayload {
@@ -84,6 +109,7 @@ export interface TemporalExplorerChartPayload {
   left_lanes?: TemporalExplorerLanePayload[];
   right_lanes?: TemporalExplorerLanePayload[];
   events?: TemporalExplorerEventPayload[];
+  event_families?: TemporalExplorerEventFamilyPayload[];
   counts?: {
     total_events?: number;
     by_lane?: Record<string, number>;

@@ -314,6 +314,12 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-event-summary-table .replay-table-row[role="button"]:hover { border-color: rgba(125, 211, 252, .38); background: rgba(14, 165, 233, .10); }
 .replay-event-summary-table .replay-table-row[role="button"]:focus-visible { outline: 2px solid rgba(125, 211, 252, .7); outline-offset: 2px; }
 .replay-event-summary-table .replay-table-row.selected { border-color: rgba(52, 211, 153, .48); background: rgba(6, 78, 59, .20); }
+.event-family-selector-table { min-width: 1120px; }
+.event-family-selector-table .replay-table-row { grid-template-columns: minmax(260px, 1.4fr) minmax(92px, .48fr) minmax(108px, .58fr) minmax(170px, .9fr) minmax(150px, .74fr) minmax(150px, .72fr) minmax(150px, .72fr); }
+.event-family-selector-table .replay-table-row.selected { border-color: rgba(125, 211, 252, .48); background: rgba(14, 165, 233, .14); }
+.event-family-selector-table strong { overflow-wrap: anywhere; }
+.event-occurrence-table { min-width: 1080px; }
+.event-occurrence-table .replay-table-row { grid-template-columns: minmax(300px, 1.45fr) minmax(150px, .72fr) minmax(128px, .58fr) minmax(120px, .52fr) minmax(110px, .48fr) minmax(230px, 1fr); }
 .replay-performance-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .replay-performance-cell strong { color: #f8fbff; }
 .replay-inline-action { border: 1px solid rgba(125, 211, 252, .28); border-radius: 999px; padding: 6px 9px; color: #bae6fd; background: rgba(14, 165, 233, .12); font: inherit; font-size: 11px; font-weight: 900; cursor: pointer; }

@@ -36,6 +36,7 @@ import type {
   TemporalExplorerChartBarPayload,
   TemporalExplorerChartPayload,
   TemporalExplorerEventPayload,
+  TemporalExplorerEventFamilyPayload,
   TemporalExplorerTickPayload,
   StageCoveragePayload,
 } from './types';
@@ -4554,7 +4555,7 @@ function eventRelationCounts(
   for (const event of events) {
     const tick = tickForEvent(event, ticks);
     const value = key === 'market_session_status'
-      ? tick?.market_session_status
+      ? eventMarketState(event, ticks)
       : event[key];
     const label = String(value || 'unknown');
     counts[label] = (counts[label] ?? 0) + 1;
@@ -4562,45 +4563,151 @@ function eventRelationCounts(
   return counts;
 }
 
+function familyMarketStateCount(family: TemporalExplorerEventFamilyPayload): number {
+  return Object.keys(family.market_state_counts ?? {}).length;
+}
+
+function familyReturnStatistic(
+  family: TemporalExplorerEventFamilyPayload | undefined,
+  symbol: string,
+): NonNullable<TemporalExplorerEventFamilyPayload['return_statistics']>[number] | undefined {
+  return family?.return_statistics?.find((stat) => stat.symbol === symbol);
+}
+
+function eventFamilyId(event: TemporalExplorerEventPayload): string {
+  return event.family_id ?? event.event_type ?? 'unknown';
+}
+
+function eventMarketState(event: TemporalExplorerEventPayload, ticks: TemporalExplorerTickPayload[]): string {
+  if (event.market_state) return event.market_state;
+  return tickForEvent(event, ticks)?.market_session_status ?? 'unknown';
+}
+
 function EventAttentionPoolView({
   events,
-  selectedTick,
-  selectedTickEvents,
+  eventFamilies,
+  selectedFamilyId,
+  setSelectedFamilyId,
   ticks,
   chartBars,
   activeFrame,
 }: {
   events: TemporalExplorerEventPayload[];
-  selectedTick: TemporalExplorerTickPayload | undefined;
-  selectedTickEvents: TemporalExplorerEventPayload[];
+  eventFamilies: TemporalExplorerEventFamilyPayload[];
+  selectedFamilyId: string | null;
+  setSelectedFamilyId: (familyId: string | null) => void;
   ticks: TemporalExplorerTickPayload[];
   chartBars: TemporalExplorerChartBarPayload[];
   activeFrame: string;
 }) {
-  const visibleEvents = selectedTickEvents.length ? selectedTickEvents : events.slice(0, 12);
+  const selectedFamily = eventFamilies.find((family) => family.family_id === selectedFamilyId);
+  const focusedEvents = selectedFamily ? events.filter((event) => eventFamilyId(event) === selectedFamily.family_id) : events;
+  const visibleEvents = focusedEvents.slice(-30).reverse();
   const marketStates = new Set(ticks.map((tick) => tick.market_session_status).filter(Boolean));
+  const aggregateReturnSeries = eventFamilies.map((family) => ({
+    label: family.family_label,
+    value: familyReturnStatistic(family, 'SPY')?.average_same_bar_return_pct ?? 0,
+  }));
+  const aggregatePositiveSeries = eventFamilies.map((family) => ({
+    label: family.family_label,
+    value: (familyReturnStatistic(family, 'SPY')?.positive_rate ?? 0) * 100,
+  }));
+  const selectedReturnSeries = (selectedFamily?.return_statistics ?? []).map((stat) => ({
+    label: stat.symbol,
+    value: stat.average_same_bar_return_pct ?? 0,
+  }));
+  const selectedPositiveSeries = (selectedFamily?.return_statistics ?? []).map((stat) => ({
+    label: stat.symbol,
+    value: (stat.positive_rate ?? 0) * 100,
+  }));
+  const allFirstSeen = eventFamilies
+    .map((family) => family.first_seen_utc)
+    .filter((value): value is string => Boolean(value))
+    .sort()[0];
+  const allLastSeen = eventFamilies
+    .map((family) => family.last_seen_utc)
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1);
   return (
     <section className="event-attention-pool">
       <section className="panel">
         <div className="panel-heading">Certified Event Families / Market State</div>
         <div className="metric-grid four">
-          <MetricCard label="Certified families" value={events.length} hint="Accepted event-family markers in the attention pool read model" />
-          <MetricCard label="Selected unit" value={selectedTickEvents.length} hint={selectedTick?.label ?? activeFrame} />
+          <MetricCard label="Event families" value={eventFamilies.length} hint={selectedFamily ? selectedFamily.family_label : 'All certified families'} />
+          <MetricCard label="Occurrences" value={focusedEvents.length} hint={selectedFamily ? 'Selected family' : 'All event-family occurrences'} />
           <MetricCard label="Market states" value={marketStates.size} hint="Distinct market-session states in the current viewport" />
-          <MetricCard label="Chart bars" value={chartBars.length} hint="Bars available for event-to-market-state pairing" />
+          <MetricCard label="ETF bars" value={chartBars.length} hint={`${activeFrame} replay-window bars available for relation checks`} />
         </div>
       </section>
-      <div className="replay-chart-grid">
-        <MiniMetricBarChart title="Events By Market State" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'market_session_status'))} emptyLabel="No certified event families in the current event attention pool" />
-        <MiniMetricBarChart title="Events By Family Type" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'event_type'))} emptyLabel="No certified event family types published" />
-        <MiniMetricBarChart title="Events By Scope" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'scope'))} emptyLabel="No certified event scopes published" />
-        <MiniMetricBarChart title="Events By Symbol" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'symbol'))} emptyLabel="No certified event symbols published" />
-      </div>
       <section className="panel replay-table-panel">
-        <div className="panel-heading">Event Family / Market State Pairs</div>
-        <div className="replay-table event-market-state-table">
+        <div className="panel-heading">Event Family Selector</div>
+        <div className="replay-table event-family-selector-table">
           <div className="replay-table-row replay-table-head">
             <span>Event Family</span>
+            <span>Occurrences</span>
+            <span>Market States</span>
+            <span>Scope</span>
+            <span>Symbol</span>
+            <span>First Seen</span>
+            <span>Last Seen</span>
+          </div>
+          <button
+            className={selectedFamilyId === null ? 'replay-table-row selected' : 'replay-table-row'}
+            onClick={() => setSelectedFamilyId(null)}
+            type="button"
+          >
+            <strong>All certified event families</strong>
+            <span>{events.length}</span>
+            <span>{marketStates.size}</span>
+            <span>All</span>
+            <span>All</span>
+            <span>{allFirstSeen ? formatTimestamp(allFirstSeen) : 'None'}</span>
+            <span>{allLastSeen ? formatTimestamp(allLastSeen) : 'None'}</span>
+          </button>
+          {eventFamilies.length ? eventFamilies.map((family) => {
+            const selected = family.family_id === selectedFamilyId;
+            return (
+              <button
+                className={selected ? 'replay-table-row selected' : 'replay-table-row'}
+                key={family.family_id}
+                onClick={() => setSelectedFamilyId(family.family_id)}
+                type="button"
+              >
+                <strong>{startCase(family.family_label)}</strong>
+                <span>{family.occurrence_count}</span>
+                <span>{familyMarketStateCount(family)}</span>
+                <span>{Object.keys(family.scope_counts ?? {}).map(startCase).join(', ') || 'Unknown'}</span>
+                <span>{Object.keys(family.symbol_counts ?? {}).join(', ') || 'Market'}</span>
+                <span>{family.first_seen_utc ? formatTimestamp(family.first_seen_utc) : 'None'}</span>
+                <span>{family.last_seen_utc ? formatTimestamp(family.last_seen_utc) : 'None'}</span>
+              </button>
+            );
+          }) : (
+            <div className="empty-chart compact">No certified event families are currently published in the event attention pool.</div>
+          )}
+        </div>
+      </section>
+      {selectedFamily ? (
+        <div className="replay-chart-grid">
+          <MiniMetricBarChart title={`${startCase(selectedFamily.family_label)} · Market State`} series={countSeriesFromRecord(selectedFamily.market_state_counts ?? {})} emptyLabel="No market-state counts published for this event family" />
+          <MiniMetricBarChart title={`${startCase(selectedFamily.family_label)} · ETF Same-Bar Return %`} series={selectedReturnSeries} emptyLabel="No ETF same-bar return statistics published for this event family" />
+          <MiniMetricBarChart title={`${startCase(selectedFamily.family_label)} · ETF Positive Rate %`} series={selectedPositiveSeries} emptyLabel="No ETF positive-rate statistics published for this event family" />
+          <MiniMetricBarChart title={`${startCase(selectedFamily.family_label)} · Source Mix`} series={countSeriesFromRecord(selectedFamily.source_counts ?? {})} emptyLabel="No source counts published for this event family" />
+        </div>
+      ) : (
+        <div className="replay-chart-grid">
+          <MiniMetricBarChart title="Occurrence Count · Family Compare" series={eventFamilies.map((family) => ({ label: family.family_label, value: family.occurrence_count }))} emptyLabel="No certified event families in the current event attention pool" />
+          <MiniMetricBarChart title="SPY Same-Bar Return % · Family Compare" series={aggregateReturnSeries} emptyLabel="No SPY same-bar return statistics published" />
+          <MiniMetricBarChart title="SPY Positive Rate % · Family Compare" series={aggregatePositiveSeries} emptyLabel="No SPY positive-rate statistics published" />
+          <MiniMetricBarChart title="Events By Market State" series={countSeriesFromRecord(eventRelationCounts(events, ticks, 'market_session_status'))} emptyLabel="No certified event-family market-state relation published" />
+        </div>
+      )}
+      <section className="panel replay-table-panel">
+        <div className="panel-heading">{selectedFamily ? `${startCase(selectedFamily.family_label)} Occurrences` : 'Recent Certified Occurrences'}</div>
+        <div className="replay-table event-occurrence-table">
+          <div className="replay-table-row replay-table-head">
+            <span>Occurrence</span>
             <span>Time</span>
             <span>Market State</span>
             <span>Scope</span>
@@ -4608,20 +4715,19 @@ function EventAttentionPoolView({
             <span>Market Bar</span>
           </div>
           {visibleEvents.length ? visibleEvents.map((event) => {
-            const tick = tickForEvent(event, ticks);
             const bar = chartBarForEvent(event, chartBars);
             return (
               <div className="replay-table-row" key={`${event.lane}-${event.event_id}`}>
                 <strong>{event.title || event.event_id}</strong>
                 <span>{formatTimestamp(event.event_time)}</span>
-                <span>{startCase(tick?.market_session_status ?? 'unknown')}</span>
+                <span>{startCase(eventMarketState(event, ticks))}</span>
                 <span>{startCase(event.scope ?? 'unknown')}</span>
                 <span>{event.symbol ?? 'Market'}</span>
                 <span>{bar ? `O ${formatMetricValue(bar.open, 2)} C ${formatMetricValue(bar.close, 2)} V ${formatMetricValue(bar.volume ?? null, 0)}` : 'No bar'}</span>
               </div>
             );
           }) : (
-            <div className="empty-chart compact">No certified event families are currently published in the event attention pool.</div>
+            <div className="empty-chart compact">No certified occurrences match the selected event family.</div>
           )}
         </div>
       </section>
@@ -5968,6 +6074,7 @@ function App() {
   const [selectedTemporalFrame, setSelectedTemporalFrame] = useState<string | null>(null);
   const [selectedTemporalSymbol, setSelectedTemporalSymbol] = useState<string | null>(null);
   const [selectedTemporalCenter, setSelectedTemporalCenter] = useState<string | null>(null);
+  const [selectedEventFamilyId, setSelectedEventFamilyId] = useState<string | null>(null);
 
   const applyReadModel = useCallback((payload: DashboardReadModel) => {
     if (payload.contract_type === CURRENT_SYSTEM_STATUS) setCurrentStatusModel(payload);
@@ -6132,6 +6239,13 @@ function App() {
       return temporalCenterInsideViewport(previous, viewport.start_utc, viewport.end_utc) ? previous : nextCenter;
     });
   }, [temporalExplorerChart, temporalExplorerModel?.generated_at_utc]);
+  useEffect(() => {
+    if (!selectedEventFamilyId) return;
+    const eventFamilies = temporalExplorerChart.event_families ?? [];
+    if (!eventFamilies.some((family) => family.family_id === selectedEventFamilyId)) {
+      setSelectedEventFamilyId(null);
+    }
+  }, [selectedEventFamilyId, temporalExplorerChart]);
   const diagnosticItems = useMemo(
     () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
     [chart, currentStatusModel, historicalModel, systemChart],
@@ -6316,6 +6430,9 @@ function App() {
     const viewportStart = viewport.start_utc ?? shiftTemporalCenter(activeCenter, activeFrame, -10);
     const viewportEnd = viewport.end_utc ?? shiftTemporalCenter(activeCenter, activeFrame, 11);
     const events = temporalExplorerChart.events ?? [];
+    const eventFamilies = temporalExplorerChart.event_families ?? [];
+    const selectedFamily = eventFamilies.find((family) => family.family_id === selectedEventFamilyId);
+    const chartEvents = selectedFamily ? events.filter((event) => eventFamilyId(event) === selectedFamily.family_id) : events;
     const chartModel = temporalExplorerChart.chart ?? {};
     const availableSymbols = chartModel.available_symbols?.length ? chartModel.available_symbols : [chartModel.symbol ?? 'SPY', 'QQQ', 'IWM', 'DIA'];
     const activeSymbol = selectedTemporalSymbol ?? availableSymbols[0] ?? 'SPY';
@@ -6323,9 +6440,8 @@ function App() {
     const chartBars = (chartModel.bars ?? []).filter((bar) => (
       bar.symbol === activeSymbol && bar.timeframe === activeChartTimeframe
     ));
-    const ticks = buildTemporalTicks(activeCenter, activeFrame, temporalExplorerChart.timewheel_ticks ?? [], events);
+    const ticks = buildTemporalTicks(activeCenter, activeFrame, temporalExplorerChart.timewheel_ticks ?? [], chartEvents);
     const selectedTick = ticks.find((tick) => tickContainsTime(tick, activeCenter)) ?? ticks.find((tick) => tick.is_center) ?? ticks[Math.floor(ticks.length / 2)] ?? ticks[0];
-    const selectedTickEvents = selectedTick ? eventForTick(events, selectedTick) : [];
     const volumeValues = chartBars.map((bar) => bar.volume ?? 0).filter((value) => Number.isFinite(value));
     const maxVolume = Math.max(...volumeValues, 1);
     const maxTickEvents = Math.max(...ticks.map((tick) => tick.event_count ?? 0), 1);
@@ -6365,7 +6481,7 @@ function App() {
               symbol={activeSymbol}
               timeframe={activeChartTimeframe}
               bars={chartBars}
-              events={events}
+              events={chartEvents}
               viewportStart={viewportStart}
               viewportEnd={viewportEnd}
             />
@@ -6415,35 +6531,13 @@ function App() {
             </section>
           </div>
         </section>
-        <section className="panel temporal-events-panel">
-          <div className="panel-heading">Event Markers</div>
-          <p className="panel-subtitle">Showing only the selected {activeFrame} unit. Markers require certified event-family status in the event attention pool.</p>
-          {selectedTickEvents.length ? (
-            <div className="temporal-event-stack">
-              {selectedTickEvents.map((event) => (
-                <article className="temporal-event-card detailed" key={`${event.lane}-${event.event_id}`}>
-                  <strong>{event.title}</strong>
-                  <small>
-                    {startCase(event.event_type)}
-                    {event.scope ? ` · ${startCase(event.scope)}` : ''}
-                    {event.symbol ? ` · ${event.symbol}` : ''}
-                    {event.source_name ? ` · ${startCase(event.source_name)}` : ''}
-                  </small>
-                  {event.summary ? <p>{event.summary}</p> : null}
-                  {event.reference ? <small>{startCase(event.reference_type)} · {event.reference}</small> : null}
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-chart compact">No certified event-family markers for {selectedTick?.label ?? 'the selected time unit'}.</div>
-          )}
-        </section>
         <EventAttentionPoolView
           activeFrame={activeFrame}
           chartBars={chartBars}
           events={events}
-          selectedTick={selectedTick}
-          selectedTickEvents={selectedTickEvents}
+          eventFamilies={eventFamilies}
+          selectedFamilyId={selectedFamily?.family_id ?? null}
+          setSelectedFamilyId={setSelectedEventFamilyId}
           ticks={ticks}
         />
       </>
