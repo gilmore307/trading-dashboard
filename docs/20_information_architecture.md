@@ -271,10 +271,10 @@ Purpose: answer “Did each model layer choose reasonably with point-in-time evi
 Visible content should include:
 
 - replay decision-version selector with the same selector format used by the replay page family;
-- macro M01-M05 layer-quality matrix by model group, including effective decision count, coverage count, acceptable rate, harmful-error rate, missed-good rate, mean regret, mean impact, and evidence status;
-- macro charts comparing effective layer decisions, acceptable rate, harmful-error rate, and mean regret across selected model groups;
-- focused M01-M05 layer breakdown for one model group, with missing evidence shown as gaps rather than inferred correctness;
-- effective layer-decision ledger with timestamp, target, layer, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
+- five separate layer chapters, one each for M01 through M05;
+- in macro mode, each layer chapter compares model groups with that layer's summary table and charts for effective decisions, acceptable rate, harmful-error rate, and mean regret;
+- in focused mode, each layer chapter shows that model group's layer cards, charts, summary table, and effective decision ledger;
+- effective layer-decision ledger rows with timestamp, target, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
 - explicit exclusion of M06 residual-event governance from the layer-decision correctness scope;
 - clear separation between point-in-time decision evidence and future-return/counterfactual labels.
 

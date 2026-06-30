@@ -50,6 +50,13 @@ const MODEL_READINESS = 'model_readiness_summary';
 const MODEL_PROMOTION_POSTURE = 'model_promotion_posture_summary';
 const MODEL_GROUP_REPLAY_REVIEW = 'model_group_replay_review_summary';
 const EXECUTION_RUNTIME_STATUS = 'execution_realtime_trading_runtime_status';
+const REPLAY_DECISION_LAYER_ORDER = [
+  'model_01_background_context',
+  'model_02_target_state',
+  'model_03_event_state',
+  'model_04_unified_decision',
+  'model_05_option_expression',
+];
 
 const SOURCE_LABELS: Record<string, string> = {
   'trading-storage': 'System Monitor',
@@ -3835,18 +3842,33 @@ function replayLayerComparisonRows(runs: Array<Record<string, unknown>>) {
   })));
 }
 
+type ReplayLayerComparisonRow = ReturnType<typeof replayLayerComparisonRows>[number];
+
+function replayLayerRowsForLayer(runs: Array<Record<string, unknown>>, layerId: string): ReplayLayerComparisonRow[] {
+  return replayLayerComparisonRows(runs).filter((row) => row.layerId === layerId);
+}
+
+function replayLayerDefinition(runs: Array<Record<string, unknown>>, layerId: string): { layerId: string; layerLabel: string } {
+  const row = replayLayerRowsForLayer(runs, layerId)[0];
+  return { layerId, layerLabel: row?.layerLabel ?? startCase(layerId) };
+}
+
 function replayLayerMetricSeries(
-  rows: ReturnType<typeof replayLayerComparisonRows>,
+  rows: ReplayLayerComparisonRow[],
   key: 'effectiveDecisionCount' | 'acceptableRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact',
 ) {
   return rows
     .map((row) => {
       const value = row[key];
       return typeof value === 'number' && Number.isFinite(value)
-        ? { label: `${row.runLabel} ${row.layerShortLabel}`, value, status: row.evidenceStatus }
+        ? { label: row.runLabel, value, status: row.evidenceStatus }
         : null;
     })
     .filter((point): point is { label: string; value: number; status: string } => Boolean(point));
+}
+
+function replayDecisionRowsForLayer(run: Record<string, unknown> | null, layerId: string): Array<Record<string, unknown>> {
+  return run ? replayDecisionRows(run).filter((row) => String(row.layer_id ?? '') === layerId) : [];
 }
 
 function comparableTableValue(value: unknown): string | number | null {
@@ -4240,46 +4262,38 @@ function ReplayReviewFocusPanel({
   );
 }
 
-function ReplayLayerQualityMatrix({ runs }: { runs: Array<Record<string, unknown>> }) {
-  const rows = replayLayerComparisonRows(runs);
+function ReplayLayerQualityTable({ rows }: { rows: ReplayLayerComparisonRow[] }) {
   const [sort, setSort] = useState<SortState<'runLabel' | 'layerLabel' | 'evidenceStatus' | 'effectiveDecisionCount' | 'acceptableRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact'>>({ key: 'runLabel', direction: 'asc' });
-  if (!runs.length) return null;
   const sortedRows = [...rows].sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.runLabel.localeCompare(right.runLabel) || left.layerId.localeCompare(right.layerId));
   return (
-    <section className="panel replay-table-panel">
-      <div className="panel-heading">M01-M05 Layer Quality Matrix</div>
-      <div className="replay-table replay-layer-quality-table">
-        <div className="replay-table-row replay-table-head">
-          <SortableHeader label="Model Group" column="runLabel" sort={sort} onSort={setSort} />
-          <SortableHeader label="Layer" column="layerLabel" sort={sort} onSort={setSort} />
-          <SortableHeader label="Evidence" column="evidenceStatus" sort={sort} onSort={setSort} />
-          <SortableHeader label="Effective" column="effectiveDecisionCount" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <SortableHeader label="Accept %" column="acceptableRate" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <SortableHeader label="Harm %" column="harmfulErrorRate" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <SortableHeader label="Missed %" column="missedGoodRate" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <SortableHeader label="Regret" column="meanRegret" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <SortableHeader label="Impact" column="meanImpact" sort={sort} onSort={setSort} defaultDirection="desc" />
-        </div>
-        {sortedRows.length ? sortedRows.map((row) => (
-          <div className="replay-table-row" key={row.id}>
-            <strong>{row.runLabel}</strong>
-            <span>{row.layerLabel}</span>
-            <span><StatusPill status={startCase(row.evidenceStatus)} severity={replayLayerEvidenceSeverity(row.evidenceStatus)} /></span>
-            <span>{formatMetricValue(row.effectiveDecisionCount, 0)} / {formatMetricValue(row.coverageRowCount, 0)}</span>
-            <span>{row.acceptableRate === null ? 'Not reported' : `${(row.acceptableRate * 100).toFixed(1)}%`}</span>
-            <span>{row.harmfulErrorRate === null ? 'Not reported' : `${(row.harmfulErrorRate * 100).toFixed(1)}%`}</span>
-            <span>{row.missedGoodRate === null ? 'Not reported' : `${(row.missedGoodRate * 100).toFixed(1)}%`}</span>
-            <span>{formatMetricValue(row.meanRegret, 4)}</span>
-            <span>{formatMetricValue(row.meanImpact, 4)}</span>
-          </div>
-        )) : <div className="empty-chart compact">No M01-M05 replay decision contract is published yet.</div>}
+    <div className="replay-table replay-layer-quality-table">
+      <div className="replay-table-row replay-table-head">
+        <SortableHeader label="Model Group" column="runLabel" sort={sort} onSort={setSort} />
+        <SortableHeader label="Evidence" column="evidenceStatus" sort={sort} onSort={setSort} />
+        <SortableHeader label="Effective" column="effectiveDecisionCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Accept %" column="acceptableRate" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Harm %" column="harmfulErrorRate" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Missed %" column="missedGoodRate" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Regret" column="meanRegret" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Impact" column="meanImpact" sort={sort} onSort={setSort} defaultDirection="desc" />
       </div>
-    </section>
+      {sortedRows.length ? sortedRows.map((row) => (
+        <div className="replay-table-row" key={row.id}>
+          <strong>{row.runLabel}</strong>
+          <span><StatusPill status={startCase(row.evidenceStatus)} severity={replayLayerEvidenceSeverity(row.evidenceStatus)} /></span>
+          <span>{formatMetricValue(row.effectiveDecisionCount, 0)} / {formatMetricValue(row.coverageRowCount, 0)}</span>
+          <span>{row.acceptableRate === null ? 'Not reported' : `${(row.acceptableRate * 100).toFixed(1)}%`}</span>
+          <span>{row.harmfulErrorRate === null ? 'Not reported' : `${(row.harmfulErrorRate * 100).toFixed(1)}%`}</span>
+          <span>{row.missedGoodRate === null ? 'Not reported' : `${(row.missedGoodRate * 100).toFixed(1)}%`}</span>
+          <span>{formatMetricValue(row.meanRegret, 4)}</span>
+          <span>{formatMetricValue(row.meanImpact, 4)}</span>
+        </div>
+      )) : <div className="empty-chart compact">No replay decision quality rows are published for this layer.</div>}
+    </div>
   );
 }
 
-function ReplayLayerQualityCharts({ runs }: { runs: Array<Record<string, unknown>> }) {
-  const rows = replayLayerComparisonRows(runs);
+function ReplayLayerQualityCharts({ rows }: { rows: ReplayLayerComparisonRow[] }) {
   return (
     <div className="replay-chart-grid">
       <MiniMetricBarChart title="Effective Layer Decisions" series={replayLayerMetricSeries(rows, 'effectiveDecisionCount')} emptyLabel="No M01-M05 effective decision counts published" />
@@ -4290,77 +4304,76 @@ function ReplayLayerQualityCharts({ runs }: { runs: Array<Record<string, unknown
   );
 }
 
-function ReplayLayerFocusCards({ run }: { run: Record<string, unknown> | null }) {
-  if (!run) return null;
-  const rows = replayLayerComparisonRows([run]);
+function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
+  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type'>>({ key: 'decision_time', direction: 'asc' });
+  const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   return (
-    <section className="panel replay-review-focus-panel">
-      <div className="panel-heading">M01-M05 Layer Decision Breakdown</div>
-      <div className="replay-review-focus-grid replay-layer-focus-grid">
-        {rows.map((row) => (
-          <div className="replay-review-focus-card" key={row.id}>
-            <strong>{row.layerLabel}</strong>
-            <span>Evidence</span>
-            <StatusPill status={startCase(row.evidenceStatus)} severity={replayLayerEvidenceSeverity(row.evidenceStatus)} />
-            <span>Decisions</span>
-            <div className="chips">
-              <span className="chip">Effective: {formatMetricValue(row.effectiveDecisionCount, 0)}</span>
-              <span className="chip">Coverage: {formatMetricValue(row.coverageRowCount, 0)}</span>
-            </div>
-            <span>Quality</span>
-            <div className="chips">
-              <span className="chip">Accept: {row.acceptableRate === null ? 'Not reported' : `${(row.acceptableRate * 100).toFixed(1)}%`}</span>
-              <span className="chip">Harm: {row.harmfulErrorRate === null ? 'Not reported' : `${(row.harmfulErrorRate * 100).toFixed(1)}%`}</span>
-              <span className="chip">Regret: {formatMetricValue(row.meanRegret, 4)}</span>
-            </div>
-            <small>{row.sourceGapCodes.length ? row.sourceGapCodes.map(startCase).join(' | ') : 'Layer decision quality rows published'}</small>
-          </div>
-        ))}
+    <div className="replay-table replay-layer-ledger-table">
+      <div className="replay-table-row replay-table-head">
+        <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
+        <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
+        <SortableHeader label="Correct" column="correctness_class" sort={sort} onSort={setSort} />
+        <SortableHeader label="Accept" column="acceptability_class" sort={sort} onSort={setSort} />
+        <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Impact" column="impact_normalized_severity_score" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Cause" column="cause_family" sort={sort} onSort={setSort} />
+        <SortableHeader label="Failure" column="failure_type" sort={sort} onSort={setSort} />
+        <span>Decision</span>
+        <span>Best Label</span>
+        <span>Scope</span>
       </div>
-    </section>
+      {sortedRows.length ? sortedRows.map((row, index) => (
+        <div className="replay-table-row" key={`${String(row.review_id ?? index)}-${String(row.layer_id ?? '')}`}>
+          <strong>{String(row.decision_time ?? 'Not reported')}</strong>
+          <span>{String(row.target_symbol ?? 'Not reported')}</span>
+          <span>{startCase(String(row.correctness_class ?? 'indeterminate'))}</span>
+          <span>{startCase(String(row.acceptability_class ?? 'indeterminate'))}</span>
+          <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
+          <span>{formatMetricValue(metricNumber(row, 'impact_normalized_severity_score'), 4)}</span>
+          <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
+          <span>{String(row.effective_decision ?? row.chosen_action ?? 'Not reported')}</span>
+          <span>{String(row.best_available_action_by_future_outcome ?? 'Not reported')}</span>
+          <span>{String(row.candidate_set_scope ?? row.path_scope ?? 'Not reported')}</span>
+        </div>
+      )) : <div className="empty-chart compact">No effective layer decision rows are published for this layer.</div>}
+    </div>
   );
 }
 
-function ReplayLayerDecisionLedger({ run }: { run: Record<string, unknown> | null }) {
-  const rows = run ? replayDecisionRows(run) : [];
-  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type'>>({ key: 'decision_time', direction: 'asc' });
-  if (!run) return null;
-  const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
+function ReplayLayerSection({
+  runs,
+  focusedRun,
+  layerId,
+}: {
+  runs: Array<Record<string, unknown>>;
+  focusedRun: Record<string, unknown> | null;
+  layerId: string;
+}) {
+  const { layerLabel } = replayLayerDefinition(runs, layerId);
+  const rows = replayLayerRowsForLayer(runs, layerId);
+  const focusedSummary = focusedRun ? rows[0] ?? null : null;
+  const ledgerRows = focusedRun ? replayDecisionRowsForLayer(focusedRun, layerId) : [];
   return (
-    <section className="panel replay-table-panel">
-      <div className="panel-heading">Effective Layer Decision Ledger</div>
-      <div className="replay-table replay-layer-ledger-table">
-        <div className="replay-table-row replay-table-head">
-          <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
-          <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
-          <SortableHeader label="Layer" column="layer_label" sort={sort} onSort={setSort} />
-          <SortableHeader label="Correct" column="correctness_class" sort={sort} onSort={setSort} />
-          <SortableHeader label="Accept" column="acceptability_class" sort={sort} onSort={setSort} />
-          <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <SortableHeader label="Impact" column="impact_normalized_severity_score" sort={sort} onSort={setSort} defaultDirection="desc" />
-          <SortableHeader label="Cause" column="cause_family" sort={sort} onSort={setSort} />
-          <SortableHeader label="Failure" column="failure_type" sort={sort} onSort={setSort} />
-          <span>Decision</span>
-          <span>Best Label</span>
-          <span>Scope</span>
+    <section className="panel replay-layer-section">
+      <div className="panel-heading">{layerLabel}</div>
+      {focusedSummary ? (
+        <div className="metric-grid four">
+          <MetricCard label="Effective" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint={`Coverage ${formatMetricValue(focusedSummary.coverageRowCount, 0)}`} />
+          <MetricCard label="Accept %" value={focusedSummary.acceptableRate === null ? 'Not reported' : `${(focusedSummary.acceptableRate * 100).toFixed(1)}%`} hint={startCase(focusedSummary.evidenceStatus)} />
+          <MetricCard label="Harm %" value={focusedSummary.harmfulErrorRate === null ? 'Not reported' : `${(focusedSummary.harmfulErrorRate * 100).toFixed(1)}%`} hint="Harmful error rate" />
+          <MetricCard label="Mean Regret" value={formatMetricValue(focusedSummary.meanRegret, 4)} hint={focusedSummary.sourceGapCodes.length ? focusedSummary.sourceGapCodes.map(startCase).join(' | ') : 'Layer decision quality rows'} />
         </div>
-        {sortedRows.length ? sortedRows.map((row, index) => (
-          <div className="replay-table-row" key={`${String(row.review_id ?? index)}-${String(row.layer_id ?? '')}`}>
-            <strong>{String(row.decision_time ?? 'Not reported')}</strong>
-            <span>{String(row.target_symbol ?? 'Not reported')}</span>
-            <span>{String(row.layer_label ?? row.layer_id ?? 'Not reported')}</span>
-            <span>{startCase(String(row.correctness_class ?? 'indeterminate'))}</span>
-            <span>{startCase(String(row.acceptability_class ?? 'indeterminate'))}</span>
-            <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
-            <span>{formatMetricValue(metricNumber(row, 'impact_normalized_severity_score'), 4)}</span>
-            <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
-            <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
-            <span>{String(row.effective_decision ?? row.chosen_action ?? 'Not reported')}</span>
-            <span>{String(row.best_available_action_by_future_outcome ?? 'Not reported')}</span>
-            <span>{String(row.candidate_set_scope ?? row.path_scope ?? 'Not reported')}</span>
-          </div>
-        )) : <div className="empty-chart compact">No M01-M05 effective layer decision rows are published for this model group.</div>}
+      ) : null}
+      <ReplayLayerQualityCharts rows={rows} />
+      <div className="replay-table-panel">
+        <ReplayLayerQualityTable rows={rows} />
       </div>
+      {focusedRun ? (
+        <div className="replay-table-panel">
+          <ReplayLayerDecisionLedger rows={ledgerRows} />
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -4757,14 +4770,15 @@ function ReplayDecisionsView({
       />
       {focusedRun ? (
         <>
-          <ReplayLayerFocusCards run={focusedRun} />
-          <ReplayLayerQualityCharts runs={[focusedRun]} />
-          <ReplayLayerDecisionLedger run={focusedRun} />
+          {REPLAY_DECISION_LAYER_ORDER.map((layerId) => (
+            <ReplayLayerSection key={layerId} runs={[focusedRun]} focusedRun={focusedRun} layerId={layerId} />
+          ))}
         </>
       ) : (
         <>
-          <ReplayLayerQualityMatrix runs={chartReviewRuns} />
-          <ReplayLayerQualityCharts runs={chartReviewRuns} />
+          {REPLAY_DECISION_LAYER_ORDER.map((layerId) => (
+            <ReplayLayerSection key={layerId} runs={chartReviewRuns} focusedRun={null} layerId={layerId} />
+          ))}
         </>
       )}
     </section>
