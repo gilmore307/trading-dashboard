@@ -1897,7 +1897,7 @@ function MiniMetricBarChart({
   emptyLabel,
 }: {
   title: string;
-  series: Array<{ label: string; value: number; status?: string | null }>;
+  series: Array<{ label: string; value: number; status?: string | null; valueLabel?: string; tooltip?: string }>;
   emptyLabel: string;
 }) {
   if (!series.length) {
@@ -1933,11 +1933,14 @@ function MiniMetricBarChart({
           const barHeight = Math.max(2, Math.abs(projectY(point.value) - zeroY));
           const labelX = x + barWidth / 2;
           const showLabel = series.length <= 8 || index === 0 || index === series.length - 1 || index % Math.ceil(series.length / 8) === 0;
+          const valueText = point.valueLabel ?? point.value.toFixed(3);
           return (
             <g key={`${point.label}-${point.value}`}>
-              <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" className={`model-bar-${modelIdentity({ promotion_status: point.status })}`} />
+              <rect x={x} y={y} width={barWidth} height={barHeight} rx="4" className={`model-bar-${modelIdentity({ promotion_status: point.status })}`}>
+                <title>{point.tooltip ?? `${title} · ${point.label}: ${valueText}`}</title>
+              </rect>
               {showLabel ? <text x={labelX} y={height - 26} textAnchor="middle">{point.label}</text> : null}
-              {showLabel ? <text x={labelX} y={Math.max(16, y - 8)} textAnchor="middle">{point.value.toFixed(3)}</text> : null}
+              {showLabel ? <text x={labelX} y={Math.max(16, y - 8)} textAnchor="middle">{valueText}</text> : null}
             </g>
           );
         })}
@@ -3946,16 +3949,23 @@ function ReplayLayerTabs({
 
 function replayLayerMetricSeries(
   rows: ReplayLayerComparisonRow[],
-  key: 'effectiveDecisionCount' | 'acceptableRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact',
+  key: 'effectiveDecisionCount' | 'correctRate' | 'acceptableRate' | 'incorrectRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact',
 ) {
+  const isRate = key === 'correctRate' || key === 'acceptableRate' || key === 'incorrectRate' || key === 'harmfulErrorRate' || key === 'missedGoodRate';
   return rows
     .map((row) => {
       const value = row[key];
-      return typeof value === 'number' && Number.isFinite(value)
-        ? { label: row.runLabel, value, status: row.evidenceStatus }
-        : null;
+      if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+      const valueLabel = isRate ? `${(value * 100).toFixed(1)}%` : key === 'effectiveDecisionCount' ? value.toFixed(0) : value.toFixed(4);
+      return {
+        label: row.runLabel,
+        value,
+        status: row.evidenceStatus,
+        valueLabel,
+        tooltip: `${row.layerLabel} · ${row.runLabel}: ${valueLabel} · evidence ${startCase(row.evidenceStatus)}`,
+      };
     })
-    .filter((point): point is { label: string; value: number; status: string } => Boolean(point));
+    .filter((point): point is { label: string; value: number; status: string; valueLabel: string; tooltip: string } => Boolean(point));
 }
 
 function replayDecisionRowsForLayer(run: Record<string, unknown> | null, layerId: string): Array<Record<string, unknown>> {
@@ -4434,7 +4444,7 @@ function ReplayReviewFocusPanel({
 }
 
 function ReplayLayerQualityTable({ rows }: { rows: ReplayLayerComparisonRow[] }) {
-  const [sort, setSort] = useState<SortState<'runLabel' | 'layerLabel' | 'evidenceStatus' | 'effectiveDecisionCount' | 'acceptableRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact'>>({ key: 'runLabel', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'runLabel' | 'layerLabel' | 'evidenceStatus' | 'effectiveDecisionCount' | 'correctRate' | 'acceptableRate' | 'incorrectRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact'>>({ key: 'runLabel', direction: 'asc' });
   const sortedRows = [...rows].sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.runLabel.localeCompare(right.runLabel) || left.layerId.localeCompare(right.layerId));
   return (
     <div className="replay-table replay-layer-quality-table">
@@ -4442,7 +4452,9 @@ function ReplayLayerQualityTable({ rows }: { rows: ReplayLayerComparisonRow[] })
         <SortableHeader label="Model Group" column="runLabel" sort={sort} onSort={setSort} />
         <SortableHeader label="Evidence" column="evidenceStatus" sort={sort} onSort={setSort} />
         <SortableHeader label="Effective" column="effectiveDecisionCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Correct %" column="correctRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Accept %" column="acceptableRate" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Incorrect %" column="incorrectRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Harm %" column="harmfulErrorRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Missed %" column="missedGoodRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Regret" column="meanRegret" sort={sort} onSort={setSort} defaultDirection="desc" />
@@ -4453,7 +4465,9 @@ function ReplayLayerQualityTable({ rows }: { rows: ReplayLayerComparisonRow[] })
           <strong>{row.runLabel}</strong>
           <span><StatusPill status={startCase(row.evidenceStatus)} severity={replayLayerEvidenceSeverity(row.evidenceStatus)} /></span>
           <span>{formatMetricValue(row.effectiveDecisionCount, 0)} / {formatMetricValue(row.coverageRowCount, 0)}</span>
+          <span>{row.correctRate === null ? 'Not reported' : `${(row.correctRate * 100).toFixed(1)}%`}</span>
           <span>{row.acceptableRate === null ? 'Not reported' : `${(row.acceptableRate * 100).toFixed(1)}%`}</span>
+          <span>{row.incorrectRate === null ? 'Not reported' : `${(row.incorrectRate * 100).toFixed(1)}%`}</span>
           <span>{row.harmfulErrorRate === null ? 'Not reported' : `${(row.harmfulErrorRate * 100).toFixed(1)}%`}</span>
           <span>{row.missedGoodRate === null ? 'Not reported' : `${(row.missedGoodRate * 100).toFixed(1)}%`}</span>
           <span>{formatMetricValue(row.meanRegret, 4)}</span>
@@ -4468,9 +4482,13 @@ function ReplayLayerQualityCharts({ rows }: { rows: ReplayLayerComparisonRow[] }
   return (
     <div className="replay-chart-grid">
       <MiniMetricBarChart title="Effective Layer Decisions" series={replayLayerMetricSeries(rows, 'effectiveDecisionCount')} emptyLabel="No M01-M05 effective decision counts published" />
+      <MiniMetricBarChart title="Correct Rate" series={replayLayerMetricSeries(rows, 'correctRate')} emptyLabel="No M01-M05 correct-rate metrics published" />
       <MiniMetricBarChart title="Acceptable Rate" series={replayLayerMetricSeries(rows, 'acceptableRate')} emptyLabel="No M01-M05 acceptable-rate metrics published" />
+      <MiniMetricBarChart title="Incorrect Rate" series={replayLayerMetricSeries(rows, 'incorrectRate')} emptyLabel="No M01-M05 incorrect-rate metrics published" />
       <MiniMetricBarChart title="Harmful Error Rate" series={replayLayerMetricSeries(rows, 'harmfulErrorRate')} emptyLabel="No M01-M05 harmful-error metrics published" />
+      <MiniMetricBarChart title="Missed Good Rate" series={replayLayerMetricSeries(rows, 'missedGoodRate')} emptyLabel="No M01-M05 missed-good metrics published" />
       <MiniMetricBarChart title="Mean Regret" series={replayLayerMetricSeries(rows, 'meanRegret')} emptyLabel="No M01-M05 regret metrics published" />
+      <MiniMetricBarChart title="Mean Impact" series={replayLayerMetricSeries(rows, 'meanImpact')} emptyLabel="No M01-M05 impact metrics published" />
     </div>
   );
 }
@@ -4527,10 +4545,14 @@ function ReplayLayerTrendChart({
         <polyline className="curve-line" points={linePoints} />
         {projected.map((point, index) => {
           const showLabel = projected.length <= 8 || index === 0 || index === projected.length - 1 || index % Math.ceil(projected.length / 6) === 0;
+          const tooltip = `${title} · ${point.label}: ${valueLabel(point.value)} · bucket n=${point.bucketCount} · cumulative n=${point.cumulativeEffective}`;
           return (
             <g key={`${point.label}-${index}`}>
+              <circle className="chart-hover-target" cx={point.x} cy={point.y} r="11">
+                <title>{tooltip}</title>
+              </circle>
               <circle className={point.bucketCount < 3 ? 'low-sample-point' : ''} cx={point.x} cy={point.y} r={point.bucketCount < 3 ? 3.3 : 4.2}>
-                <title>{`${point.label}: ${valueLabel(point.value)} · n=${point.bucketCount} · cumulative n=${point.cumulativeEffective}`}</title>
+                <title>{tooltip}</title>
               </circle>
               {showLabel ? <text x={point.x} y={height - 24} textAnchor="middle">{compactMonthLabel(point.label)}</text> : null}
             </g>
@@ -4626,11 +4648,13 @@ function ReplayLayerSection({
       {focusedSummary ? (
         <div className="metric-grid replay-layer-metrics">
           <MetricCard label="Effective" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint={`Coverage ${formatMetricValue(focusedSummary.coverageRowCount, 0)}`} />
+          <MetricCard label="Correct %" value={focusedSummary.correctRate === null ? 'Not reported' : `${(focusedSummary.correctRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
           <MetricCard label="Accept %" value={focusedSummary.acceptableRate === null ? 'Not reported' : `${(focusedSummary.acceptableRate * 100).toFixed(1)}%`} hint={startCase(focusedSummary.evidenceStatus)} />
-          <MetricCard label="Harm %" value={focusedSummary.harmfulErrorRate === null ? 'Not reported' : `${(focusedSummary.harmfulErrorRate * 100).toFixed(1)}%`} hint="Harmful error rate" />
           <MetricCard label="Incorrect %" value={focusedSummary.incorrectRate === null ? 'Not reported' : `${(focusedSummary.incorrectRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
+          <MetricCard label="Harm %" value={focusedSummary.harmfulErrorRate === null ? 'Not reported' : `${(focusedSummary.harmfulErrorRate * 100).toFixed(1)}%`} hint="Harmful error rate" />
           <MetricCard label="Missed %" value={focusedSummary.missedGoodRate === null ? 'Not reported' : `${(focusedSummary.missedGoodRate * 100).toFixed(1)}%`} hint="Missed good opportunity rate" />
           <MetricCard label="Mean Regret" value={formatMetricValue(focusedSummary.meanRegret, 4)} hint={focusedSummary.sourceGapCodes.length ? focusedSummary.sourceGapCodes.map(startCase).join(' | ') : 'Layer decision quality rows'} />
+          <MetricCard label="Mean Impact" value={formatMetricValue(focusedSummary.meanImpact, 4)} hint="Normalized severity where published" />
         </div>
       ) : null}
       {focusedRun ? <ReplayLayerFocusTrendCharts rows={ledgerRows} /> : <ReplayLayerQualityCharts rows={rows} />}

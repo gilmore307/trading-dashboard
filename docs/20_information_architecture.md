@@ -272,7 +272,7 @@ Visible content should include:
 
 - replay decision-version selector with the same selector format used by the replay page family;
 - five separate layer chapters, one each for M01 through M05;
-- in macro mode, each layer chapter compares model groups with that layer's summary table and charts for effective decisions, scored decisions, acceptable rate, harmful-error rate, and mean regret;
+- in macro mode, each layer chapter compares model groups with that layer's summary table and charts for effective decisions, correct rate, acceptable rate, incorrect rate, harmful-error rate, missed-good rate, mean regret, and mean impact;
 - in focused mode, each layer chapter shows that model group's layer cards, charts, summary table, and effective decision ledger;
 - effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
 - current review runs publish one scored M01-M05 layer row per replay decision per layer; `effective_trace_unscored` is retained only as a legacy fallback for older artifacts without dedicated layer review rows;
