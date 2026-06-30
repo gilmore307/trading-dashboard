@@ -5872,10 +5872,28 @@ function temporalBarTime(bar: TemporalExplorerChartBarPayload): CandlestickData[
   return Math.floor((Number.isFinite(parsed) ? parsed : Date.now()) / 1000) as CandlestickData['time'];
 }
 
+function temporalChartDateLabel(value?: string | null, timeframe?: string | null): string {
+  const parsed = Date.parse(value ?? '');
+  if (!Number.isFinite(parsed)) return value ?? 'Unknown';
+  const date = new Date(parsed);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const dateLabel = `${year}-${month}-${day}`;
+  if (timeframe === '1D' || timeframe === '1W') return dateLabel;
+  const timeLabel = new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'UTC',
+  }).format(date);
+  return `${dateLabel} ${timeLabel} UTC`;
+}
+
 function toTemporalLightweightCandle(bar: TemporalExplorerChartBarPayload): TemporalLightweightCandle {
   return {
     time: temporalBarTime(bar),
-    label: formatTimestamp(bar.bucket_start),
+    label: temporalChartDateLabel(bar.bucket_start, bar.timeframe),
     open: bar.open,
     high: bar.high,
     low: bar.low,
@@ -6031,7 +6049,7 @@ function TemporalTradingViewChart({
             className="event-axis-marker"
             key={`${event.lane}-${event.event_id}`}
             style={{ left: `${temporalPositionPercent(event.event_time, viewportStart, viewportEnd)}%` }}
-            title={`${formatTimestamp(event.event_time)} · ${event.title}`}
+            title={`${temporalChartDateLabel(event.event_time, timeframe)} · ${event.title}`}
           />
         ))}
       </div>
@@ -6509,7 +6527,7 @@ function App() {
                     <span
                       key={`${bar.symbol}-${bar.timeframe}-${bar.bucket_start}-volume`}
                       style={{ height: `${Math.max(((bar.volume ?? 0) / maxVolume) * 100, 2)}%` }}
-                      title={`${formatTimestamp(bar.bucket_start)} · volume ${bar.volume ?? 0}`}
+                      title={`${temporalChartDateLabel(bar.bucket_start, bar.timeframe)} · volume ${bar.volume ?? 0}`}
                     />
                   ))}
                 </div>
