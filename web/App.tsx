@@ -4804,18 +4804,22 @@ function ReplayOperationsView({
   replayReviewChart: ReplayReviewChartPayload;
 }) {
   const versions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const entries = versions.map((version, index) => ({ version, index }));
+  const versionIds = versions.map((version, index) => versionStableId(version, index));
+  const versionKey = versionIds.join('|');
   const reviewRuns = replayReviewRuns(replayReviewChart);
-  const reviewIds = reviewRuns.map(replayReviewRunId);
-  const reviewKey = reviewIds.join('|');
-  const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   useEffect(() => {
-    setSelectedReviewIds((current) => {
-      const valid = new Set(reviewIds);
+    setSelectedIds((current) => {
+      const valid = new Set(versionIds);
       return current.filter((id) => valid.has(id));
     });
-  }, [reviewKey]);
-  const selectedReviewRuns = reviewRuns.filter((run, index) => selectedReviewIds.includes(replayReviewRunId(run, index)));
-  const chartReviewRuns = selectedReviewRuns.length ? selectedReviewRuns : reviewRuns;
+  }, [versionKey]);
+  const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
+  const selectedReviewRuns = selectedEntries
+    .map(({ version }) => replayReviewRunForVersion(version, reviewRuns))
+    .filter((run): run is Record<string, unknown> => Boolean(run));
+  const chartReviewRuns = selectedEntries.length ? selectedReviewRuns : reviewRuns;
   const firstGapCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewDecision(run), 'first_gap_component_counts'));
   const optionPathCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewSection(run, 'option_expression'), 'path_status_counts'));
   const replacementCounts = aggregateCounts(chartReviewRuns, (run) => countRecord(replayReviewSection(run, 'replacement_review'), 'replacement_status_counts'));
@@ -4831,15 +4835,15 @@ function ReplayOperationsView({
   return (
     <section className="replay-view">
       <ReplaySelectionModePanel
-        mode={selectedReviewRuns.length ? 'focus' : 'summary'}
-        summary={selectedReviewRuns.length ? `${selectedReviewRuns.length} replay review runs selected` : `${reviewRuns.length} replay review runs in operation summary`}
-        onClear={() => setSelectedReviewIds([])}
+        mode={selectedEntries.length ? 'focus' : 'summary'}
+        summary={selectedEntries.length ? `${selectedEntries.length} model group replay selections` : `${versions.length} model group replay versions in operation summary`}
+        onClear={() => setSelectedIds([])}
       />
-      <ReplayReviewRunSelector
-        title="Replay Operation Review Selector"
-        runs={reviewRuns}
-        selectedIds={selectedReviewIds}
-        onChange={setSelectedReviewIds}
+      <ReplayPerformanceSummaryTable
+        entries={entries}
+        reviewRuns={reviewRuns}
+        selectedIds={selectedIds}
+        onChange={setSelectedIds}
       />
       <div className="replay-chart-grid">
         <MiniMetricBarChart title="First Gap Component" series={countSeriesFromRecord(firstGapCounts)} emptyLabel="No first-gap component counts published" />

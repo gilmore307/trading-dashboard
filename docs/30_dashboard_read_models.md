@@ -319,11 +319,15 @@ Current semantic source:
 - `post_replay_review_runs/*/replay_review_rows.jsonl`;
 - `post_replay_review_runs/*/layer_attribution/parameter_replay_review_report.json`.
 
+Producer rule:
+
+- the storage read model publishes only the latest completed post-replay review run for each current `candidate_fold_id`; older same-fold rerun artifacts are storage lifecycle cleanup candidates, not parallel selector rows.
+
 Dashboard presentation:
 
 - Replay Performance consumes `review_runs[].performance` for trading-performance evidence such as decision rows, fill counts, target performance, stock selection, option expression, and replacement review;
 - Replay Decisions consumes `review_runs[].decision_review` and `review_runs[].parameter_review` for model-layer attribution, cause family, failure type, regret, impact, and parameter replay review classes;
-- Replay Operations consumes first-gap component/mechanism, option path status, fill status, replacement mechanics, and other component/surface diagnostics projected from replay review;
+- Replay Operations uses the same Model Group Replay Selector as Replay Performance and consumes first-gap component/mechanism, option path status, fill status, replacement mechanics, and other component/surface diagnostics projected from the matching replay review run;
 - every page keeps the same three dimensions: model-group comparison, individual model-group analysis, and Focus/detail drilldown by source refs.
 
 Safety/interpretation constraints:
