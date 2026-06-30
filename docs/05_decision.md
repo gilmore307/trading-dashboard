@@ -812,12 +812,12 @@ Replay Operations renders C01-C07 through an in-page component tab control:
 - C06 Execution Gate
 - C07 Failure Review
 
-Each component tab owns that component's short role explanation, metric cards, charts, summary table, and focused sample ledger. Summary mode compares the selected component across model groups. Focus mode uses time-axis line charts over the selected model group's published component rows.
+Each component tab owns that component's short role explanation, metric cards, charts, summary table, and focused metric ledger. Summary mode compares the selected component across model groups. Focus mode uses the selected model group's published component artifact metrics rather than failure-sample rows as the primary evidence.
 
-The current projection is bounded by `model_group_replay_review_summary` evidence. It may use `decision_review.first_gap_component_counts`, `decision_review.sample_rows`, first-gap mechanism, cause family, failure type, regret, and impact. It must not fabricate a complete per-component ledger for components that the review artifact has not published yet.
+The current projection is bounded by `model_group_replay_review_summary` evidence. It uses `replay_operations_c01_c07` component summaries and metric rows produced from `operation_component_flow.csv`, `operation_component_review_packet.csv`, and `operation_component_metrics.csv`. The page should distinguish true zeros and explicit `not_applicable` component states from missing fields. `decision_review.first_gap_component_counts` and `decision_review.sample_rows` are legacy fallback evidence only. It must not fabricate metrics that the review artifact has not published.
 
 ### Consequences
 
 - Replay Operations no longer shows a mixed legacy operation evidence block as its primary content.
-- Component rows with no published review evidence show missing/empty states rather than invented counts.
-- Future storage/review producers should publish full C01-C07 component ledgers if the dashboard is expected to show complete operation timelines for every component.
+- Component rows with no published review evidence show missing/empty states rather than invented counts; published zeros remain visible as zeros.
+- Future storage/review producers may add time-indexed C01-C07 component ledgers if the dashboard is expected to show operation timelines for every component.
