@@ -243,7 +243,7 @@ Visible content should include:
 - the same model-group selector pattern used by Replay Performance and Replay Decisions;
 - C01-C07 in-page component tabs: Intake, Entry, Lifecycle, Option Review, Order Intent, Execution Gate, and Failure Review;
 - summary mode comparing the active component across replayed model groups;
-- focus mode for one selected model group, with the active component's metric cards, time-axis trend charts, summary row, and sample ledger;
+- focus mode for one selected model group, with the active component's operation cards, time-axis operation charts, summary row, and concrete operation ledger;
 - component-specific metric families, analysis methods, evidence roles, required-evidence status, and component verdicts;
 - C03 lifecycle continuity and replacement-policy evidence, or an explicit lifecycle evidence gap if the replay review did not publish position-state evidence;
 - first-gap component and first-gap mechanism evidence from replay review rows.
@@ -256,6 +256,7 @@ Preferred visuals:
 - time-axis line charts in focus mode;
 - component comparison bar charts in summary mode;
 - inspectable component sample tables.
+- concrete operation rows should be the primary focused table; metric rows are supporting diagnostics, not the main replay-operation ledger.
 
 Hidden by default:
 

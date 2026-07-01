@@ -4147,8 +4147,12 @@ function aggregateCounts(runs: Array<Record<string, unknown>>, section: (run: Re
 
 function replayOperationRows(run: Record<string, unknown>): Array<Record<string, unknown>> {
   const operations = nestedRecord(run, 'replay_operations_c01_c07');
-  const metricRows = nestedArray(operations, 'component_metric_rows');
-  return metricRows.length ? metricRows : nestedArray(replayReviewDecision(run), 'sample_rows');
+  return nestedArray(operations, 'component_action_rows');
+}
+
+function replayOperationMetricRows(run: Record<string, unknown>): Array<Record<string, unknown>> {
+  const operations = nestedRecord(run, 'replay_operations_c01_c07');
+  return nestedArray(operations, 'component_metric_rows');
 }
 
 function replayOperationSummary(run: Record<string, unknown>): Record<string, unknown> | null {
@@ -4190,6 +4194,10 @@ function replayOperationComponentIdForRow(row: Record<string, unknown>): string 
 
 function replayOperationRowsForComponent(run: Record<string, unknown> | null, componentId: string): Array<Record<string, unknown>> {
   return run ? replayOperationRows(run).filter((row) => replayOperationComponentIdForRow(row) === componentId) : [];
+}
+
+function replayOperationMetricRowsForComponent(run: Record<string, unknown> | null, componentId: string): Array<Record<string, unknown>> {
+  return run ? replayOperationMetricRows(run).filter((row) => replayOperationComponentIdForRow(row) === componentId) : [];
 }
 
 function replayOperationMetricValue(row: Record<string, unknown>): number | null {
@@ -5491,7 +5499,7 @@ function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unkno
   const numberLabel = (value: number) => value.toFixed(4);
   return (
     <div className="replay-chart-grid replay-trend-grid">
-      <ReplayLayerTrendChart title="Cumulative Component Gap Rows" points={trendPoints} valueForPoint={(point) => point.cumulativeEffective} valueLabel={(value) => value.toFixed(0)} emptyLabel="No component rows published" />
+      <ReplayLayerTrendChart title="Cumulative Operation Rows" points={trendPoints} valueForPoint={(point) => point.cumulativeEffective} valueLabel={(value) => value.toFixed(0)} emptyLabel="No component operation rows published" />
       <ReplayLayerTrendChart title="Cumulative Mean Regret" points={trendPoints} valueForPoint={(point) => point.meanRegret} valueLabel={numberLabel} emptyLabel="No component regret values published" />
       <ReplayLayerTrendChart title="Cumulative Mean Impact" points={trendPoints} valueForPoint={(point) => point.meanImpact} valueLabel={numberLabel} emptyLabel="No component impact values published" />
       <ReplayLayerTrendChart title="Worst Regret Seen" points={trendPoints} valueForPoint={(point) => point.worstRegret} valueLabel={numberLabel} emptyLabel="No component worst-regret values published" />
@@ -5500,42 +5508,38 @@ function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unkno
 }
 
 function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
-  const [sort, setSort] = useState<SortState<'metric_family' | 'metric_name' | 'metric_scope' | 'availability_status' | 'row_count' | 'eligible_row_count' | 'selected_count' | 'value' | 'required_evidence_status' | 'reason_codes'>>({ key: 'metric_family', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'operation_action' | 'operation_status' | 'input_summary' | 'output_summary' | 'block_reason' | 'realized_return' | 'regret_to_best_available'>>({ key: 'decision_time', direction: 'asc' });
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   return (
     <div className="replay-table replay-operation-ledger-table">
       <div className="replay-table-row replay-table-head">
-        <SortableHeader label="Family" column="metric_family" sort={sort} onSort={setSort} />
-        <SortableHeader label="Metric" column="metric_name" sort={sort} onSort={setSort} />
-        <SortableHeader label="Scope" column="metric_scope" sort={sort} onSort={setSort} />
+        <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
+        <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
+        <SortableHeader label="Operation" column="operation_action" sort={sort} onSort={setSort} />
+        <SortableHeader label="Status" column="operation_status" sort={sort} onSort={setSort} />
+        <SortableHeader label="Input" column="input_summary" sort={sort} onSort={setSort} />
+        <SortableHeader label="Output" column="output_summary" sort={sort} onSort={setSort} />
+        <SortableHeader label="Block / Reason" column="block_reason" sort={sort} onSort={setSort} />
         <span>Method</span>
-        <span>Evidence Role</span>
-        <span>Label Role</span>
-        <SortableHeader label="Evidence" column="required_evidence_status" sort={sort} onSort={setSort} />
-        <SortableHeader label="Status" column="availability_status" sort={sort} onSort={setSort} />
-        <SortableHeader label="Rows" column="row_count" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Eligible" column="eligible_row_count" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Selected" column="selected_count" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Value" column="value" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Reason" column="reason_codes" sort={sort} onSort={setSort} />
+        <span>Evidence</span>
+        <SortableHeader label="Return" column="realized_return" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
       </div>
       {sortedRows.length ? sortedRows.map((row, index) => (
         <div className="replay-table-row" key={`${String(row.review_id ?? 'row')}-${index}`}>
-          <strong>{startCase(String(row.metric_family ?? 'not_reported'))}</strong>
-          <span>{startCase(String(row.metric_name ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.metric_scope ?? 'not_reported'))}</span>
+          <strong>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not recorded'}</strong>
+          <span>{String(row.target_symbol ?? 'Not reported')}</span>
+          <span>{startCase(String(row.operation_action ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.operation_status ?? 'not_reported'))}</span>
+          <span>{String(row.input_summary ?? row.input_ref ?? 'Not reported')}</span>
+          <span>{String(row.output_summary ?? row.output_ref ?? 'Not reported')}</span>
+          <span>{String(row.block_reason ?? '') || 'None'}</span>
           <span>{startCase(String(row.analysis_method ?? 'not_reported'))}</span>
           <span>{startCase(String(row.evidence_role ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.label_role ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.required_evidence_status ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.availability_status ?? 'not_reported'))}</span>
-          <span>{formatMetricValue(metricNumber(row, 'row_count'), 0)}</span>
-          <span>{formatMetricValue(metricNumber(row, 'eligible_row_count'), 0)}</span>
-          <span>{formatMetricValue(metricNumber(row, 'selected_count'), 0)}</span>
-          <span>{formatMetricValue(metricNumber(row, 'value'), 4)}</span>
-          <span>{startCase(String(row.reason_codes ?? 'none'))}</span>
+          <span>{formatMetricValue(metricNumber(row, 'realized_return'), 4)}</span>
+          <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
         </div>
-      )) : <div className="empty-chart compact">No metric rows are published for this replay component.</div>}
+      )) : <div className="empty-chart compact">No concrete operation rows are published for this replay component.</div>}
     </div>
   );
 }
@@ -5552,7 +5556,8 @@ function ReplayOperationComponentSection({
   const rows = replayOperationComponentRows(runs, componentId);
   const focusedSummary = focusedRun ? replayOperationComponentRows([focusedRun], componentId)[0] ?? null : null;
   const ledgerRows = replayOperationRowsForComponent(focusedRun, componentId);
-  const metricCards = focusedRun ? replayOperationMetricCards(ledgerRows) : [];
+  const metricRows = replayOperationMetricRowsForComponent(focusedRun, componentId);
+  const metricCards = focusedRun ? replayOperationMetricCards(metricRows) : [];
   const note = REPLAY_OPERATION_COMPONENT_NOTES[componentId];
   return (
     <section className="panel replay-layer-section replay-operation-section">
@@ -5573,13 +5578,13 @@ function ReplayOperationComponentSection({
           {metricCards.slice(0, 4).map((card) => <MetricCard key={card.label} label={card.label} value={card.value} hint={card.hint} />)}
         </div>
       ) : null}
-      {focusedRun ? <ReplayOperationMetricCharts rows={ledgerRows} /> : <ReplayOperationComponentCharts rows={rows} />}
+      {focusedRun ? <ReplayOperationTrendCharts rows={ledgerRows} /> : <ReplayOperationComponentCharts rows={rows} />}
       <div className="replay-table-panel">
         <ReplayOperationComponentTable rows={rows} />
       </div>
       {focusedRun ? (
         <div className="replay-table-panel">
-          <div className="panel-heading">Component Sample Rows</div>
+          <div className="panel-heading">Concrete Operation Rows</div>
           <ReplayOperationComponentLedger rows={ledgerRows} />
         </div>
       ) : null}

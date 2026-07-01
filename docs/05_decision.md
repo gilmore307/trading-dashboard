@@ -812,9 +812,9 @@ Replay Operations renders C01-C07 through an in-page component tab control:
 - C06 Execution Gate
 - C07 Failure Review
 
-Each component tab owns that component's short role explanation, metric cards, charts, summary table, and focused metric ledger. Summary mode compares the selected component across model groups. Focus mode uses the selected model group's published component artifact metrics rather than failure-sample rows as the primary evidence.
+Each component tab owns that component's short role explanation, operation cards, charts, summary table, and focused concrete operation ledger. Summary mode compares the selected component across model groups. Focus mode uses the selected model group's published operation action rows as the primary evidence, with component metrics only as supporting diagnostics.
 
-The current projection is bounded by `model_group_replay_review_summary` evidence. It uses `replay_operations_c01_c07` component summaries and metric rows produced from `operation_component_flow.csv`, `operation_component_review_packet.csv`, and `operation_component_metrics.csv`. The page should distinguish true zeros and explicit `not_applicable` component states from missing fields. `decision_review.first_gap_component_counts` and `decision_review.sample_rows` are legacy fallback evidence only. It must not fabricate metrics that the review artifact has not published.
+The current projection is bounded by `model_group_replay_review_summary` evidence. It uses `replay_operations_c01_c07` component summaries and concrete action rows produced from `operation_component_action_rows.csv`; `operation_component_flow.csv`, `operation_component_review_packet.csv`, and `operation_component_metrics.csv` provide summary and supporting metric context. The page should distinguish true zeros and explicit lifecycle evidence gaps from missing fields. `decision_review.first_gap_component_counts` and `decision_review.sample_rows` are attribution evidence only and must not backfill the Operations concrete ledger. It must not fabricate operations that the review artifact has not published.
 
 ### Consequences
 
