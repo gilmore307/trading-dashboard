@@ -4029,6 +4029,7 @@ function ReplayLayerTabs({
       {REPLAY_DECISION_LAYER_ORDER.map((layerId) => {
         const { layerLabel } = replayLayerDefinition(runs, layerId);
         const count = replayLayerRowsForLayer(runs, layerId).reduce((total, row) => total + (row.effectiveDecisionCount ?? 0), 0);
+        const coverage = replayLayerRowsForLayer(runs, layerId).reduce((total, row) => total + (row.coverageRowCount ?? 0), 0);
         return (
           <button
             className={activeLayerId === layerId ? 'selected' : ''}
@@ -4037,7 +4038,7 @@ function ReplayLayerTabs({
             type="button"
           >
             <span>{layerLabel}</span>
-            <small>{formatMetricValue(count, 0)} effective</small>
+            <small>{coverage ? `${formatMetricValue(coverage, 0)} triggered · ${formatMetricValue(count, 0)} reviewed` : `${formatMetricValue(count, 0)} reviewed`}</small>
           </button>
         );
       })}
@@ -4047,14 +4048,14 @@ function ReplayLayerTabs({
 
 function replayLayerMetricSeries(
   rows: ReplayLayerComparisonRow[],
-  key: 'effectiveDecisionCount' | 'correctRate' | 'acceptableRate' | 'incorrectRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact',
+  key: 'coverageRowCount' | 'effectiveDecisionCount' | 'correctRate' | 'acceptableRate' | 'incorrectRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact',
 ) {
   const isRate = key === 'correctRate' || key === 'acceptableRate' || key === 'incorrectRate' || key === 'harmfulErrorRate' || key === 'missedGoodRate';
   return rows
     .map((row) => {
       const value = row[key];
       if (typeof value !== 'number' || !Number.isFinite(value)) return null;
-      const valueLabel = isRate ? `${(value * 100).toFixed(1)}%` : key === 'effectiveDecisionCount' ? value.toFixed(0) : value.toFixed(4);
+      const valueLabel = isRate ? `${(value * 100).toFixed(1)}%` : key === 'effectiveDecisionCount' || key === 'coverageRowCount' ? value.toFixed(0) : value.toFixed(4);
       return {
         label: row.runLabel,
         value,
@@ -4950,7 +4951,7 @@ function ReplayLayerQualityTable({ rows }: { rows: ReplayLayerComparisonRow[] })
       <div className="replay-table-row replay-table-head">
         <SortableHeader label="Model Group" column="runLabel" sort={sort} onSort={setSort} />
         <SortableHeader label="Evidence" column="evidenceStatus" sort={sort} onSort={setSort} />
-        <SortableHeader label="Effective" column="effectiveDecisionCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Reviewed / Triggered" column="effectiveDecisionCount" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Correct %" column="correctRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Accept %" column="acceptableRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Incorrect %" column="incorrectRate" sort={sort} onSort={setSort} defaultDirection="desc" />
@@ -4980,7 +4981,8 @@ function ReplayLayerQualityTable({ rows }: { rows: ReplayLayerComparisonRow[] })
 function ReplayLayerQualityCharts({ rows }: { rows: ReplayLayerComparisonRow[] }) {
   return (
     <div className="replay-chart-grid">
-      <MiniMetricBarChart title="Effective Layer Decisions" series={replayLayerMetricSeries(rows, 'effectiveDecisionCount')} emptyLabel="No M01-M05 effective decision counts published" />
+      <MiniMetricBarChart title="Layer Trigger Coverage" series={replayLayerMetricSeries(rows, 'coverageRowCount')} emptyLabel="No M01-M05 layer trigger coverage published" />
+      <MiniMetricBarChart title="Reviewed Outcome Rows" series={replayLayerMetricSeries(rows, 'effectiveDecisionCount')} emptyLabel="No M01-M05 reviewed outcome rows published" />
       <MiniMetricBarChart title="Correct Rate" series={replayLayerMetricSeries(rows, 'correctRate')} emptyLabel="No M01-M05 correct-rate metrics published" />
       <MiniMetricBarChart title="Acceptable Rate" series={replayLayerMetricSeries(rows, 'acceptableRate')} emptyLabel="No M01-M05 acceptable-rate metrics published" />
       <MiniMetricBarChart title="Incorrect Rate" series={replayLayerMetricSeries(rows, 'incorrectRate')} emptyLabel="No M01-M05 incorrect-rate metrics published" />
@@ -5147,7 +5149,8 @@ function ReplayLayerSection({
       ) : null}
       {focusedSummary ? (
         <div className="metric-grid replay-layer-metrics">
-          <MetricCard label="Effective" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint={`Coverage ${formatMetricValue(focusedSummary.coverageRowCount, 0)}`} />
+          <MetricCard label="Triggered" value={formatMetricValue(focusedSummary.coverageRowCount, 0)} hint="Continuous replay timestamp coverage where published" />
+          <MetricCard label="Reviewed" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint="Outcome-labeled selected-path rows" />
           <MetricCard label="Correct %" value={focusedSummary.correctRate === null ? 'Not reported' : `${(focusedSummary.correctRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
           <MetricCard label="Accept %" value={focusedSummary.acceptableRate === null ? 'Not reported' : `${(focusedSummary.acceptableRate * 100).toFixed(1)}%`} hint={startCase(focusedSummary.evidenceStatus)} />
           <MetricCard label="Incorrect %" value={focusedSummary.incorrectRate === null ? 'Not reported' : `${(focusedSummary.incorrectRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
