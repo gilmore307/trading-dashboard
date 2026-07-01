@@ -278,7 +278,7 @@ Visible content should include:
 - in macro mode, each layer chapter compares model groups with that layer's summary table, layer-specific analysis method, and charts for the metrics that match that layer's role;
 - in focused mode, each layer chapter shows that model group's layer cards, charts, summary table, and effective decision ledger;
 - per-layer method context: M01 context-state diagnostics, M02 target selection/rank/tradability, M03 event pressure, M04 underlying action labels, and M05 option-expression/contract-path labels;
-- effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
+- effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, and best-available post-replay label;
 - current review runs publish one scored M01-M05 layer row per replay decision per layer; `effective_trace_unscored` is retained only as a legacy fallback for older artifacts without dedicated layer review rows;
 - explicit exclusion of M06 residual-event governance from the layer-decision correctness scope;
 - clear separation between point-in-time decision evidence and future-return/counterfactual labels.
@@ -289,6 +289,7 @@ Hidden by default:
 - replay source-data readiness, component health, and execution graph diagnostics, which belong under Replay Operations;
 - model statistical validity metrics such as AUROC unless they are needed as local context for a decision failure;
 - score-decile return, threshold-return, cost-sensitivity, and decision-slice diagnostics as primary content because they do not answer per-layer replay correctness.
+- storage/path scope, review-input policy, and responsibility-assignment policy fields in primary ledgers; these may remain in read models for audit/debugging but are not owner-facing result columns.
 
 ### Replay Attribution
 

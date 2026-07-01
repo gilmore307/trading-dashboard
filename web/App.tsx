@@ -5101,13 +5101,10 @@ function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknow
         <SortableHeader label="Failure" column="failure_type" sort={sort} onSort={setSort} />
         <span>Decision</span>
         <span>Best Label</span>
-        <span>Scope</span>
-        <span>Review Input</span>
-        <span>Assignment</span>
       </div>
       {sortedRows.length ? sortedRows.map((row, index) => (
         <div className="replay-table-row" key={`${String(row.review_id ?? index)}-${String(row.layer_id ?? '')}`}>
-          <strong>{String(row.decision_time ?? 'Not reported')}</strong>
+          <strong>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not reported'}</strong>
           <span>{String(row.target_symbol ?? 'Not reported')}</span>
           <span>{startCase(String(row.correctness_class ?? 'indeterminate'))}</span>
           <span>{startCase(String(row.acceptability_class ?? 'indeterminate'))}</span>
@@ -5118,9 +5115,6 @@ function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknow
           <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
           <span>{String(row.effective_decision ?? row.chosen_action ?? 'Not reported')}</span>
           <span>{String(row.best_available_action_by_future_outcome ?? 'Not reported')}</span>
-          <span>{String(row.review_boundary_ref ?? row.candidate_set_scope ?? row.path_scope ?? 'Not reported')}</span>
-          <span>{String(row.downstream_review_input_policy ?? 'Decision-time inputs only')}</span>
-          <span>{String(row.responsibility_assignment_policy ?? 'Layer-local responsibility')}</span>
         </div>
       )) : <div className="empty-chart compact">No effective layer decision rows are published for this layer.</div>}
     </div>
@@ -5745,8 +5739,6 @@ function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, u
         <SortableHeader label="Block / Reason" column="block_reason" sort={sort} onSort={setSort} />
         <span>Objective</span>
         <span>Label Basis</span>
-        <span>Review Input</span>
-        <span>Assignment</span>
         <SortableHeader label="Return" column="realized_return" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
       </div>
@@ -5767,8 +5759,6 @@ function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, u
           <span>{String(row.block_reason ?? '') || 'None'}</span>
           <span>{String(row.component_objective ?? row.analysis_method ?? 'Not reported')}</span>
           <span>{String(row.post_replay_label_basis ?? row.label_role ?? 'Not reported')}</span>
-          <span>{String(row.downstream_review_input_policy ?? 'Decision-time inputs only')}</span>
-          <span>{String(row.responsibility_assignment_policy ?? 'Component-local responsibility')}</span>
           <span>{formatMetricValue(metricNumber(row, 'realized_return'), 4)}</span>
           <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
         </div>

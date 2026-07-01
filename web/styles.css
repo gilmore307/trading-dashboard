@@ -333,10 +333,10 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-layer-quality-table .replay-table-row { grid-template-columns: minmax(170px, 1.05fr) minmax(150px, .78fr) repeat(8, minmax(86px, .52fr)); }
 .replay-operation-component-table { min-width: 1680px; }
 .replay-operation-component-table .replay-table-row { grid-template-columns: minmax(170px, 1fr) minmax(140px, .75fr) repeat(9, minmax(82px, .45fr)) minmax(180px, .9fr); }
-.replay-layer-ledger-table { min-width: 2400px; }
-.replay-layer-ledger-table .replay-table-row { grid-template-columns: minmax(190px, .8fr) minmax(86px, .34fr) minmax(94px, .36fr) minmax(96px, .38fr) minmax(190px, .78fr) minmax(76px, .3fr) minmax(76px, .3fr) minmax(150px, .58fr) minmax(180px, .66fr) minmax(280px, 1fr) minmax(190px, .68fr) minmax(260px, .95fr) minmax(280px, 1fr) minmax(260px, .95fr); align-items: start; }
-.replay-operation-ledger-table { min-width: 3920px; }
-.replay-operation-ledger-table .replay-table-row { grid-template-columns: minmax(170px, .55fr) minmax(110px, .34fr) minmax(210px, .68fr) minmax(160px, .5fr) minmax(180px, .54fr) minmax(210px, .7fr) minmax(300px, .95fr) minmax(300px, .95fr) minmax(230px, .74fr) minmax(190px, .6fr) minmax(210px, .66fr) minmax(170px, .5fr) minmax(220px, .68fr) minmax(300px, .9fr) minmax(340px, 1fr) minmax(280px, .9fr) minmax(280px, .9fr) minmax(92px, .28fr) minmax(92px, .28fr); align-items: start; }
+.replay-layer-ledger-table { min-width: 1840px; }
+.replay-layer-ledger-table .replay-table-row { grid-template-columns: minmax(190px, .8fr) minmax(86px, .34fr) minmax(94px, .36fr) minmax(96px, .38fr) minmax(190px, .78fr) minmax(76px, .3fr) minmax(76px, .3fr) minmax(150px, .58fr) minmax(180px, .66fr) minmax(280px, 1fr) minmax(190px, .68fr); align-items: start; }
+.replay-operation-ledger-table { min-width: 3340px; }
+.replay-operation-ledger-table .replay-table-row { grid-template-columns: minmax(170px, .55fr) minmax(110px, .34fr) minmax(210px, .68fr) minmax(160px, .5fr) minmax(180px, .54fr) minmax(210px, .7fr) minmax(300px, .95fr) minmax(300px, .95fr) minmax(230px, .74fr) minmax(190px, .6fr) minmax(210px, .66fr) minmax(170px, .5fr) minmax(220px, .68fr) minmax(300px, .9fr) minmax(340px, 1fr) minmax(92px, .28fr) minmax(92px, .28fr); align-items: start; }
 .replay-trend-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .replay-trend-panel { min-height: 315px; }
 .replay-trend-note { display: flex; justify-content: space-between; gap: 12px; color: #7c8ea5; font-size: 12px; font-weight: 800; }

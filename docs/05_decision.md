@@ -883,7 +883,7 @@ Status: accepted
 
 Chentong clarified that replay review must not let upstream errors snowball into downstream blame. Each reviewed layer or operation component must be judged only against the state, candidates, and evidence visible at the original replay decision time.
 
-Replay Decisions and Replay Operations now expose review-boundary and responsibility fields in their focused ledgers:
+Replay Decisions and Replay Operations may publish review-boundary and responsibility fields in the read model for audit/debugging:
 
 - `review_boundary_ref` and `review_boundary_status` show the point-in-time boundary or output being judged.
 - `downstream_review_input_policy` states that the row is judged only against the received decision-time inputs.
@@ -895,3 +895,4 @@ Consequences:
 - Post-replay returns, best-available choices, realized returns, and regret remain labels for review, not decision-time inputs.
 - Downstream components are not marked wrong merely because an upstream model or handoff delivered a bad candidate set.
 - Interface/handoff failures remain explicit boundary failures rather than being hidden inside pure upstream or downstream blame.
+- Primary owner-facing ledgers should emphasize result judgment columns such as correctness, acceptability, regret, impact, cause, failure, chosen action, and best ex-post label. Scope/path, review-input policy, and responsibility-assignment text stay out of the main result table unless opened for audit/debugging.
