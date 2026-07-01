@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite';
 import { defineConfig } from 'vite';
@@ -373,14 +374,14 @@ function comparableValue(value: unknown): string | number {
   return String(value ?? '');
 }
 
-function replayLayerDecisionRows(query: {
+async function replayLayerDecisionRows(query: {
   reviewRunId: string;
   layerId: string;
   offset: number;
   limit: number;
   sort: string;
   direction: string;
-}): Record<string, unknown> {
+}): Promise<Record<string, unknown>> {
   if (!query.reviewRunId || query.reviewRunId.length > 200 || !SAFE_LAYER_ID_RE.test(query.layerId)) {
     throw new Error('invalid replay layer decision query');
   }
@@ -394,7 +395,11 @@ function replayLayerDecisionRows(query: {
   const sourceRefs = recordValue(run, 'source_refs');
   const rowsPath = safeStoragePath(recordValue(sourceRefs, 'layer_review_rows_ref'));
   const rows: Record<string, unknown>[] = [];
-  for (const line of fs.readFileSync(rowsPath, 'utf8').split(/\r?\n/)) {
+  const reader = readline.createInterface({
+    input: fs.createReadStream(rowsPath, { encoding: 'utf8' }),
+    crlfDelay: Infinity,
+  });
+  for await (const line of reader) {
     if (!line.trim()) continue;
     const row = JSON.parse(line) as Record<string, unknown>;
     if (String(row.layer_id ?? '') === query.layerId) rows.push(row);
@@ -623,7 +628,7 @@ function attachDashboardReplayLayerDecisionApi(server: ViteDevServer | PreviewSe
     const parsedUrl = new URL(req.url ?? '/', 'http://localhost');
     void (async () => {
       try {
-        sendJson(res, 200, replayLayerDecisionRows({
+        sendJson(res, 200, await replayLayerDecisionRows({
           reviewRunId: parsedUrl.searchParams.get('review_run_id') ?? '',
           layerId: parsedUrl.searchParams.get('layer_id') ?? '',
           offset: Number(parsedUrl.searchParams.get('offset') ?? '0'),
