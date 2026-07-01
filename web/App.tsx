@@ -4953,7 +4953,7 @@ function ReplayLayerQualityTable({ rows }: { rows: ReplayLayerComparisonRow[] })
         <SortableHeader label="Evidence" column="evidenceStatus" sort={sort} onSort={setSort} />
         <SortableHeader label="Reviewed / Triggered" column="effectiveDecisionCount" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Correct %" column="correctRate" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Accept %" column="acceptableRate" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Acceptable %" column="acceptableRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Incorrect %" column="incorrectRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Harm %" column="harmfulErrorRate" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Missed %" column="missedGoodRate" sort={sort} onSort={setSort} defaultDirection="desc" />
@@ -5075,7 +5075,7 @@ function ReplayLayerFocusTrendCharts({ rows }: { rows: Array<Record<string, unkn
   return (
     <div className="replay-chart-grid replay-trend-grid">
       <ReplayLayerTrendChart title="Cumulative Effective Decisions" points={points} valueForPoint={(point) => point.cumulativeEffective} valueLabel={(value) => value.toFixed(0)} emptyLabel="No effective decisions published for this layer" />
-      <ReplayLayerTrendChart title="Cumulative Accept %" points={points} valueForPoint={(point) => point.acceptRate} valueLabel={percentLabel} emptyLabel="No acceptability labels published for this layer" />
+      <ReplayLayerTrendChart title="Cumulative Acceptable %" points={points} valueForPoint={(point) => point.acceptRate} valueLabel={percentLabel} emptyLabel="No acceptability labels published for this layer" />
       <ReplayLayerTrendChart title="Cumulative Harm %" points={points} valueForPoint={(point) => point.harmRate} valueLabel={percentLabel} emptyLabel="No harmful-error labels published for this layer" />
       <ReplayLayerTrendChart title="Cumulative Incorrect %" points={points} valueForPoint={(point) => point.incorrectRate} valueLabel={percentLabel} emptyLabel="No correctness labels published for this layer" />
       <ReplayLayerTrendChart title="Cumulative Missed %" points={points} valueForPoint={(point) => point.missedGoodRate} valueLabel={percentLabel} emptyLabel="No missed-good labels published for this layer" />
@@ -5087,7 +5087,7 @@ function ReplayLayerFocusTrendCharts({ rows }: { rows: Array<Record<string, unkn
 }
 
 function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
-  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'review_boundary_status' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type'>>({ key: 'decision_time', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type'>>({ key: 'decision_time', direction: 'asc' });
   const [page, setPage] = useState(0);
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   const pageSize = 50;
@@ -5102,8 +5102,7 @@ function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknow
           <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
           <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
           <SortableHeader label="Correct" column="correctness_class" sort={sort} onSort={setSort} />
-          <SortableHeader label="Accept" column="acceptability_class" sort={sort} onSort={setSort} />
-          <SortableHeader label="Boundary" column="review_boundary_status" sort={sort} onSort={setSort} />
+          <SortableHeader label="Acceptable" column="acceptability_class" sort={sort} onSort={setSort} />
           <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Impact" column="impact_normalized_severity_score" sort={sort} onSort={setSort} defaultDirection="desc" />
           <SortableHeader label="Cause" column="cause_family" sort={sort} onSort={setSort} />
@@ -5117,7 +5116,6 @@ function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknow
             <span>{String(row.target_symbol ?? 'Not reported')}</span>
             <span>{startCase(String(row.correctness_class ?? 'indeterminate'))}</span>
             <span>{startCase(String(row.acceptability_class ?? 'indeterminate'))}</span>
-            <span>{startCase(String(row.review_boundary_status ?? 'not_reported'))}</span>
             <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
             <span>{formatMetricValue(metricNumber(row, 'impact_normalized_severity_score'), 4)}</span>
             <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
@@ -5167,7 +5165,7 @@ function ReplayLayerSection({
           <MetricCard label="Triggered" value={formatMetricValue(focusedSummary.coverageRowCount, 0)} hint="Continuous replay timestamp coverage where published" />
           <MetricCard label="Reviewed" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint="Outcome-labeled selected-path rows" />
           <MetricCard label="Correct %" value={focusedSummary.correctRate === null ? 'Not reported' : `${(focusedSummary.correctRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
-          <MetricCard label="Accept %" value={focusedSummary.acceptableRate === null ? 'Not reported' : `${(focusedSummary.acceptableRate * 100).toFixed(1)}%`} hint={startCase(focusedSummary.evidenceStatus)} />
+          <MetricCard label="Acceptable %" value={focusedSummary.acceptableRate === null ? 'Not reported' : `${(focusedSummary.acceptableRate * 100).toFixed(1)}%`} hint={startCase(focusedSummary.evidenceStatus)} />
           <MetricCard label="Incorrect %" value={focusedSummary.incorrectRate === null ? 'Not reported' : `${(focusedSummary.incorrectRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
           <MetricCard label="Harm %" value={focusedSummary.harmfulErrorRate === null ? 'Not reported' : `${(focusedSummary.harmfulErrorRate * 100).toFixed(1)}%`} hint="Harmful error rate" />
           <MetricCard label="Missed %" value={focusedSummary.missedGoodRate === null ? 'Not reported' : `${(focusedSummary.missedGoodRate * 100).toFixed(1)}%`} hint="Missed good opportunity rate" />
@@ -5737,7 +5735,7 @@ function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unkno
 }
 
 function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
-  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'operation_action' | 'operation_status' | 'trigger_state' | 'component_correctness_class' | 'review_boundary_status' | 'input_summary' | 'output_summary' | 'block_reason' | 'realized_return' | 'regret_to_best_available'>>({ key: 'decision_time', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'operation_action' | 'operation_status' | 'trigger_state' | 'component_correctness_class' | 'input_summary' | 'output_summary' | 'block_reason' | 'realized_return' | 'regret_to_best_available'>>({ key: 'decision_time', direction: 'asc' });
   const [page, setPage] = useState(0);
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   const pageSize = 50;
@@ -5754,7 +5752,6 @@ function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, u
           <SortableHeader label="Operation" column="operation_action" sort={sort} onSort={setSort} />
           <SortableHeader label="Status" column="operation_status" sort={sort} onSort={setSort} />
           <SortableHeader label="Trigger" column="trigger_state" sort={sort} onSort={setSort} />
-          <SortableHeader label="Boundary" column="review_boundary_status" sort={sort} onSort={setSort} />
           <SortableHeader label="Input" column="input_summary" sort={sort} onSort={setSort} />
           <SortableHeader label="Output" column="output_summary" sort={sort} onSort={setSort} />
           <span>Feasible Set</span>
@@ -5774,7 +5771,6 @@ function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, u
             <span>{startCase(String(row.operation_action ?? 'not_reported'))}</span>
             <span>{startCase(String(row.operation_status ?? 'not_reported'))}</span>
             <span>{startCase(String(row.trigger_state ?? 'not_reported'))}</span>
-            <span>{startCase(String(row.review_boundary_status ?? 'not_reported'))}</span>
             <span>{String(row.input_summary ?? row.input_ref ?? 'Not reported')}</span>
             <span>{String(row.output_summary ?? row.output_ref ?? 'Not reported')}</span>
             <span>{String(row.pit_feasible_action_set_ref ?? 'Not reported')}</span>
