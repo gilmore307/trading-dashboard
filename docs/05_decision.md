@@ -876,3 +876,22 @@ Consequences:
 - A standard diagnostic may appear on multiple pages only with a page-specific interpretation; it must not become a universal mixed-method review table.
 - Component rows with no published review evidence show missing/empty states rather than invented counts; published zeros remain visible as zeros.
 - Future storage/review producers may add time-indexed C01-C07 component ledgers if the dashboard is expected to show operation timelines for every component.
+
+## D039 - Replay review isolates upstream defects at the decision-time boundary
+
+Status: accepted
+
+Chentong clarified that replay review must not let upstream errors snowball into downstream blame. Each reviewed layer or operation component must be judged only against the state, candidates, and evidence visible at the original replay decision time.
+
+Replay Decisions and Replay Operations now expose review-boundary and responsibility fields in their focused ledgers:
+
+- `review_boundary_ref` and `review_boundary_status` show the point-in-time boundary or output being judged.
+- `downstream_review_input_policy` states that the row is judged only against the received decision-time inputs.
+- `upstream_error_isolation_scope` states that upstream defects belong to the earliest layer or boundary where they became knowable.
+- `responsibility_assignment_policy` distinguishes local layer/component correctness from upstream or handoff defects.
+
+Consequences:
+
+- Post-replay returns, best-available choices, realized returns, and regret remain labels for review, not decision-time inputs.
+- Downstream components are not marked wrong merely because an upstream model or handoff delivered a bad candidate set.
+- Interface/handoff failures remain explicit boundary failures rather than being hidden inside pure upstream or downstream blame.
