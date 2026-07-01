@@ -244,7 +244,8 @@ Visible content should include:
 - C01-C07 in-page component tabs: Intake, Entry, Lifecycle, Option Review, Order Intent, Execution Gate, and Failure Review;
 - summary mode comparing the active component across replayed model groups;
 - focus mode for one selected model group, with the active component's metric cards, time-axis trend charts, summary row, and sample ledger;
-- component gap rows, sample rows, gap rate, mean regret, mean impact, cause-family count, failure-type count, and top mechanism;
+- component-specific metric families, analysis methods, evidence roles, required-evidence status, and component verdicts;
+- C03 lifecycle continuity and replacement-policy evidence, or an explicit lifecycle evidence gap if the replay review did not publish position-state evidence;
 - first-gap component and first-gap mechanism evidence from replay review rows.
 
 Preferred visuals:
@@ -273,8 +274,9 @@ Visible content should include:
 
 - replay decision-version selector with the same selector format used by the replay page family;
 - five separate layer chapters, one each for M01 through M05;
-- in macro mode, each layer chapter compares model groups with that layer's summary table and charts for effective decisions, correct rate, acceptable rate, incorrect rate, harmful-error rate, missed-good rate, mean regret, and mean impact;
+- in macro mode, each layer chapter compares model groups with that layer's summary table, layer-specific analysis method, and charts for the metrics that match that layer's role;
 - in focused mode, each layer chapter shows that model group's layer cards, charts, summary table, and effective decision ledger;
+- per-layer method context: M01 context-state diagnostics, M02 target selection/rank/tradability, M03 event pressure, M04 underlying action labels, and M05 option-expression/contract-path labels;
 - effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
 - current review runs publish one scored M01-M05 layer row per replay decision per layer; `effective_trace_unscored` is retained only as a legacy fallback for older artifacts without dedicated layer review rows;
 - explicit exclusion of M06 residual-event governance from the layer-decision correctness scope;

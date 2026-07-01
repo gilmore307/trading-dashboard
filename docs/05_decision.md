@@ -819,5 +819,35 @@ The current projection is bounded by `model_group_replay_review_summary` evidenc
 ### Consequences
 
 - Replay Operations no longer shows a mixed legacy operation evidence block as its primary content.
+
+## D037 - Replay review units share an envelope, not one metric method
+
+Status: accepted
+
+Chentong clarified that Replay Decisions and Replay Operations can share selector, tab, chart, table, and evidence-ref mechanics, but model layers and operation components must not be forced into the same analysis method. The common UI shape is an envelope for comparison and inspection; the metric family, label role, and evidence requirement must match the unit being reviewed.
+
+Replay Decisions publishes M01-M05 rows with layer-specific methods:
+
+- M01 reviews point-in-time background/context state quality from context diagnostics.
+- M02 reviews same-timestamp target selection, rank, direction, and tradability.
+- M03 reviews event pressure and risk-state diagnostics available at decision time.
+- M04 reviews underlying action quality with post-replay directional labels.
+- M05 reviews option-expression quality, selected contract path, and fill/return consistency.
+
+Replay Operations publishes C01-C07 rows with component-specific methods:
+
+- C01 reviews source, candidate, context, and sector/intake readiness.
+- C02 reviews entry gate, candidate rank, signal, and action-surface quality.
+- C03 reviews portfolio lifecycle continuity, held-position state, and replacement policy.
+- C04 reviews option-expression funnel materialization and selected contract path.
+- C05 reviews sizing, capacity, and order-intent contract evidence.
+- C06 reviews execution gate, selected-path fill, and materialization coverage.
+- C07 reviews operational failure, residual gap, and settlement evidence. C07 is not M06.
+
+Consequences:
+
+- `analysis_method`, `metric_family`, `evidence_role`, and `label_role` are part of the replay review contract, not dashboard-only text.
+- C03 must either publish lifecycle/replacement evidence or a lifecycle evidence gap; it must not be hidden as a non-applicable replay mode.
+- Future-return and best-available labels remain post-replay review labels. They may score M04/M05 and some operation diagnostics, but they must not be presented as decision-time inputs.
 - Component rows with no published review evidence show missing/empty states rather than invented counts; published zeros remain visible as zeros.
 - Future storage/review producers may add time-indexed C01-C07 component ledgers if the dashboard is expected to show operation timelines for every component.

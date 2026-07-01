@@ -3945,6 +3945,9 @@ function replayLayerComparisonRows(runs: Array<Record<string, unknown>>) {
     layerId: String(summary.layer_id ?? ''),
     layerLabel: replayLayerLabel(summary),
     layerShortLabel: replayLayerShortLabel(summary),
+    metricFamily: String(summary.metric_family ?? ''),
+    analysisMethod: String(summary.analysis_method ?? ''),
+    labelRole: String(summary.label_role ?? ''),
     evidenceStatus: String(summary.evidence_status ?? 'not_published'),
     effectiveDecisionCount: metricNumber(summary, 'effective_decision_count'),
     coverageRowCount: metricNumber(summary, 'coverage_row_count'),
@@ -4187,6 +4190,28 @@ function replayOperationComponentIdForRow(row: Record<string, unknown>): string 
 
 function replayOperationRowsForComponent(run: Record<string, unknown> | null, componentId: string): Array<Record<string, unknown>> {
   return run ? replayOperationRows(run).filter((row) => replayOperationComponentIdForRow(row) === componentId) : [];
+}
+
+function replayOperationMetricValue(row: Record<string, unknown>): number | null {
+  return metricNumber(row, 'value')
+    ?? metricNumber(row, 'selected_forward_return_percentile_mean')
+    ?? metricNumber(row, 'top_quartile_hit_rate')
+    ?? metricNumber(row, 'selected_forward_return_mean')
+    ?? metricNumber(row, 'opportunity_cost_to_best_mean');
+}
+
+function replayOperationMetricCards(rows: Array<Record<string, unknown>>): Array<{ label: string; value: string; hint: string }> {
+  return rows.slice(0, 8).map((row) => {
+    const value = replayOperationMetricValue(row);
+    const status = startCase(String(row.availability_status ?? 'not_reported'));
+    const family = startCase(String(row.metric_family ?? 'metric'));
+    const required = startCase(String(row.required_evidence_status ?? ''));
+    return {
+      label: startCase(String(row.metric_name ?? 'metric')),
+      value: value === null ? status : formatMetricValue(value, 4),
+      hint: [family, required].filter(Boolean).join(' · '),
+    };
+  });
 }
 
 function replayOperationGapRowsFromCounts(run: Record<string, unknown>, componentId: string): number {
@@ -4899,7 +4924,7 @@ function ReplayLayerSection({
         <div className="replay-layer-intro">
           <strong>{layerNote.role}</strong>
           <span>{layerNote.review}</span>
-          <small>{layerNote.failure}</small>
+          <small>{[layerNote.failure, focusedSummary?.analysisMethod ? `Method: ${startCase(focusedSummary.analysisMethod)}` : '', focusedSummary?.labelRole ? `Label: ${startCase(focusedSummary.labelRole)}` : ''].filter(Boolean).join(' · ')}</small>
         </div>
       ) : null}
       {focusedSummary ? (
@@ -5413,6 +5438,43 @@ function ReplayOperationComponentCharts({ rows }: { rows: ReplayOperationCompone
   );
 }
 
+function ReplayOperationMetricCharts({ rows }: { rows: Array<Record<string, unknown>> }) {
+  const metricSeries = rows
+    .map((row) => {
+      const value = replayOperationMetricValue(row);
+      if (value === null) return null;
+      const label = startCase(String(row.metric_name ?? 'metric'));
+      const valueLabel = formatMetricValue(value, 4);
+      return {
+        label,
+        value,
+        status: String(row.availability_status ?? ''),
+        valueLabel,
+        tooltip: `${label}: ${valueLabel} · ${startCase(String(row.metric_family ?? 'metric'))} · ${startCase(String(row.analysis_method ?? 'method not reported'))}`,
+      };
+    })
+    .filter((point): point is { label: string; value: number; status: string; valueLabel: string; tooltip: string } => Boolean(point));
+  const rowSeries = rows
+    .map((row) => {
+      const value = metricNumber(row, 'eligible_row_count') ?? metricNumber(row, 'row_count');
+      if (value === null) return null;
+      const label = startCase(String(row.metric_name ?? 'metric'));
+      return {
+        label,
+        value,
+        status: String(row.availability_status ?? ''),
+        tooltip: `${label}: ${formatMetricValue(value, 0)} rows`,
+      };
+    })
+    .filter((point): point is { label: string; value: number; status: string; tooltip: string } => point !== null && point.value > 0);
+  return (
+    <div className="replay-chart-grid">
+      <MiniMetricBarChart title="Component-Specific Metric Values" series={metricSeries} emptyLabel="No numeric component-specific metric values published" />
+      <MiniMetricBarChart title="Component-Specific Evidence Rows" series={rowSeries} emptyLabel="No component-specific evidence row counts published" />
+    </div>
+  );
+}
+
 function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unknown>> }) {
   const trendPoints = replayOperationTrendPoints(rows).map((point): ReplayLayerTrendPoint => ({
     label: point.label,
@@ -5438,33 +5500,39 @@ function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unkno
 }
 
 function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
-  const [sort, setSort] = useState<SortState<'metric_name' | 'metric_scope' | 'availability_status' | 'row_count' | 'eligible_row_count' | 'selected_count' | 'value' | 'opportunity_cost_to_best_mean' | 'selected_forward_return_mean' | 'reason_codes'>>({ key: 'metric_name', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'metric_family' | 'metric_name' | 'metric_scope' | 'availability_status' | 'row_count' | 'eligible_row_count' | 'selected_count' | 'value' | 'required_evidence_status' | 'reason_codes'>>({ key: 'metric_family', direction: 'asc' });
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   return (
     <div className="replay-table replay-operation-ledger-table">
       <div className="replay-table-row replay-table-head">
+        <SortableHeader label="Family" column="metric_family" sort={sort} onSort={setSort} />
         <SortableHeader label="Metric" column="metric_name" sort={sort} onSort={setSort} />
         <SortableHeader label="Scope" column="metric_scope" sort={sort} onSort={setSort} />
+        <span>Method</span>
+        <span>Evidence Role</span>
+        <span>Label Role</span>
+        <SortableHeader label="Evidence" column="required_evidence_status" sort={sort} onSort={setSort} />
         <SortableHeader label="Status" column="availability_status" sort={sort} onSort={setSort} />
         <SortableHeader label="Rows" column="row_count" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Eligible" column="eligible_row_count" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Selected" column="selected_count" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Value" column="value" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Opp Cost" column="opportunity_cost_to_best_mean" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Mean Return" column="selected_forward_return_mean" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Reason" column="reason_codes" sort={sort} onSort={setSort} />
       </div>
       {sortedRows.length ? sortedRows.map((row, index) => (
         <div className="replay-table-row" key={`${String(row.review_id ?? 'row')}-${index}`}>
-          <strong>{startCase(String(row.metric_name ?? 'not_reported'))}</strong>
+          <strong>{startCase(String(row.metric_family ?? 'not_reported'))}</strong>
+          <span>{startCase(String(row.metric_name ?? 'not_reported'))}</span>
           <span>{startCase(String(row.metric_scope ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.analysis_method ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.evidence_role ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.label_role ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.required_evidence_status ?? 'not_reported'))}</span>
           <span>{startCase(String(row.availability_status ?? 'not_reported'))}</span>
           <span>{formatMetricValue(metricNumber(row, 'row_count'), 0)}</span>
           <span>{formatMetricValue(metricNumber(row, 'eligible_row_count'), 0)}</span>
           <span>{formatMetricValue(metricNumber(row, 'selected_count'), 0)}</span>
           <span>{formatMetricValue(metricNumber(row, 'value'), 4)}</span>
-          <span>{formatMetricValue(metricNumber(row, 'opportunity_cost_to_best_mean'), 4)}</span>
-          <span>{formatMetricValue(metricNumber(row, 'selected_forward_return_mean'), 4)}</span>
           <span>{startCase(String(row.reason_codes ?? 'none'))}</span>
         </div>
       )) : <div className="empty-chart compact">No metric rows are published for this replay component.</div>}
@@ -5484,6 +5552,7 @@ function ReplayOperationComponentSection({
   const rows = replayOperationComponentRows(runs, componentId);
   const focusedSummary = focusedRun ? replayOperationComponentRows([focusedRun], componentId)[0] ?? null : null;
   const ledgerRows = replayOperationRowsForComponent(focusedRun, componentId);
+  const metricCards = focusedRun ? replayOperationMetricCards(ledgerRows) : [];
   const note = REPLAY_OPERATION_COMPONENT_NOTES[componentId];
   return (
     <section className="panel replay-layer-section replay-operation-section">
@@ -5500,12 +5569,11 @@ function ReplayOperationComponentSection({
           <MetricCard label="Input / Output" value={`${formatMetricValue(focusedSummary.inputRows, 0)} / ${formatMetricValue(focusedSummary.outputRows, 0)}`} hint={startCase(focusedSummary.applicabilityStatus)} />
           <MetricCard label="Blocked" value={formatMetricValue(focusedSummary.blockedRows, 0)} hint={`${formatMetricValue(focusedSummary.eligibleRows, 0)} eligible rows`} />
           <MetricCard label="First Limit" value={formatMetricValue(focusedSummary.firstLimitRows, 0)} hint={focusedSummary.topMechanism} />
-          <MetricCard label="Metrics" value={formatMetricValue(focusedSummary.metricRows, 0)} hint={`${formatMetricValue(focusedSummary.computedMetrics, 0)} computed · ${formatMetricValue(focusedSummary.dataGapMetrics, 0)} gaps`} />
-          <MetricCard label="Hit Rate" value={focusedSummary.hitRate === null ? 'Not reported' : `${(focusedSummary.hitRate * 100).toFixed(1)}%`} hint={`${formatMetricValue(focusedSummary.tailLossCount, 0)} tail-loss rows`} />
-          <MetricCard label="Mean Return" value={formatMetricValue(focusedSummary.meanReturn, 4)} hint={startCase(focusedSummary.interpretationStatus)} />
+          <MetricCard label="Metric Families" value={formatMetricValue(focusedSummary.metricRows, 0)} hint={`${formatMetricValue(focusedSummary.computedMetrics, 0)} computed · ${formatMetricValue(focusedSummary.dataGapMetrics, 0)} gaps`} />
+          {metricCards.slice(0, 4).map((card) => <MetricCard key={card.label} label={card.label} value={card.value} hint={card.hint} />)}
         </div>
       ) : null}
-      <ReplayOperationComponentCharts rows={focusedSummary ? [focusedSummary] : rows} />
+      {focusedRun ? <ReplayOperationMetricCharts rows={ledgerRows} /> : <ReplayOperationComponentCharts rows={rows} />}
       <div className="replay-table-panel">
         <ReplayOperationComponentTable rows={rows} />
       </div>
