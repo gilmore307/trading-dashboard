@@ -828,9 +828,9 @@ Chentong clarified that Replay Decisions and Replay Operations can share selecto
 
 Replay Decisions publishes M01-M05 rows with layer-specific methods:
 
-- M01 reviews point-in-time background/context state diagnostics; without a layer-specific scored context alternative it remains diagnostic-only rather than correct/incorrect.
+- M01 reviews point-in-time background/context state diagnostics against accepted usability thresholds. It publishes diagnostic correct/incorrect and acceptability metrics without using future returns as decision-time input.
 - M02 reviews same-timestamp target selection, rank, direction, and tradability.
-- M03 reviews event pressure and risk-state diagnostics available at decision time; without a layer-specific scored event-state alternative it remains diagnostic-only rather than correct/incorrect.
+- M03 reviews event pressure and risk-state diagnostics available at decision time against accepted downweight/block thresholds. It publishes diagnostic correct/incorrect and acceptability metrics without using future returns as decision-time input.
 - M04 reviews underlying action quality with post-replay directional labels.
 - M05 reviews option-expression quality, selected contract path, and fill/return consistency.
 
