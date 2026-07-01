@@ -848,6 +848,31 @@ Consequences:
 
 - `analysis_method`, `metric_family`, `evidence_role`, and `label_role` are part of the replay review contract, not dashboard-only text.
 - C03 must either publish lifecycle/replacement evidence or a lifecycle evidence gap; it must not be hidden as a non-applicable replay mode.
-- Future-return and best-available labels remain post-replay review labels. They may score M04/M05 and some operation diagnostics, but they must not be presented as decision-time inputs.
+
+## D038 - Standard replay diagnostics are first-class page-specific review evidence
+
+Status: accepted
+
+Chentong asked that the diagnostic paths used to compare AAPL 2016-2024 model groups become part of regular review instead of remaining one-off manual checks. Codex CLI agreed that the checks should be projected by `model_group_replay_review_summary` and then split by page responsibility rather than added as a generic all-purpose table.
+
+`model_group_replay_review_summary` now publishes standard replay diagnostics from completed post-replay artifacts:
+
+- candidate-entry funnel diagnostics from scored candidates, selected rows, rank quality, and option-expression unexecutable reasons;
+- M05 option-expression mechanics, hard-filter overlap, DTE sensitivity, filled-good/bad counts, and net-return contribution;
+- mechanism-contract diagnostics from operation contract packets;
+- cross-model duplicate trace diagnostics over normalized concrete operation rows.
+
+Page ownership:
+
+- Model Groups uses only model-integrity signals: review completeness, M05 expression-state coverage, mechanism-contract breaches, and duplicate-trace independence risk. It does not turn those diagnostics into trading-performance claims.
+- Replay Performance uses the same diagnostics as economic context: entry funnel conversion, option unexecutability, M05 filled-good/bad distribution, M05 net return, and mechanism breaches alongside NAV/return/drawdown.
+- Replay Decisions uses the diagnostics only where the model layer makes them relevant: entry funnel and pre-option quality for M02/M04, M05 expression mechanics for M05, and mechanism contracts as supporting context.
+- Replay Operations uses concrete operation rows as primary evidence and adds component-relevant context: operation status/block-reason counts, candidate funnel for C01/C02, option materialization for C04-C06, and mechanism contracts for C01-C07.
+
+Consequences:
+
+- These diagnostics must be generated during replay review and consumed from read-model projections, not recomputed from raw artifact paths in the dashboard.
+- Future returns, best-available labels, realized returns, and regret remain post-replay labels and must not be described as decision-time inputs.
+- A standard diagnostic may appear on multiple pages only with a page-specific interpretation; it must not become a universal mixed-method review table.
 - Component rows with no published review evidence show missing/empty states rather than invented counts; published zeros remain visible as zeros.
 - Future storage/review producers may add time-indexed C01-C07 component ledgers if the dashboard is expected to show operation timelines for every component.

@@ -251,6 +251,7 @@ function isExecutionRuntimeChart(payload: DashboardReadModel['chart_payload']): 
 type ReplayReviewChartPayload = {
   review_runs?: Array<Record<string, unknown>>;
   contract_matrix?: Record<string, unknown>;
+  cross_model_group_diagnostics?: Record<string, unknown>;
 };
 
 type ReplayAttributionRow = Record<string, unknown> & {
@@ -3255,6 +3256,9 @@ function replayVersionPerformanceSummary(version: ModelGroupPromotionVersionPayl
   const stockSelection = replayReviewSection(reviewRun ?? {}, 'stock_selection');
   const replacementReview = replayReviewSection(reviewRun ?? {}, 'replacement_review');
   const decisionReview = replayReviewDecision(reviewRun ?? {});
+  const entryFunnel = replayCandidateEntryFunnel(reviewRun);
+  const optionBreakdown = replayOptionExpressionBreakdown(reviewRun);
+  const mechanismContracts = replayMechanismContracts(reviewRun);
   return {
     id: versionStableId(version, index),
     label: compactVersionLabel(version, index),
@@ -3289,6 +3293,17 @@ function replayVersionPerformanceSummary(version: ModelGroupPromotionVersionPayl
     replacementTriggered: metricNumber(replacementReview, 'replacement_triggered_count'),
     replacementBlocked: metricNumber(replacementReview, 'replacement_blocked_by_switch_threshold_count'),
     meanRegretToBest: metricNumber(decisionReview, 'mean_regret_to_best_available'),
+    entrySelectedRate: metricNumber(entryFunnel, 'selected_rate'),
+    optionUnexecutableCount: metricNumber(entryFunnel, 'option_expression_unexecutable_count'),
+    selectedTop25Share: metricNumber(entryFunnel, 'top_25_share_of_selected'),
+    selectedRankMean: metricNumber(entryFunnel, 'selected_candidate_rank_mean_same_timestamp'),
+    m05StateCount: metricNumber(optionBreakdown, 'm05_selection_state_count'),
+    m05FilledGoodCount: metricNumber(optionBreakdown, 'filled_good_count'),
+    m05FilledBadCount: metricNumber(optionBreakdown, 'filled_bad_count'),
+    m05NetReturnTotal: metricNumber(optionBreakdown, 'net_return_total'),
+    mechanismContractCount: metricNumber(mechanismContracts, 'mechanism_contract_count'),
+    mechanismBreachCount: metricNumber(mechanismContracts, 'breached_count'),
+    criticalMechanismBreachCount: metricNumber(mechanismContracts, 'critical_breached_count'),
   };
 }
 
@@ -3898,6 +3913,30 @@ function replayReviewParameter(run: Record<string, unknown>): Record<string, unk
   return nestedRecord(run, 'parameter_review');
 }
 
+function standardReviewDiagnostics(run: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  return nestedRecord(run ?? null, 'standard_review_diagnostics');
+}
+
+function replayCandidateEntryFunnel(run: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  return nestedRecord(standardReviewDiagnostics(run), 'candidate_entry_funnel');
+}
+
+function replayOptionExpressionBreakdown(run: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  return nestedRecord(standardReviewDiagnostics(run), 'option_expression_breakdown');
+}
+
+function replayMechanismContracts(run: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  return nestedRecord(standardReviewDiagnostics(run), 'operation_mechanism_contracts');
+}
+
+function replayCrossModelDiagnostics(chart: ReplayReviewChartPayload): Record<string, unknown> | null {
+  return nestedRecord(chart as Record<string, unknown>, 'cross_model_group_diagnostics');
+}
+
+function replayDuplicateTraceGroups(chart: ReplayReviewChartPayload): Array<Record<string, unknown>> {
+  return nestedArray(replayCrossModelDiagnostics(chart), 'duplicate_trace_groups');
+}
+
 function replayDecisionsLayerContract(run: Record<string, unknown>): Record<string, unknown> | null {
   return nestedRecord(run, 'replay_decisions_m01_m05');
 }
@@ -4222,6 +4261,78 @@ function replayOperationMetricCards(rows: Array<Record<string, unknown>>): Array
   });
 }
 
+function ReplayStandardOperationDiagnostics({
+  run,
+  componentId,
+  ledgerRows,
+}: {
+  run: Record<string, unknown> | null;
+  componentId: string;
+  ledgerRows: Array<Record<string, unknown>>;
+}) {
+  if (!run) return null;
+  const funnel = replayCandidateEntryFunnel(run);
+  const option = replayOptionExpressionBreakdown(run);
+  const contracts = replayMechanismContracts(run);
+  const operationStatusCounts = ledgerRows.reduce<Record<string, number>>((counts, row) => {
+    const key = String(row.operation_status ?? 'not_reported');
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
+  const blockReasonCounts = ledgerRows.reduce<Record<string, number>>((counts, row) => {
+    const key = String(row.block_reason ?? '').trim();
+    if (key) counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
+  const showFunnel = ['component_01_intake', 'component_02_entry'].includes(componentId);
+  const showOption = ['component_04_option_review', 'component_05_order_intent', 'component_06_execution_gate'].includes(componentId);
+  return (
+    <div className="replay-chart-grid replay-standard-diagnostics">
+      <ReplayFocusMetricCards
+        title="Concrete Operation Evidence"
+        items={[
+          { label: 'Rows', value: formatMetricValue(ledgerRows.length, 0), hint: 'Concrete operation action rows for this component' },
+          { label: 'Actions', value: formatMetricValue(replayOperationDistinctCount(ledgerRows, 'operation_action'), 0), hint: 'Distinct operation actions in the component ledger' },
+          { label: 'Statuses', value: formatMetricValue(Object.keys(operationStatusCounts).length, 0), hint: 'Distinct operation statuses in the component ledger' },
+          { label: 'Block reasons', value: formatMetricValue(Object.keys(blockReasonCounts).length, 0), hint: 'Distinct block reasons in the component ledger' },
+        ]}
+      />
+      <MiniMetricBarChart title="Operation Status Counts" series={countBarSeries(operationStatusCounts)} emptyLabel="No operation status counts published" />
+      <MiniMetricBarChart title="Block Reason Counts" series={countBarSeries(blockReasonCounts)} emptyLabel="No block reason counts published" />
+      {showFunnel ? (
+        <ReplayFocusMetricCards
+          title="Candidate Funnel Context"
+          items={[
+            { label: 'Scored', value: formatMetricValue(metricNumber(funnel, 'scored_candidate_row_count'), 0), hint: 'C01/C02 candidate intake and entry-gate denominator' },
+            { label: 'Selected', value: formatMetricValue(metricNumber(funnel, 'selected_candidate_row_count'), 0), hint: 'Rows passed into selected replay decisions' },
+            { label: 'Selected %', value: metricNumber(funnel, 'selected_rate') === null ? 'Not reported' : `${((metricNumber(funnel, 'selected_rate') ?? 0) * 100).toFixed(2)}%`, hint: 'Selected over scored candidates' },
+            { label: 'Unexecutable', value: formatMetricValue(metricNumber(funnel, 'option_expression_unexecutable_count'), 0), hint: 'Rows that could not materialize an option expression' },
+          ]}
+        />
+      ) : null}
+      {showOption ? (
+        <ReplayFocusMetricCards
+          title="Option Materialization Context"
+          items={[
+            { label: 'M05 states', value: formatMetricValue(metricNumber(option, 'm05_selection_state_count'), 0), hint: 'Option expression mechanics states reviewed' },
+            { label: 'Filled', value: formatMetricValue(metricNumber(option, 'filled_count'), 0), hint: 'Filled option paths' },
+            { label: 'Filled bad', value: formatMetricValue(metricNumber(option, 'filled_bad_count'), 0), hint: 'Bad post-replay labels for filled option paths' },
+            { label: 'Net return', value: formatMetricValue(metricNumber(option, 'net_return_total'), 4), hint: 'Option materialization return contribution' },
+          ]}
+        />
+      ) : null}
+      <ReplayFocusMetricCards
+        title="Mechanism Contract Context"
+        items={[
+          { label: 'Contracts', value: formatMetricValue(metricNumber(contracts, 'mechanism_contract_count'), 0), hint: 'Mechanism contracts checked for this replay run' },
+          { label: 'Breached', value: formatMetricValue(metricNumber(contracts, 'breached_count'), 0), hint: 'Mechanism contracts breached across components' },
+          { label: 'Critical', value: formatMetricValue(metricNumber(contracts, 'critical_breached_count'), 0), hint: 'Critical mechanism breaches' },
+        ]}
+      />
+    </div>
+  );
+}
+
 function replayOperationGapRowsFromCounts(run: Record<string, unknown>, componentId: string): number {
   const counts = countRecord(replayReviewDecision(run), 'first_gap_component_counts');
   return Object.entries(counts).reduce((total, [key, value]) => {
@@ -4444,6 +4555,71 @@ function ReplayFocusMetricCards({
   );
 }
 
+function countBarSeries(record: Record<string, unknown> | null | undefined, limit = 6): Array<{ label: string; value: number; tooltip: string }> {
+  return countSeriesFromRecord(record ?? {}).slice(0, limit).map((point) => ({
+    ...point,
+    tooltip: `${point.label}: ${formatMetricValue(point.value, 0)}`,
+  }));
+}
+
+function ReplayStandardDecisionDiagnostics({ run, layerId }: { run: Record<string, unknown> | null; layerId: string }) {
+  if (!run) return null;
+  const funnel = replayCandidateEntryFunnel(run);
+  const preOption = nestedRecord(standardReviewDiagnostics(run), 'pre_option_candidate_quality');
+  const option = replayOptionExpressionBreakdown(run);
+  const contracts = replayMechanismContracts(run);
+  const showEntry = ['model_02_target_state', 'model_04_unified_decision'].includes(layerId);
+  const showOption = layerId === 'model_05_option_expression';
+  return (
+    <div className="replay-chart-grid replay-standard-diagnostics">
+      {showEntry ? (
+        <ReplayFocusMetricCards
+          title="Entry Funnel Diagnostics"
+          items={[
+            { label: 'Scored', value: formatMetricValue(metricNumber(funnel, 'scored_candidate_row_count'), 0), hint: 'Point-in-time candidate rows scored before selection' },
+            { label: 'Selected', value: formatMetricValue(metricNumber(funnel, 'selected_candidate_row_count'), 0), hint: 'Rows that reached replay decision selection' },
+            { label: 'Selected %', value: metricNumber(funnel, 'selected_rate') === null ? 'Not reported' : `${((metricNumber(funnel, 'selected_rate') ?? 0) * 100).toFixed(2)}%`, hint: 'Selected over scored candidates' },
+            { label: 'Mean rank', value: formatMetricValue(metricNumber(funnel, 'selected_candidate_rank_mean_same_timestamp'), 2), hint: 'Same-timestamp candidate rank of selected rows' },
+          ]}
+        />
+      ) : null}
+      {showEntry ? (
+        <ReplayFocusMetricCards
+          title="Pre-Option Candidate Quality"
+          items={[
+            { label: 'Cohorts', value: formatMetricValue(metricNumber(preOption, 'cohort_count'), 0), hint: 'Reviewed pre-option candidate cohorts' },
+            { label: 'Entry percentile', value: formatMetricValue(metricNumber(preOption, 'entry_intent_global_percentile_mean'), 4), hint: 'Forward-label percentile for rows with entry intent' },
+            { label: 'No-entry percentile', value: formatMetricValue(metricNumber(preOption, 'no_entry_global_percentile_mean'), 4), hint: 'Forward-label percentile for rows without entry intent' },
+            { label: 'Top25 percentile', value: formatMetricValue(metricNumber(preOption, 'top25_global_percentile_mean'), 4), hint: 'Top-candidate forward-label context' },
+          ]}
+        />
+      ) : null}
+      {showOption ? (
+        <ReplayFocusMetricCards
+          title="M05 Option Expression"
+          items={[
+            { label: 'States', value: formatMetricValue(metricNumber(option, 'm05_selection_state_count'), 0), hint: 'Distinct M05 mechanics states' },
+            { label: 'Filled', value: formatMetricValue(metricNumber(option, 'filled_count'), 0), hint: 'Filled option-expression decisions' },
+            { label: 'Good / Bad', value: `${formatMetricValue(metricNumber(option, 'filled_good_count'), 0)} / ${formatMetricValue(metricNumber(option, 'filled_bad_count'), 0)}`, hint: 'Post-replay labels for filled M05 decisions' },
+            { label: 'Net return', value: formatMetricValue(metricNumber(option, 'net_return_total'), 4), hint: 'M05 option-expression return contribution' },
+          ]}
+        />
+      ) : null}
+      {showOption ? (
+        <MiniMetricBarChart title="M05 Filter Reasons" series={countBarSeries(nestedRecord(option, 'primary_filter_reason_counts'))} emptyLabel="No M05 filter reason counts published" />
+      ) : null}
+      <ReplayFocusMetricCards
+        title="Mechanism Contract Context"
+        items={[
+          { label: 'Contracts', value: formatMetricValue(metricNumber(contracts, 'mechanism_contract_count'), 0), hint: 'Standard mechanism contracts checked by review' },
+          { label: 'Breached', value: formatMetricValue(metricNumber(contracts, 'breached_count'), 0), hint: 'Contracts with replay evidence breach' },
+          { label: 'Critical', value: formatMetricValue(metricNumber(contracts, 'critical_breached_count'), 0), hint: 'Critical mechanism breaches' },
+        ]}
+      />
+    </div>
+  );
+}
+
 function MiniMetricDonutChart({
   title,
   slices,
@@ -4571,6 +4747,10 @@ function ReplayPerformanceSummaryCharts({ rows }: { rows: ReplayPerformanceSumma
       <MiniMetricBarChart title="Calmar" series={performanceSummaryMetricSeries(rows, 'calmar')} emptyLabel="No replay Calmar metrics published" />
       <MiniMetricBarChart title="Beta" series={performanceSummaryMetricSeries(rows, 'beta')} emptyLabel="No benchmark beta evidence published" />
       <MiniMetricBarChart title="Win Rate" series={performanceSummaryMetricSeries(rows, 'winRate')} emptyLabel="No monthly win-rate evidence published" />
+      <MiniMetricBarChart title="Entry Selected Rate" series={performanceSummaryMetricSeries(rows, 'entrySelectedRate')} emptyLabel="No entry-funnel selected-rate diagnostics published" />
+      <MiniMetricBarChart title="Option Unexecutable" series={performanceSummaryMetricSeries(rows, 'optionUnexecutableCount')} emptyLabel="No option-unexecutable diagnostics published" />
+      <MiniMetricBarChart title="M05 Filled Bad" series={performanceSummaryMetricSeries(rows, 'm05FilledBadCount')} emptyLabel="No M05 bad-fill expression diagnostics published" />
+      <MiniMetricBarChart title="Mechanism Breaches" series={performanceSummaryMetricSeries(rows, 'mechanismBreachCount')} emptyLabel="No mechanism-contract diagnostics published" />
     </div>
   );
 }
@@ -4653,6 +4833,32 @@ function ReplayPerformanceFocusCharts({
             { label: 'Review Evidence', value: row.reviewAvailable ? 'Available' : 'Missing', hint: 'Post-replay review matched to this model group' },
             { label: 'Planned Notional', value: formatMetricValue(row.plannedNotional, 2), hint: 'Total planned notional in matched review evidence' },
             { label: 'Mean Regret', value: formatMetricValue(row.meanRegretToBest, 4), hint: 'Average gap to best available action' },
+          ]}
+        />
+        <ReplayFocusMetricCards
+          title="Entry Funnel"
+          items={[
+            { label: 'Selected %', value: row.entrySelectedRate === null ? 'Not reported' : `${(row.entrySelectedRate * 100).toFixed(2)}%`, hint: 'Selected replay decisions divided by scored candidate rows' },
+            { label: 'Top 25 Share', value: row.selectedTop25Share === null ? 'Not reported' : `${(row.selectedTop25Share * 100).toFixed(1)}%`, hint: 'Selected rows that ranked in the same-timestamp top 25' },
+            { label: 'Mean Rank', value: formatMetricValue(row.selectedRankMean, 2), hint: 'Same-timestamp selected candidate rank' },
+            { label: 'Unexecutable', value: formatMetricValue(row.optionUnexecutableCount, 0), hint: 'Candidate rows blocked before executable option expression' },
+          ]}
+        />
+        <ReplayFocusMetricCards
+          title="Option Expression Impact"
+          items={[
+            { label: 'M05 States', value: formatMetricValue(row.m05StateCount, 0), hint: 'Distinct M05 selection mechanic states reviewed' },
+            { label: 'Filled Good', value: formatMetricValue(row.m05FilledGoodCount, 0), hint: 'Filled expression states labelled good after replay' },
+            { label: 'Filled Bad', value: formatMetricValue(row.m05FilledBadCount, 0), hint: 'Filled expression states labelled bad after replay' },
+            { label: 'M05 Net Return', value: formatMetricValue(row.m05NetReturnTotal, 4), hint: 'Return contribution in M05 mechanics evidence' },
+          ]}
+        />
+        <ReplayFocusMetricCards
+          title="Mechanism Contracts"
+          items={[
+            { label: 'Contracts', value: formatMetricValue(row.mechanismContractCount, 0), hint: 'Standard replay mechanism contracts checked' },
+            { label: 'Breached', value: formatMetricValue(row.mechanismBreachCount, 0), hint: 'Contracts breached by replay evidence' },
+            { label: 'Critical', value: formatMetricValue(row.criticalMechanismBreachCount, 0), hint: 'Critical contract breaches' },
           ]}
         />
       </div>
@@ -4947,6 +5153,7 @@ function ReplayLayerSection({
           <MetricCard label="Mean Impact" value={formatMetricValue(focusedSummary.meanImpact, 4)} hint="Normalized severity where published" />
         </div>
       ) : null}
+      {focusedRun ? <ReplayStandardDecisionDiagnostics run={focusedRun} layerId={layerId} /> : null}
       {focusedRun ? <ReplayLayerFocusTrendCharts rows={ledgerRows} /> : <ReplayLayerQualityCharts rows={rows} />}
       <div className="replay-table-panel">
         <ReplayLayerQualityTable rows={rows} />
@@ -5578,6 +5785,7 @@ function ReplayOperationComponentSection({
           {metricCards.slice(0, 4).map((card) => <MetricCard key={card.label} label={card.label} value={card.value} hint={card.hint} />)}
         </div>
       ) : null}
+      {focusedRun ? <ReplayStandardOperationDiagnostics run={focusedRun} componentId={componentId} ledgerRows={ledgerRows} /> : null}
       {focusedRun ? <ReplayOperationTrendCharts rows={ledgerRows} /> : <ReplayOperationComponentCharts rows={rows} />}
       <div className="replay-table-panel">
         <ReplayOperationComponentTable rows={rows} />
@@ -5731,14 +5939,77 @@ function ReplayAttributionView({ replayReviewChart }: { replayReviewChart: Repla
   );
 }
 
+function ModelGroupReplayIntegrityPanel({
+  replayReviewChart,
+  selectedVersion,
+  versions,
+}: {
+  replayReviewChart: ReplayReviewChartPayload;
+  selectedVersion: ModelGroupPromotionVersionPayload | null;
+  versions: ModelGroupPromotionVersionPayload[];
+}) {
+  const runs = replayReviewRuns(replayReviewChart);
+  const selectedRun = selectedVersion ? replayReviewRunForVersion(selectedVersion, runs) : null;
+  const crossDiagnostics = replayCrossModelDiagnostics(replayReviewChart);
+  const duplicateGroups = replayDuplicateTraceGroups(replayReviewChart);
+  const selectedDiagnostics = standardReviewDiagnostics(selectedRun);
+  const option = replayOptionExpressionBreakdown(selectedRun);
+  const contracts = replayMechanismContracts(selectedRun);
+  const gapCodes = selectedDiagnostics
+    ? (Array.isArray(selectedDiagnostics.source_gap_codes) ? selectedDiagnostics.source_gap_codes.map((item) => String(item)) : [])
+    : [];
+  return (
+    <ModelScorecardSection
+      title={selectedVersion ? 'Replay Integrity For Selected Group' : 'Replay Integrity Summary'}
+      subtitle="Model-group validity checks derived from standard replay review diagnostics; trading returns stay under Replay Performance."
+    >
+      <ReplayFocusMetricCards
+        title={selectedVersion ? 'Selected Group Review Completeness' : 'Cross-Group Independence Risk'}
+        items={selectedVersion ? [
+          { label: 'Review status', value: startCase(String(selectedDiagnostics?.status ?? 'not_reported')), hint: gapCodes.length ? gapCodes.map(startCase).join(' | ') : 'Standard replay diagnostics available' },
+          { label: 'M05 states', value: formatMetricValue(metricNumber(option, 'm05_selection_state_count'), 0), hint: 'Option-expression mechanics states reviewed' },
+          { label: 'Filled bad', value: formatMetricValue(metricNumber(option, 'filled_bad_count'), 0), hint: 'Bad filled M05 states; impact is detailed in Replay Decisions/Performance' },
+          { label: 'Mechanism breaches', value: formatMetricValue(metricNumber(contracts, 'breached_count'), 0), hint: 'Contract breaches requiring mechanism review' },
+        ] : [
+          { label: 'Model groups', value: formatMetricValue(versions.length, 0), hint: 'Published model groups in Model Groups selector' },
+          { label: 'Replay reviews', value: formatMetricValue(runs.length, 0), hint: 'Matched standard post-replay reviews' },
+          { label: 'Trace signatures', value: formatMetricValue(metricNumber(crossDiagnostics, 'signature_count'), 0), hint: 'Distinct normalized operation traces' },
+          { label: 'Duplicate groups', value: formatMetricValue(metricNumber(crossDiagnostics, 'duplicate_trace_group_count'), 0), hint: 'Groups whose replay operation traces are indistinguishable' },
+        ]}
+      />
+      {!selectedVersion ? (
+        <MiniMetricBarChart
+          title="Duplicate Trace Group Size"
+          series={duplicateGroups.map((group) => ({
+            label: String(group.duplicate_trace_group_id ?? 'duplicate'),
+            value: metricNumber(group, 'member_count') ?? 0,
+            status: 'blocked',
+            tooltip: `${String(group.duplicate_trace_group_id ?? 'duplicate')}: ${formatMetricValue(metricNumber(group, 'member_count'), 0)} model groups · ${String(group.risk ?? '')}`,
+          }))}
+          emptyLabel="No duplicate replay operation traces detected"
+        />
+      ) : null}
+      {selectedVersion ? (
+        <MiniMetricBarChart
+          title="M05 Filter Reason Counts"
+          series={countBarSeries(nestedRecord(option, 'primary_filter_reason_counts'))}
+          emptyLabel="No M05 filter reason counts published for this model group"
+        />
+      ) : null}
+    </ModelScorecardSection>
+  );
+}
+
 function ModelGroupDetail({
   layerChart,
   runtimeChart,
   promotionChart,
+  replayReviewChart,
 }: {
   layerChart: ModelLayerReadinessChartPayload;
   runtimeChart: ExecutionRuntimeStatusChartPayload;
   promotionChart: ModelPromotionPostureChartPayload;
+  replayReviewChart: ReplayReviewChartPayload;
 }) {
   const versions = groupPromotionVersions(layerChart, promotionChart);
   const exclusions = groupPromotionExclusions(promotionChart);
@@ -5783,6 +6054,7 @@ function ModelGroupDetail({
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <ExcludedPromotionEvidencePanel exclusions={exclusions} />
       <IdentityDistribution versions={versions} />
+      <ModelGroupReplayIntegrityPanel replayReviewChart={replayReviewChart} selectedVersion={selectedVersion} versions={versions} />
       {selectedVersion ? (
         <>
           <EvaluationDisagreementPanel version={selectedVersion} />
@@ -7098,6 +7370,7 @@ function App() {
         <ModelGroupDetail
           layerChart={modelLayerChart}
           promotionChart={modelPromotionChart}
+          replayReviewChart={replayReviewChart}
           runtimeChart={executionRuntimeChart}
         />
       );
