@@ -5088,38 +5088,53 @@ function ReplayLayerFocusTrendCharts({ rows }: { rows: Array<Record<string, unkn
 
 function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
   const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'review_boundary_status' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type'>>({ key: 'decision_time', direction: 'asc' });
+  const [page, setPage] = useState(0);
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
+  const pageSize = 50;
+  const pageCount = Math.max(1, Math.ceil(sortedRows.length / pageSize));
+  const pageIndex = Math.min(page, pageCount - 1);
+  const pageRows = sortedRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
+  useEffect(() => setPage(0), [rows.length, sort.key, sort.direction]);
   return (
-    <div className="replay-table replay-layer-ledger-table">
-      <div className="replay-table-row replay-table-head">
-        <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
-        <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
-        <SortableHeader label="Correct" column="correctness_class" sort={sort} onSort={setSort} />
-        <SortableHeader label="Accept" column="acceptability_class" sort={sort} onSort={setSort} />
-        <SortableHeader label="Boundary" column="review_boundary_status" sort={sort} onSort={setSort} />
-        <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Impact" column="impact_normalized_severity_score" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Cause" column="cause_family" sort={sort} onSort={setSort} />
-        <SortableHeader label="Failure" column="failure_type" sort={sort} onSort={setSort} />
-        <span>Decision</span>
-        <span>Best Label</span>
-      </div>
-      {sortedRows.length ? sortedRows.map((row, index) => (
-        <div className="replay-table-row" key={`${String(row.review_id ?? index)}-${String(row.layer_id ?? '')}`}>
-          <strong>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not reported'}</strong>
-          <span>{String(row.target_symbol ?? 'Not reported')}</span>
-          <span>{startCase(String(row.correctness_class ?? 'indeterminate'))}</span>
-          <span>{startCase(String(row.acceptability_class ?? 'indeterminate'))}</span>
-          <span>{startCase(String(row.review_boundary_status ?? 'not_reported'))}</span>
-          <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
-          <span>{formatMetricValue(metricNumber(row, 'impact_normalized_severity_score'), 4)}</span>
-          <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
-          <span>{String(row.effective_decision ?? row.chosen_action ?? 'Not reported')}</span>
-          <span>{String(row.best_available_action_by_future_outcome ?? 'Not reported')}</span>
+    <>
+      <div className="replay-table replay-layer-ledger-table">
+        <div className="replay-table-row replay-table-head">
+          <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
+          <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
+          <SortableHeader label="Correct" column="correctness_class" sort={sort} onSort={setSort} />
+          <SortableHeader label="Accept" column="acceptability_class" sort={sort} onSort={setSort} />
+          <SortableHeader label="Boundary" column="review_boundary_status" sort={sort} onSort={setSort} />
+          <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Impact" column="impact_normalized_severity_score" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Cause" column="cause_family" sort={sort} onSort={setSort} />
+          <SortableHeader label="Failure" column="failure_type" sort={sort} onSort={setSort} />
+          <span>Decision</span>
+          <span>Best Label</span>
         </div>
-      )) : <div className="empty-chart compact">No effective layer decision rows are published for this layer.</div>}
-    </div>
+        {pageRows.length ? pageRows.map((row, index) => (
+          <div className="replay-table-row" key={`${String(row.review_id ?? index)}-${String(row.layer_id ?? '')}`}>
+            <strong>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not reported'}</strong>
+            <span>{String(row.target_symbol ?? 'Not reported')}</span>
+            <span>{startCase(String(row.correctness_class ?? 'indeterminate'))}</span>
+            <span>{startCase(String(row.acceptability_class ?? 'indeterminate'))}</span>
+            <span>{startCase(String(row.review_boundary_status ?? 'not_reported'))}</span>
+            <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
+            <span>{formatMetricValue(metricNumber(row, 'impact_normalized_severity_score'), 4)}</span>
+            <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
+            <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
+            <span>{String(row.effective_decision ?? row.chosen_action ?? 'Not reported')}</span>
+            <span>{String(row.best_available_action_by_future_outcome ?? 'Not reported')}</span>
+          </div>
+        )) : <div className="empty-chart compact">No effective layer decision rows are published for this layer.</div>}
+      </div>
+      {sortedRows.length > pageSize ? (
+        <div className="data-pagination">
+          <button className="secondary-button" disabled={pageIndex === 0} onClick={() => setPage((current) => Math.max(0, current - 1))} type="button">Previous</button>
+          <span>Showing {pageIndex * pageSize + 1}-{Math.min(sortedRows.length, (pageIndex + 1) * pageSize)} of {sortedRows.length}</span>
+          <button className="secondary-button" disabled={pageIndex >= pageCount - 1} onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} type="button">Next</button>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -5723,50 +5738,65 @@ function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unkno
 
 function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
   const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'operation_action' | 'operation_status' | 'trigger_state' | 'component_correctness_class' | 'review_boundary_status' | 'input_summary' | 'output_summary' | 'block_reason' | 'realized_return' | 'regret_to_best_available'>>({ key: 'decision_time', direction: 'asc' });
+  const [page, setPage] = useState(0);
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
+  const pageSize = 50;
+  const pageCount = Math.max(1, Math.ceil(sortedRows.length / pageSize));
+  const pageIndex = Math.min(page, pageCount - 1);
+  const pageRows = sortedRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
+  useEffect(() => setPage(0), [rows.length, sort.key, sort.direction]);
   return (
-    <div className="replay-table replay-operation-ledger-table">
-      <div className="replay-table-row replay-table-head">
-        <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
-        <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
-        <SortableHeader label="Operation" column="operation_action" sort={sort} onSort={setSort} />
-        <SortableHeader label="Status" column="operation_status" sort={sort} onSort={setSort} />
-        <SortableHeader label="Trigger" column="trigger_state" sort={sort} onSort={setSort} />
-        <SortableHeader label="Boundary" column="review_boundary_status" sort={sort} onSort={setSort} />
-        <SortableHeader label="Input" column="input_summary" sort={sort} onSort={setSort} />
-        <SortableHeader label="Output" column="output_summary" sort={sort} onSort={setSort} />
-        <span>Feasible Set</span>
-        <span>Chosen</span>
-        <span>Best Ex-Post</span>
-        <SortableHeader label="Correctness" column="component_correctness_class" sort={sort} onSort={setSort} />
-        <SortableHeader label="Block / Reason" column="block_reason" sort={sort} onSort={setSort} />
-        <span>Objective</span>
-        <span>Label Basis</span>
-        <SortableHeader label="Return" column="realized_return" sort={sort} onSort={setSort} defaultDirection="desc" />
-        <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
-      </div>
-      {sortedRows.length ? sortedRows.map((row, index) => (
-        <div className="replay-table-row" key={`${String(row.review_id ?? 'row')}-${index}`}>
-          <strong>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not recorded'}</strong>
-          <span>{String(row.target_symbol ?? 'Not reported')}</span>
-          <span>{startCase(String(row.operation_action ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.operation_status ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.trigger_state ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.review_boundary_status ?? 'not_reported'))}</span>
-          <span>{String(row.input_summary ?? row.input_ref ?? 'Not reported')}</span>
-          <span>{String(row.output_summary ?? row.output_ref ?? 'Not reported')}</span>
-          <span>{String(row.pit_feasible_action_set_ref ?? 'Not reported')}</span>
-          <span>{String(row.chosen_action ?? 'Not reported')}</span>
-          <span>{String(row.best_available_action_by_future_outcome ?? 'Not reported')}</span>
-          <span>{startCase(String(row.component_correctness_class ?? 'not_reported'))}</span>
-          <span>{String(row.block_reason ?? '') || 'None'}</span>
-          <span>{String(row.component_objective ?? row.analysis_method ?? 'Not reported')}</span>
-          <span>{String(row.post_replay_label_basis ?? row.label_role ?? 'Not reported')}</span>
-          <span>{formatMetricValue(metricNumber(row, 'realized_return'), 4)}</span>
-          <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
+    <>
+      <div className="replay-table replay-operation-ledger-table">
+        <div className="replay-table-row replay-table-head">
+          <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
+          <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
+          <SortableHeader label="Operation" column="operation_action" sort={sort} onSort={setSort} />
+          <SortableHeader label="Status" column="operation_status" sort={sort} onSort={setSort} />
+          <SortableHeader label="Trigger" column="trigger_state" sort={sort} onSort={setSort} />
+          <SortableHeader label="Boundary" column="review_boundary_status" sort={sort} onSort={setSort} />
+          <SortableHeader label="Input" column="input_summary" sort={sort} onSort={setSort} />
+          <SortableHeader label="Output" column="output_summary" sort={sort} onSort={setSort} />
+          <span>Feasible Set</span>
+          <span>Chosen</span>
+          <span>Best Ex-Post</span>
+          <SortableHeader label="Correctness" column="component_correctness_class" sort={sort} onSort={setSort} />
+          <SortableHeader label="Block / Reason" column="block_reason" sort={sort} onSort={setSort} />
+          <span>Objective</span>
+          <span>Label Basis</span>
+          <SortableHeader label="Return" column="realized_return" sort={sort} onSort={setSort} defaultDirection="desc" />
+          <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
         </div>
-      )) : <div className="empty-chart compact">No concrete operation rows are published for this replay component.</div>}
-    </div>
+        {pageRows.length ? pageRows.map((row, index) => (
+          <div className="replay-table-row" key={`${String(row.review_id ?? 'row')}-${index}`}>
+            <strong>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not recorded'}</strong>
+            <span>{String(row.target_symbol ?? 'Not reported')}</span>
+            <span>{startCase(String(row.operation_action ?? 'not_reported'))}</span>
+            <span>{startCase(String(row.operation_status ?? 'not_reported'))}</span>
+            <span>{startCase(String(row.trigger_state ?? 'not_reported'))}</span>
+            <span>{startCase(String(row.review_boundary_status ?? 'not_reported'))}</span>
+            <span>{String(row.input_summary ?? row.input_ref ?? 'Not reported')}</span>
+            <span>{String(row.output_summary ?? row.output_ref ?? 'Not reported')}</span>
+            <span>{String(row.pit_feasible_action_set_ref ?? 'Not reported')}</span>
+            <span>{String(row.chosen_action ?? 'Not reported')}</span>
+            <span>{String(row.best_available_action_by_future_outcome ?? 'Not reported')}</span>
+            <span>{startCase(String(row.component_correctness_class ?? 'not_reported'))}</span>
+            <span>{String(row.block_reason ?? '') || 'None'}</span>
+            <span>{String(row.component_objective ?? row.analysis_method ?? 'Not reported')}</span>
+            <span>{String(row.post_replay_label_basis ?? row.label_role ?? 'Not reported')}</span>
+            <span>{formatMetricValue(metricNumber(row, 'realized_return'), 4)}</span>
+            <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
+          </div>
+        )) : <div className="empty-chart compact">No concrete operation rows are published for this replay component.</div>}
+      </div>
+      {sortedRows.length > pageSize ? (
+        <div className="data-pagination">
+          <button className="secondary-button" disabled={pageIndex === 0} onClick={() => setPage((current) => Math.max(0, current - 1))} type="button">Previous</button>
+          <span>Showing {pageIndex * pageSize + 1}-{Math.min(sortedRows.length, (pageIndex + 1) * pageSize)} of {sortedRows.length}</span>
+          <button className="secondary-button" disabled={pageIndex >= pageCount - 1} onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} type="button">Next</button>
+        </div>
+      ) : null}
+    </>
   );
 }
 

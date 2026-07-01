@@ -280,6 +280,7 @@ Visible content should include:
 - per-layer method context: M01 context-state diagnostics, M02 target selection/rank/tradability, M03 event pressure, M04 underlying action labels, and M05 option-expression/contract-path labels;
 - separate trigger coverage from reviewed outcome rows, especially for continuous context layers such as M01 and M03 where the layer should run at every replay timestamp but only selected paths carry outcome labels;
 - effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, and best-available post-replay label;
+- paginated focused ledgers so large replay row sets are browsable without truncating the table to the first visible page;
 - current review runs publish one scored M01-M05 layer row per replay decision per layer; `effective_trace_unscored` is retained only as a legacy fallback for older artifacts without dedicated layer review rows;
 - explicit exclusion of M06 residual-event governance from the layer-decision correctness scope;
 - clear separation between point-in-time decision evidence and future-return/counterfactual labels.
