@@ -755,11 +755,11 @@ The existing replay review summary exposed attribution counts such as `miss_attr
 Replay Decisions consumes the `review_runs[].replay_decisions_m01_m05` projection from `model_group_replay_review_summary` as its primary page contract:
 
 - macro mode renders five separate layer chapters, one each for M01 through M05; each chapter compares model groups for that layer using effective decision count, scored decision count, coverage count, acceptable rate, harmful-error rate, missed-good rate, mean regret, mean impact, and evidence status;
-- micro mode keeps the same five layer chapters for one model group; each chapter owns its layer cards, charts, summary table, and effective layer-decision ledger with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, best-available post-replay label, and candidate scope;
+- micro mode keeps the same five layer chapters for one model group; each chapter owns its layer cards, charts, summary table, and effective layer-decision ledger with timestamp, target, scoring status, correctness class when published, acceptability class when published, regret when published, impact when published, cause family, failure type, chosen decision or observed state, best-available post-replay label when the layer owns an outcome-labelled action, and candidate scope;
 - current post-replay review runs must publish dedicated M01-M05 `layer_review_rows`; one replay decision expands to one row per included layer, so a complete run has `decision_row_count * 5` layer review rows;
 - M06 is explicitly listed as excluded from the Replay Decisions layer-quality contract;
 - future returns remain post-replay labels only and must not be presented as decision-time inputs;
-- `effective_trace_unscored` is only a legacy fallback for older review runs that predate published `layer_review_rows`, not the accepted current state for M01-M03.
+- M01 and M03 may publish diagnostic rows without scored correctness when no layer-specific best-available context/event-state alternative is present. They must not be marked correct or incorrect merely because downstream M04/M05 outcomes are known.
 
 ### Consequences
 
@@ -828,9 +828,9 @@ Chentong clarified that Replay Decisions and Replay Operations can share selecto
 
 Replay Decisions publishes M01-M05 rows with layer-specific methods:
 
-- M01 reviews point-in-time background/context state quality from context diagnostics.
+- M01 reviews point-in-time background/context state diagnostics; without a layer-specific scored context alternative it remains diagnostic-only rather than correct/incorrect.
 - M02 reviews same-timestamp target selection, rank, direction, and tradability.
-- M03 reviews event pressure and risk-state diagnostics available at decision time.
+- M03 reviews event pressure and risk-state diagnostics available at decision time; without a layer-specific scored event-state alternative it remains diagnostic-only rather than correct/incorrect.
 - M04 reviews underlying action quality with post-replay directional labels.
 - M05 reviews option-expression quality, selected contract path, and fill/return consistency.
 

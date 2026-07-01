@@ -44,7 +44,6 @@ const MODEL_READINESS = 'model_readiness_summary';
 const MODEL_PROMOTION_POSTURE = 'model_promotion_posture_summary';
 const MODEL_GROUP_REPLAY_REVIEW = 'model_group_replay_review_summary';
 const EXECUTION_RUNTIME_STATUS = 'execution_realtime_trading_runtime_status';
-const REPLAY_DECISION_ALL_LAYERS = 'all_m01_m05';
 const REPLAY_DECISION_LAYER_ORDER = [
   'model_01_background_context',
   'model_02_target_state',
@@ -84,7 +83,6 @@ const REPLAY_DECISION_LAYER_NOTES: Record<string, { title: string; role: string;
     failure: 'Expression, contract, or execution choice turned an acceptable thesis into a harmful realized outcome.',
   },
 };
-const REPLAY_OPERATION_ALL_COMPONENTS = 'all_c01_c07';
 const REPLAY_OPERATION_COMPONENT_ORDER = [
   'component_01_intake',
   'component_02_entry',
@@ -4008,74 +4006,11 @@ function replayLayerComparisonRows(runs: Array<Record<string, unknown>>) {
 
 type ReplayLayerComparisonRow = ReturnType<typeof replayLayerComparisonRows>[number];
 
-function replayLayerSummaryCount(summary: Record<string, unknown>, countKey: string, rateKey: string): number {
-  const direct = metricNumber(summary, countKey);
-  if (direct !== null) return direct;
-  const rate = metricNumber(summary, rateKey);
-  const denominator = metricNumber(summary, 'effective_decision_count') ?? metricNumber(summary, 'coverage_row_count');
-  return rate !== null && denominator !== null ? rate * denominator : 0;
-}
-
-function replayLayerWeightedMean(summaries: Array<Record<string, unknown>>, meanKey: string, countKey: string): number | null {
-  let total = 0;
-  let count = 0;
-  summaries.forEach((summary) => {
-    const mean = metricNumber(summary, meanKey);
-    if (mean === null) return;
-    const weight = metricNumber(summary, countKey)
-      ?? metricNumber(summary, 'effective_decision_count')
-      ?? metricNumber(summary, 'coverage_row_count')
-      ?? 0;
-    if (weight <= 0) return;
-    total += mean * weight;
-    count += weight;
-  });
-  return count ? total / count : null;
-}
-
-function replayDecisionLayerAggregateRows(runs: Array<Record<string, unknown>>): ReplayLayerComparisonRow[] {
-  return runs.map((run, runIndex) => {
-    const summaries = replayDecisionLayerSummaryRows(run);
-    const effectiveDecisionCount = summaries.reduce((total, summary) => total + (metricNumber(summary, 'effective_decision_count') ?? 0), 0);
-    const coverageRowCount = summaries.reduce((total, summary) => total + (metricNumber(summary, 'coverage_row_count') ?? 0), 0);
-    const correctCount = summaries.reduce((total, summary) => total + replayLayerSummaryCount(summary, 'correct_count', 'correct_rate'), 0);
-    const acceptableCount = summaries.reduce((total, summary) => total + replayLayerSummaryCount(summary, 'acceptable_count', 'acceptable_rate'), 0);
-    const incorrectCount = summaries.reduce((total, summary) => total + replayLayerSummaryCount(summary, 'incorrect_count', 'incorrect_rate'), 0);
-    const harmfulErrorCount = summaries.reduce((total, summary) => total + replayLayerSummaryCount(summary, 'harmful_error_count', 'harmful_error_rate'), 0);
-    const missedGoodCount = summaries.reduce((total, summary) => total + replayLayerSummaryCount(summary, 'missed_good_count', 'missed_good_rate'), 0);
-    const statuses = [...new Set(summaries.map((summary) => String(summary.evidence_status ?? 'not_published')))];
-    const sourceGapCodes = [...new Set(summaries.flatMap((summary) => Array.isArray(summary.source_gap_codes) ? summary.source_gap_codes.map((item) => String(item)) : []))];
-    return {
-      id: `${replayReviewRunId(run, runIndex)}-${REPLAY_DECISION_ALL_LAYERS}`,
-      runLabel: replayReviewRunLabel(run, runIndex),
-      layerId: REPLAY_DECISION_ALL_LAYERS,
-      layerLabel: 'All M01-M05',
-      layerShortLabel: 'All',
-      metricFamily: 'all_replay_decision_layers',
-      analysisMethod: 'weighted_layer_quality_summary',
-      labelRole: 'mixed_layer_outcome_labels',
-      evidenceStatus: statuses.length === 1 ? statuses[0] : 'mixed',
-      effectiveDecisionCount,
-      coverageRowCount,
-      correctRate: effectiveDecisionCount ? correctCount / effectiveDecisionCount : null,
-      acceptableRate: effectiveDecisionCount ? acceptableCount / effectiveDecisionCount : null,
-      incorrectRate: effectiveDecisionCount ? incorrectCount / effectiveDecisionCount : null,
-      harmfulErrorRate: effectiveDecisionCount ? harmfulErrorCount / effectiveDecisionCount : null,
-      missedGoodRate: effectiveDecisionCount ? missedGoodCount / effectiveDecisionCount : null,
-      meanRegret: replayLayerWeightedMean(summaries, 'mean_regret_to_best_available', 'regret_value_count'),
-      meanImpact: replayLayerWeightedMean(summaries, 'mean_impact_normalized_severity_score', 'impact_value_count'),
-      sourceGapCodes,
-    };
-  });
-}
-
 function replayLayerRowsForLayer(runs: Array<Record<string, unknown>>, layerId: string): ReplayLayerComparisonRow[] {
-  if (layerId === REPLAY_DECISION_ALL_LAYERS) return replayDecisionLayerAggregateRows(runs);
   return replayLayerComparisonRows(runs).filter((row) => row.layerId === layerId);
 }
 
 function replayLayerDefinition(runs: Array<Record<string, unknown>>, layerId: string): { layerId: string; layerLabel: string } {
-  if (layerId === REPLAY_DECISION_ALL_LAYERS) return { layerId, layerLabel: 'All M01-M05' };
   const row = replayLayerRowsForLayer(runs, layerId)[0];
   return { layerId, layerLabel: row?.layerLabel ?? REPLAY_DECISION_LAYER_NOTES[layerId]?.title ?? startCase(layerId) };
 }
@@ -4091,7 +4026,7 @@ function ReplayLayerTabs({
 }) {
   return (
     <section className="replay-layer-tabs" aria-label="Replay decision model layers">
-      {[REPLAY_DECISION_ALL_LAYERS, ...REPLAY_DECISION_LAYER_ORDER].map((layerId) => {
+      {REPLAY_DECISION_LAYER_ORDER.map((layerId) => {
         const { layerLabel } = replayLayerDefinition(runs, layerId);
         const count = replayLayerRowsForLayer(runs, layerId).reduce((total, row) => total + (row.effectiveDecisionCount ?? 0), 0);
         return (
@@ -4132,7 +4067,6 @@ function replayLayerMetricSeries(
 }
 
 function replayDecisionRowsForLayer(run: Record<string, unknown> | null, layerId: string): Array<Record<string, unknown>> {
-  if (run && layerId === REPLAY_DECISION_ALL_LAYERS) return replayDecisionRows(run);
   return run ? replayDecisionRows(run).filter((row) => String(row.layer_id ?? '') === layerId) : [];
 }
 
@@ -4301,12 +4235,10 @@ function replayOperationComponentIdForRow(row: Record<string, unknown>): string 
 }
 
 function replayOperationRowsForComponent(run: Record<string, unknown> | null, componentId: string): Array<Record<string, unknown>> {
-  if (run && componentId === REPLAY_OPERATION_ALL_COMPONENTS) return replayOperationRows(run);
   return run ? replayOperationRows(run).filter((row) => replayOperationComponentIdForRow(row) === componentId) : [];
 }
 
 function replayOperationMetricRowsForComponent(run: Record<string, unknown> | null, componentId: string): Array<Record<string, unknown>> {
-  if (run && componentId === REPLAY_OPERATION_ALL_COMPONENTS) return replayOperationMetricRows(run);
   return run ? replayOperationMetricRows(run).filter((row) => replayOperationComponentIdForRow(row) === componentId) : [];
 }
 
@@ -4432,58 +4364,6 @@ function replayOperationDistinctCount(rows: Array<Record<string, unknown>>, key:
 }
 
 function replayOperationComponentRows(runs: Array<Record<string, unknown>>, componentId: string) {
-  if (componentId === REPLAY_OPERATION_ALL_COMPONENTS) {
-    return runs.map((run, runIndex) => {
-      const rows = replayOperationRows(run);
-      const metricRows = replayOperationMetricRows(run);
-      const reviewedRows = metricNumber(replayReviewDecision(run), 'row_count') ?? rows.length;
-      const firstLimitRows = rows.filter((row) => {
-        const correctness = String(row.component_correctness_class ?? '').toLowerCase();
-        const regret = metricNumber(row, 'regret_to_best_available');
-        return correctness === 'incorrect' || (regret !== null && regret > 0);
-      }).length;
-      const blockedRows = rows.filter((row) => {
-        const status = searchText(row.operation_status, row.block_reason);
-        return status.includes('block') || status.includes('drop') || status.includes('reject');
-      }).length;
-      const statuses = [...new Set(REPLAY_OPERATION_COMPONENT_ORDER.map((id) => replayOperationComponentSummary(run, id))
-        .map((summary) => String(summary?.evidence_status ?? 'not_published')))];
-      return {
-        id: `${replayReviewRunId(run, runIndex)}-${REPLAY_OPERATION_ALL_COMPONENTS}`,
-        run,
-        runLabel: replayReviewRunLabel(run, runIndex),
-        componentId,
-        componentLabel: 'All C01-C07',
-        evidenceStatus: statuses.length === 1 ? statuses[0] : 'mixed',
-        reviewedRows,
-        inputRows: rows.length,
-        outputRows: rows.filter((row) => String(row.output_ref ?? row.output_summary ?? '').trim()).length,
-        blockedRows,
-        eligibleRows: rows.filter((row) => metricNumber(row, 'realized_return') !== null || metricNumber(row, 'regret_to_best_available') !== null).length,
-        firstLimitRows,
-        gapRows: firstLimitRows,
-        metricRows: metricRows.length,
-        dataGapMetrics: metricRows.filter((row) => String(row.availability_status ?? '').toLowerCase().includes('gap')).length,
-        computedMetrics: metricRows.filter((row) => String(row.availability_status ?? '').toLowerCase().includes('computed')).length,
-        notApplicableMetrics: metricRows.filter((row) => String(row.availability_status ?? '').toLowerCase().includes('not_applicable')).length,
-        sampleRows: rows.length,
-        gapRate: rows.length ? firstLimitRows / rows.length : null,
-        meanRegret: replayOperationMean(rows, 'regret_to_best_available'),
-        meanImpact: replayOperationMean(rows, 'impact_normalized_severity_score'),
-        meanReturn: replayOperationMean(rows, 'realized_return'),
-        hitRate: rows.length ? rows.filter((row) => String(row.component_correctness_class ?? '').toLowerCase() === 'correct').length / rows.length : null,
-        tailLossCount: rows.filter((row) => {
-          const realized = metricNumber(row, 'realized_return');
-          return realized !== null && realized < 0;
-        }).length,
-        causeFamilyCount: replayOperationDistinctCount(rows, 'cause_family'),
-        failureTypeCount: replayOperationDistinctCount(rows, 'failure_type'),
-        topMechanism: replayOperationMechanismLabel(rows),
-        applicabilityStatus: 'all_components',
-        interpretationStatus: 'aggregated_component_action_rows',
-      };
-    });
-  }
   return runs.map((run, runIndex) => {
     const summary = replayOperationComponentSummary(run, componentId);
     const rows = replayOperationRowsForComponent(run, componentId);
@@ -5283,7 +5163,7 @@ function ReplayLayerSection({
           <MetricCard label="Mean Impact" value={formatMetricValue(focusedSummary.meanImpact, 4)} hint="Normalized severity where published" />
         </div>
       ) : null}
-      {focusedRun && layerId !== REPLAY_DECISION_ALL_LAYERS ? <ReplayStandardDecisionDiagnostics run={focusedRun} layerId={layerId} /> : null}
+      {focusedRun ? <ReplayStandardDecisionDiagnostics run={focusedRun} layerId={layerId} /> : null}
       {focusedRun ? <ReplayLayerFocusTrendCharts rows={ledgerRows} /> : <ReplayLayerQualityCharts rows={rows} />}
       <div className="replay-table-panel">
         <ReplayLayerQualityTable rows={rows} />
@@ -5664,7 +5544,7 @@ function ReplayDecisionsView({
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeLayerId, setActiveLayerId] = useState(REPLAY_DECISION_ALL_LAYERS);
+  const [activeLayerId, setActiveLayerId] = useState(REPLAY_DECISION_LAYER_ORDER[0]);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
@@ -5710,7 +5590,7 @@ function ReplayOperationComponentTabs({
 }) {
   return (
     <section className="replay-layer-tabs replay-operation-tabs" aria-label="Replay operation components">
-      {[REPLAY_OPERATION_ALL_COMPONENTS, ...REPLAY_OPERATION_COMPONENT_ORDER].map((componentId) => {
+      {REPLAY_OPERATION_COMPONENT_ORDER.map((componentId) => {
         const note = REPLAY_OPERATION_COMPONENT_NOTES[componentId];
         const count = replayOperationComponentRows(runs, componentId).reduce((total, row) => total + (row.inputRows ?? 0), 0);
         return (
@@ -5720,7 +5600,7 @@ function ReplayOperationComponentTabs({
             onClick={() => onChange(componentId)}
             type="button"
           >
-            <span>{componentId === REPLAY_OPERATION_ALL_COMPONENTS ? 'All C01-C07' : note?.title ?? startCase(componentId)}</span>
+            <span>{note?.title ?? startCase(componentId)}</span>
             <small>{formatMetricValue(count, 0)} input rows</small>
           </button>
         );
@@ -5914,7 +5794,7 @@ function ReplayOperationComponentSection({
   const note = REPLAY_OPERATION_COMPONENT_NOTES[componentId];
   return (
     <section className="panel replay-layer-section replay-operation-section">
-      <div className="panel-heading">{componentId === REPLAY_OPERATION_ALL_COMPONENTS ? 'All C01-C07' : note?.title ?? startCase(componentId)}</div>
+      <div className="panel-heading">{note?.title ?? startCase(componentId)}</div>
       {note ? (
         <div className="replay-layer-intro">
           <strong>{note.role}</strong>
@@ -5960,7 +5840,7 @@ function ReplayOperationsView({
   const versionIds = versions.map((version, index) => versionStableId(version, index));
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeComponentId, setActiveComponentId] = useState(REPLAY_OPERATION_ALL_COMPONENTS);
+  const [activeComponentId, setActiveComponentId] = useState(REPLAY_OPERATION_COMPONENT_ORDER[0]);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
