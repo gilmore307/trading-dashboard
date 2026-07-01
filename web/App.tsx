@@ -3281,13 +3281,16 @@ function replayVersionPerformanceSummary(version: ModelGroupPromotionVersionPayl
     decisionRows: metricNumber(decisionScope, 'decision_row_count') ?? metricNumber(version.metrics, 'decision_row_count'),
     filledCount: metricNumber(decisionScope, 'filled_count'),
     selectedTargets: metricNumber(decisionScope, 'selected_target_count'),
-    grossPnl: metricNumber(targetPerformance, 'gross_pnl_total'),
-    grossReturnOnUsedNotional: metricNumber(targetPerformance, 'gross_return_on_used_notional'),
+    grossPnl: metricNumber(targetPerformance, 'capital_constrained_pnl_total') ?? metricNumber(targetPerformance, 'gross_pnl_total'),
+    grossReturnOnUsedNotional: metricNumber(targetPerformance, 'capital_constrained_return_on_initial_capital') ?? metricNumber(targetPerformance, 'return_on_initial_capital'),
+    turnoverPnl: metricNumber(targetPerformance, 'turnover_gross_pnl_total'),
+    turnoverReturnOnNotional: metricNumber(targetPerformance, 'turnover_return_on_used_notional') ?? metricNumber(targetPerformance, 'gross_return_on_used_notional'),
     meanRealizedReturn: metricNumber(targetPerformance, 'mean_realized_return'),
     medianRealizedReturn: metricNumber(targetPerformance, 'median_realized_return'),
     positiveReturnCount: metricNumber(targetPerformance, 'positive_return_count'),
     negativeReturnCount: metricNumber(targetPerformance, 'negative_return_count'),
-    plannedNotional: metricNumber(targetPerformance, 'planned_notional_total'),
+    plannedNotional: metricNumber(targetPerformance, 'turnover_planned_notional_total') ?? metricNumber(targetPerformance, 'planned_notional_total'),
+    finalEquity: metricNumber(targetPerformance, 'capital_constrained_final_equity_usd'),
     selectedTop10: metricNumber(stockSelection, 'selected_top_10_count'),
     scoredCandidates: metricNumber(stockSelection, 'scored_candidate_row_count'),
     replacementTriggered: metricNumber(replacementReview, 'replacement_triggered_count'),
@@ -4722,12 +4725,12 @@ function SelectedReplayTradingDiagnostics({ row }: { row: ReplayPerformanceSumma
         <MetricCard label="Calmar / Beta" value={`${formatMetricValue(row.calmar, 3)} / ${formatMetricValue(row.beta, 3)}`} hint="Drawdown-adjusted return and benchmark beta" />
         <MetricCard label="Win rate" value={row.winRate === null ? 'Not reported' : `${(row.winRate * 100).toFixed(1)}%`} hint="Share of positive monthly replay slices" />
         <MetricCard label="Filled decisions" value={formatMetricValue(row.filledCount, 0)} hint={`${formatMetricValue(row.decisionRows, 0)} decision rows`} />
-        <MetricCard label="Gross PnL" value={formatMetricValue(row.grossPnl, 2)} hint="Matched post-replay performance PnL" />
+        <MetricCard label="Account PnL" value={formatMetricValue(row.grossPnl, 2)} hint="Capital-constrained replay PnL from the matched post-replay review" />
         <MetricCard label="Mean / median trade" value={`${formatMetricValue(row.meanRealizedReturn, 4)} / ${formatMetricValue(row.medianRealizedReturn, 4)}`} hint="Filled trade realized-return center" />
         <MetricCard label="Positive / negative" value={`${formatMetricValue(row.positiveReturnCount, 0)} / ${formatMetricValue(row.negativeReturnCount, 0)}`} hint="Filled trade outcome counts" />
         <MetricCard label="Mean regret" value={formatMetricValue(row.meanRegretToBest, 4)} hint="Average gap to best available action" />
         <MetricCard label="Scored candidates" value={formatMetricValue(row.scoredCandidates, 0)} hint={`${formatMetricValue(row.selectedTargets, 0)} selected targets`} />
-        <MetricCard label="Planned notional" value={formatMetricValue(row.plannedNotional, 2)} hint="Total planned notional in matched review evidence" />
+        <MetricCard label="Final equity" value={formatMetricValue(row.finalEquity, 2)} hint="Capital-constrained replay equity after reviewed decisions" />
         <MetricCard label="Replacement trigger/block" value={`${formatMetricValue(row.replacementTriggered, 0)} / ${formatMetricValue(row.replacementBlocked, 0)}`} hint="Replacement review outcomes" />
       </div>
     </section>
@@ -4805,8 +4808,8 @@ function ReplayPerformanceFocusCharts({
           items={[
             { label: 'Mean Trade', value: formatMetricValue(row.meanRealizedReturn, 4), hint: 'Average filled trade realized return' },
             { label: 'Median Trade', value: formatMetricValue(row.medianRealizedReturn, 4), hint: 'Median filled trade realized return' },
-            { label: 'Gross PnL', value: formatMetricValue(row.grossPnl, 2), hint: 'Matched replay review gross PnL' },
-            { label: 'Return/Notional', value: formatMetricValue(row.grossReturnOnUsedNotional, 4), hint: 'Gross return on used notional' },
+            { label: 'Account PnL', value: formatMetricValue(row.grossPnl, 2), hint: 'Capital-constrained replay PnL' },
+            { label: 'Return/Capital', value: formatMetricValue(row.grossReturnOnUsedNotional, 4), hint: 'Capital-constrained return on initial capital' },
           ]}
         />
         <ReplayFocusMetricCards
@@ -4831,7 +4834,8 @@ function ReplayPerformanceFocusCharts({
           items={[
             { label: 'Months', value: formatMetricValue(row.months, 0), hint: 'Replay months with return slices' },
             { label: 'Review Evidence', value: row.reviewAvailable ? 'Available' : 'Missing', hint: 'Post-replay review matched to this model group' },
-            { label: 'Planned Notional', value: formatMetricValue(row.plannedNotional, 2), hint: 'Total planned notional in matched review evidence' },
+            { label: 'Turnover Notional', value: formatMetricValue(row.plannedNotional, 2), hint: 'Total planned slot notional across reviewed decisions' },
+            { label: 'Turnover PnL', value: formatMetricValue(row.turnoverPnl, 2), hint: 'Diagnostic turnover PnL before account-equity constraint' },
             { label: 'Mean Regret', value: formatMetricValue(row.meanRegretToBest, 4), hint: 'Average gap to best available action' },
           ]}
         />
