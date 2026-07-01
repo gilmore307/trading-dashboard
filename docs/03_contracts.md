@@ -41,6 +41,10 @@ Implementation changes are acceptable only when they:
 - use accepted contracts for cross-repository handoffs;
 - route new shared names through `trading-manager/scripts/`.
 
+### Time Display
+
+Owner-facing dashboard timestamps must be formatted in `America/New_York` and include the calendar year. Source/read-model timestamps may remain UTC, but browser locale or client timezone must not control displayed project times.
+
 ## Verification Commands
 
 Current implementation verification:

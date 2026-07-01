@@ -5445,7 +5445,7 @@ function ReplayDecisionDetailTable({
             </div>
             {displayedRows.length ? displayedRows.map((row, index) => (
               <div className="replay-table-row" key={`${row.timestamp ?? 'row'}-${index}`}>
-                <strong>{row.timestamp ?? 'No timestamp'}</strong>
+                <strong>{row.timestamp ? formatTimestamp(row.timestamp) : 'No timestamp'}</strong>
                 <span>{row.decision_id ?? `Row ${row.row_index ?? index + 1}`}</span>
                 <span>{row.target_ref ?? 'Unknown'}</span>
                 <span>{startCase(row.instrument_type ?? 'unknown')}</span>

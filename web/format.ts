@@ -8,6 +8,8 @@ export function formatTimestamp(value?: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return value;
   return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
     month: 'short',
     day: '2-digit',
     hour: '2-digit',
