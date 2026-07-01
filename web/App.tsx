@@ -5719,7 +5719,7 @@ function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unkno
 }
 
 function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
-  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'operation_action' | 'operation_status' | 'input_summary' | 'output_summary' | 'block_reason' | 'realized_return' | 'regret_to_best_available'>>({ key: 'decision_time', direction: 'asc' });
+  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'operation_action' | 'operation_status' | 'trigger_state' | 'component_correctness_class' | 'input_summary' | 'output_summary' | 'block_reason' | 'realized_return' | 'regret_to_best_available'>>({ key: 'decision_time', direction: 'asc' });
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   return (
     <div className="replay-table replay-operation-ledger-table">
@@ -5728,11 +5728,16 @@ function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, u
         <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
         <SortableHeader label="Operation" column="operation_action" sort={sort} onSort={setSort} />
         <SortableHeader label="Status" column="operation_status" sort={sort} onSort={setSort} />
+        <SortableHeader label="Trigger" column="trigger_state" sort={sort} onSort={setSort} />
         <SortableHeader label="Input" column="input_summary" sort={sort} onSort={setSort} />
         <SortableHeader label="Output" column="output_summary" sort={sort} onSort={setSort} />
+        <span>Feasible Set</span>
+        <span>Chosen</span>
+        <span>Best Ex-Post</span>
+        <SortableHeader label="Correctness" column="component_correctness_class" sort={sort} onSort={setSort} />
         <SortableHeader label="Block / Reason" column="block_reason" sort={sort} onSort={setSort} />
-        <span>Method</span>
-        <span>Evidence</span>
+        <span>Objective</span>
+        <span>Label Basis</span>
         <SortableHeader label="Return" column="realized_return" sort={sort} onSort={setSort} defaultDirection="desc" />
         <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
       </div>
@@ -5742,11 +5747,16 @@ function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, u
           <span>{String(row.target_symbol ?? 'Not reported')}</span>
           <span>{startCase(String(row.operation_action ?? 'not_reported'))}</span>
           <span>{startCase(String(row.operation_status ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.trigger_state ?? 'not_reported'))}</span>
           <span>{String(row.input_summary ?? row.input_ref ?? 'Not reported')}</span>
           <span>{String(row.output_summary ?? row.output_ref ?? 'Not reported')}</span>
+          <span>{String(row.pit_feasible_action_set_ref ?? 'Not reported')}</span>
+          <span>{String(row.chosen_action ?? 'Not reported')}</span>
+          <span>{String(row.best_available_action_by_future_outcome ?? 'Not reported')}</span>
+          <span>{startCase(String(row.component_correctness_class ?? 'not_reported'))}</span>
           <span>{String(row.block_reason ?? '') || 'None'}</span>
-          <span>{startCase(String(row.analysis_method ?? 'not_reported'))}</span>
-          <span>{startCase(String(row.evidence_role ?? 'not_reported'))}</span>
+          <span>{String(row.component_objective ?? row.analysis_method ?? 'Not reported')}</span>
+          <span>{String(row.post_replay_label_basis ?? row.label_role ?? 'Not reported')}</span>
           <span>{formatMetricValue(metricNumber(row, 'realized_return'), 4)}</span>
           <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
         </div>

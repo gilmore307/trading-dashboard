@@ -335,8 +335,8 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-operation-component-table .replay-table-row { grid-template-columns: minmax(170px, 1fr) minmax(140px, .75fr) repeat(9, minmax(82px, .45fr)) minmax(180px, .9fr); }
 .replay-layer-ledger-table { min-width: 1760px; }
 .replay-layer-ledger-table .replay-table-row { grid-template-columns: minmax(190px, .9fr) minmax(86px, .42fr) minmax(94px, .44fr) minmax(96px, .45fr) minmax(76px, .36fr) minmax(76px, .36fr) minmax(150px, .68fr) minmax(180px, .78fr) minmax(310px, 1.35fr) minmax(190px, .8fr) minmax(300px, 1.25fr); align-items: start; }
-.replay-operation-ledger-table { min-width: 2140px; }
-.replay-operation-ledger-table .replay-table-row { grid-template-columns: minmax(170px, .75fr) minmax(110px, .48fr) minmax(210px, .9fr) minmax(160px, .68fr) minmax(300px, 1.25fr) minmax(300px, 1.25fr) minmax(220px, .95fr) minmax(260px, 1.1fr) minmax(230px, 1fr) minmax(92px, .38fr) minmax(92px, .38fr); align-items: start; }
+.replay-operation-ledger-table { min-width: 3240px; }
+.replay-operation-ledger-table .replay-table-row { grid-template-columns: minmax(170px, .65fr) minmax(110px, .4fr) minmax(210px, .78fr) minmax(160px, .58fr) minmax(180px, .62fr) minmax(300px, 1.05fr) minmax(300px, 1.05fr) minmax(230px, .82fr) minmax(190px, .68fr) minmax(210px, .74fr) minmax(170px, .58fr) minmax(220px, .76fr) minmax(300px, 1.02fr) minmax(340px, 1.12fr) minmax(92px, .32fr) minmax(92px, .32fr); align-items: start; }
 .replay-trend-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .replay-trend-panel { min-height: 315px; }
 .replay-trend-note { display: flex; justify-content: space-between; gap: 12px; color: #7c8ea5; font-size: 12px; font-weight: 800; }
