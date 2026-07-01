@@ -278,7 +278,7 @@ Visible content should include:
 - in macro mode, each layer chapter compares model groups with that layer's summary table, layer-specific analysis method, and charts for the metrics that match that layer's role;
 - in focused mode, each layer chapter shows that model group's layer cards, charts, summary table, and effective decision ledger;
 - per-layer method context: M01 context-state diagnostics, M02 target selection/rank/tradability, M03 event pressure, M04 underlying action labels, and M05 option-expression/contract-path labels;
-- separate trigger coverage from reviewed outcome rows, especially for continuous context layers such as M01 and M03 where the layer should run at every replay timestamp but only selected paths carry outcome labels;
+- separate trigger coverage, full candidate-trace rows, and reached-layer outcome rows; M01-M03 must not be filtered by downstream selected trades, while M04-M05 can use only rows that reached those layers;
 - effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, and best-available post-replay label;
 - paginated focused ledgers so large replay row sets are browsable without truncating the table to the first visible page;
 - current review runs publish one scored M01-M05 layer row per replay decision per layer; `effective_trace_unscored` is retained only as a legacy fallback for older artifacts without dedicated layer review rows;

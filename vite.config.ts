@@ -11,6 +11,7 @@ const DEFAULT_STORAGE_ROOT = '/root/projects/trading-storage/storage';
 const SAFE_CONTRACT_RE = /^[a-z][a-z0-9_]*$/;
 const SAFE_TABLE_ID_RE = /^[a-z][a-z0-9_]*$/;
 const SAFE_MONTH_RE = /^\d{4}-\d{2}$/;
+const SAFE_LAYER_ID_RE = /^model_0[1-5]_[a-z0-9_]+$/;
 const DASHBOARD_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const REGISTERED_READ_MODELS = new Set([
   'current_system_status_summary',
@@ -366,6 +367,63 @@ function replayDecisionRows(versionId: string, month: string): Record<string, un
   };
 }
 
+function comparableValue(value: unknown): string | number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  return String(value ?? '');
+}
+
+function replayLayerDecisionRows(query: {
+  reviewRunId: string;
+  layerId: string;
+  offset: number;
+  limit: number;
+  sort: string;
+  direction: string;
+}): Record<string, unknown> {
+  if (!query.reviewRunId || query.reviewRunId.length > 200 || !SAFE_LAYER_ID_RE.test(query.layerId)) {
+    throw new Error('invalid replay layer decision query');
+  }
+  const snapshot = readLatestPayload('model_group_replay_review_summary');
+  const chartPayload = snapshot.payload.chart_payload as Record<string, unknown>;
+  const runs = Array.isArray(chartPayload.review_runs)
+    ? chartPayload.review_runs.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+    : [];
+  const run = runs.find((item) => String(item.review_run_id ?? '') === query.reviewRunId);
+  if (!run) throw new Error('unknown replay review run');
+  const sourceRefs = recordValue(run, 'source_refs');
+  const rowsPath = safeStoragePath(recordValue(sourceRefs, 'layer_review_rows_ref'));
+  const rows: Record<string, unknown>[] = [];
+  for (const line of fs.readFileSync(rowsPath, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const row = JSON.parse(line) as Record<string, unknown>;
+    if (String(row.layer_id ?? '') === query.layerId) rows.push(row);
+  }
+  const sortKey = /^[a-zA-Z0-9_]+$/.test(query.sort) ? query.sort : 'decision_time';
+  const direction = query.direction === 'desc' ? 'desc' : 'asc';
+  rows.sort((left, right) => {
+    const leftValue = comparableValue(left[sortKey]);
+    const rightValue = comparableValue(right[sortKey]);
+    const result = typeof leftValue === 'number' && typeof rightValue === 'number'
+      ? leftValue - rightValue
+      : String(leftValue).localeCompare(String(rightValue));
+    return direction === 'asc' ? result : -result;
+  });
+  const offset = Number.isFinite(query.offset) ? Math.max(0, query.offset) : 0;
+  const limit = Number.isFinite(query.limit) ? Math.max(1, Math.min(250, query.limit)) : 50;
+  return {
+    review_run_id: query.reviewRunId,
+    layer_id: query.layerId,
+    total_rows: rows.length,
+    returned_rows: Math.max(0, Math.min(limit, rows.length - offset)),
+    offset,
+    limit,
+    sort: sortKey,
+    direction,
+    rows: rows.slice(offset, offset + limit),
+  };
+}
+
 function sendReadModelSnapshot(socket: WebSocket, contractType: string): void {
   try {
     const snapshot = readLatestPayload(contractType);
@@ -560,6 +618,26 @@ function attachDashboardReplayDecisionApi(server: ViteDevServer | PreviewServer)
   });
 }
 
+function attachDashboardReplayLayerDecisionApi(server: ViteDevServer | PreviewServer): void {
+  server.middlewares.use('/api/replay-layer-decisions', (req, res) => {
+    const parsedUrl = new URL(req.url ?? '/', 'http://localhost');
+    void (async () => {
+      try {
+        sendJson(res, 200, replayLayerDecisionRows({
+          reviewRunId: parsedUrl.searchParams.get('review_run_id') ?? '',
+          layerId: parsedUrl.searchParams.get('layer_id') ?? '',
+          offset: Number(parsedUrl.searchParams.get('offset') ?? '0'),
+          limit: Number(parsedUrl.searchParams.get('limit') ?? '50'),
+          sort: parsedUrl.searchParams.get('sort') ?? 'decision_time',
+          direction: parsedUrl.searchParams.get('direction') ?? 'asc',
+        }));
+      } catch (error) {
+        sendJson(res, 404, { error: error instanceof Error ? error.message : 'replay layer decision rows unavailable' });
+      }
+    })();
+  });
+}
+
 function dashboardReadModelApi(): Plugin {
   return {
     name: 'dashboard-read-model-api',
@@ -567,11 +645,13 @@ function dashboardReadModelApi(): Plugin {
       attachDashboardReadModelApi(server);
       attachDashboardDataTableApi(server);
       attachDashboardReplayDecisionApi(server);
+      attachDashboardReplayLayerDecisionApi(server);
     },
     configurePreviewServer(server) {
       attachDashboardReadModelApi(server);
       attachDashboardDataTableApi(server);
       attachDashboardReplayDecisionApi(server);
+      attachDashboardReplayLayerDecisionApi(server);
     },
   };
 }

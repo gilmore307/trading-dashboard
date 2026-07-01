@@ -5086,17 +5086,74 @@ function ReplayLayerFocusTrendCharts({ rows }: { rows: Array<Record<string, unkn
   );
 }
 
-function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
+type ReplayLayerDecisionPagePayload = {
+  total_rows?: number;
+  returned_rows?: number;
+  offset?: number;
+  limit?: number;
+  rows?: Array<Record<string, unknown>>;
+  error?: string;
+};
+
+function ReplayLayerDecisionLedger({
+  fallbackRows,
+  focusedRun,
+  layerId,
+}: {
+  fallbackRows: Array<Record<string, unknown>>;
+  focusedRun: Record<string, unknown> | null;
+  layerId: string;
+}) {
   const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type'>>({ key: 'decision_time', direction: 'asc' });
   const [page, setPage] = useState(0);
-  const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   const pageSize = 50;
-  const pageCount = Math.max(1, Math.ceil(sortedRows.length / pageSize));
+  const [payload, setPayload] = useState<ReplayLayerDecisionPagePayload | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const reviewRunId = String(focusedRun?.review_run_id ?? '');
+  useEffect(() => setPage(0), [reviewRunId, layerId, sort.key, sort.direction]);
+  useEffect(() => {
+    if (!reviewRunId) {
+      setPayload(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams({
+      review_run_id: reviewRunId,
+      layer_id: layerId,
+      offset: String(page * pageSize),
+      limit: String(pageSize),
+      sort: sort.key,
+      direction: sort.direction,
+    });
+    fetch(`/api/replay-layer-decisions?${params.toString()}`, { signal: controller.signal })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null) as ReplayLayerDecisionPagePayload | null;
+        if (!response.ok) throw new Error(body?.error ?? 'Replay layer decision rows unavailable');
+        setPayload(body);
+      })
+      .catch((caught: unknown) => {
+        if ((caught as { name?: string })?.name !== 'AbortError') setError(caught instanceof Error ? caught.message : 'Replay layer decision rows unavailable');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [reviewRunId, layerId, page, sort.key, sort.direction]);
+  const fallbackSortedRows = [...fallbackRows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
+  const serverRows = payload?.rows?.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object' && !Array.isArray(row)) ?? null;
+  const totalRows = typeof payload?.total_rows === 'number' ? payload.total_rows : fallbackSortedRows.length;
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
   const pageIndex = Math.min(page, pageCount - 1);
-  const pageRows = sortedRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
-  useEffect(() => setPage(0), [rows.length, sort.key, sort.direction]);
+  const pageRows = serverRows ?? fallbackSortedRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
   return (
     <>
+      {loading ? <div className="empty-chart compact">Loading full layer rows</div> : null}
+      {error ? <div className="empty-chart compact">{error}</div> : null}
       <div className="replay-table replay-layer-ledger-table">
         <div className="replay-table-row replay-table-head">
           <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
@@ -5125,10 +5182,10 @@ function ReplayLayerDecisionLedger({ rows }: { rows: Array<Record<string, unknow
           </div>
         )) : <div className="empty-chart compact">No effective layer decision rows are published for this layer.</div>}
       </div>
-      {sortedRows.length > pageSize ? (
+      {totalRows > pageSize ? (
         <div className="data-pagination">
           <button className="secondary-button" disabled={pageIndex === 0} onClick={() => setPage((current) => Math.max(0, current - 1))} type="button">Previous</button>
-          <span>Showing {pageIndex * pageSize + 1}-{Math.min(sortedRows.length, (pageIndex + 1) * pageSize)} of {sortedRows.length}</span>
+          <span>Showing {pageIndex * pageSize + 1}-{Math.min(totalRows, (pageIndex + 1) * pageSize)} of {totalRows}</span>
           <button className="secondary-button" disabled={pageIndex >= pageCount - 1} onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))} type="button">Next</button>
         </div>
       ) : null}
@@ -5163,7 +5220,7 @@ function ReplayLayerSection({
       {focusedSummary ? (
         <div className="metric-grid replay-layer-metrics">
           <MetricCard label="Triggered" value={formatMetricValue(focusedSummary.coverageRowCount, 0)} hint="Continuous replay timestamp coverage where published" />
-          <MetricCard label="Reviewed" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint="Outcome-labeled selected-path rows" />
+          <MetricCard label="Layer Rows" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint="Rows in this layer's own review denominator" />
           <MetricCard label="Correct %" value={focusedSummary.correctRate === null ? 'Not reported' : `${(focusedSummary.correctRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
           <MetricCard label="Acceptable %" value={focusedSummary.acceptableRate === null ? 'Not reported' : `${(focusedSummary.acceptableRate * 100).toFixed(1)}%`} hint={startCase(focusedSummary.evidenceStatus)} />
           <MetricCard label="Incorrect %" value={focusedSummary.incorrectRate === null ? 'Not reported' : `${(focusedSummary.incorrectRate * 100).toFixed(1)}%`} hint="Post-replay correctness label" />
@@ -5180,7 +5237,7 @@ function ReplayLayerSection({
       </div>
       {focusedRun ? (
         <div className="replay-table-panel">
-          <ReplayLayerDecisionLedger rows={ledgerRows} />
+          <ReplayLayerDecisionLedger fallbackRows={ledgerRows} focusedRun={focusedRun} layerId={layerId} />
         </div>
       ) : null}
     </section>
