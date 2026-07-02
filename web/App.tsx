@@ -66,9 +66,9 @@ const REPLAY_DECISION_LAYER_NOTES: Record<string, { title: string; role: string;
   },
   model_03_event_state: {
     title: 'M03 Event State',
-    role: 'Summarizes event pressure, uncertainty, and path risk around the selected target and date.',
-    review: 'Audit whether event-state pressure should have allowed, blocked, or downweighted the path.',
-    failure: 'Event risk was underweighted, or normal event state was overblocked.',
+    role: 'Reviews point-in-time event-pool observations, one event per row.',
+    review: 'Audit whether each event-state observation should have allowed, blocked, or downweighted later paths.',
+    failure: 'Event risk was underweighted, overblocked, or missing from the event-state pool.',
   },
   model_04_unified_decision: {
     title: 'M04 Unified Decision',
@@ -5150,7 +5150,7 @@ function ReplayLayerDecisionLedger({
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
   const pageIndex = Math.min(page, pageCount - 1);
   const pageRows = serverRows ?? fallbackSortedRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
-  const showTargetColumn = layerId !== 'model_01_background_context';
+  const showTargetColumn = layerId !== 'model_01_background_context' && layerId !== 'model_03_event_state';
   return (
     <>
       {loading ? <div className="empty-chart compact">Loading full layer rows</div> : null}
