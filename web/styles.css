@@ -335,6 +335,8 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-operation-component-table .replay-table-row { grid-template-columns: minmax(170px, 1fr) minmax(140px, .75fr) repeat(9, minmax(82px, .45fr)) minmax(180px, .9fr); }
 .replay-layer-ledger-table { min-width: 1650px; }
 .replay-layer-ledger-table .replay-table-row { grid-template-columns: minmax(190px, .82fr) minmax(86px, .34fr) minmax(94px, .36fr) minmax(96px, .38fr) minmax(76px, .3fr) minmax(76px, .3fr) minmax(150px, .58fr) minmax(180px, .66fr) minmax(280px, 1fr) minmax(190px, .68fr); align-items: start; }
+.replay-layer-ledger-table.m01-context-ledger-table { min-width: 1560px; }
+.replay-layer-ledger-table.m01-context-ledger-table .replay-table-row { grid-template-columns: minmax(190px, .82fr) minmax(94px, .36fr) minmax(96px, .38fr) minmax(76px, .3fr) minmax(76px, .3fr) minmax(150px, .58fr) minmax(180px, .66fr) minmax(280px, 1fr) minmax(190px, .68fr); }
 .replay-operation-ledger-table { min-width: 3130px; }
 .replay-operation-ledger-table .replay-table-row { grid-template-columns: minmax(170px, .55fr) minmax(110px, .34fr) minmax(210px, .68fr) minmax(160px, .5fr) minmax(180px, .54fr) minmax(300px, .95fr) minmax(300px, .95fr) minmax(230px, .74fr) minmax(190px, .6fr) minmax(210px, .66fr) minmax(170px, .5fr) minmax(220px, .68fr) minmax(300px, .9fr) minmax(340px, 1fr) minmax(92px, .28fr) minmax(92px, .28fr); align-items: start; }
 .replay-trend-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

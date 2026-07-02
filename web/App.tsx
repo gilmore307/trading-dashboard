@@ -5150,14 +5150,15 @@ function ReplayLayerDecisionLedger({
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
   const pageIndex = Math.min(page, pageCount - 1);
   const pageRows = serverRows ?? fallbackSortedRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
+  const showTargetColumn = layerId !== 'model_01_background_context';
   return (
     <>
       {loading ? <div className="empty-chart compact">Loading full layer rows</div> : null}
       {error ? <div className="empty-chart compact">{error}</div> : null}
-      <div className="replay-table replay-layer-ledger-table">
+      <div className={`replay-table replay-layer-ledger-table${showTargetColumn ? '' : ' m01-context-ledger-table'}`}>
         <div className="replay-table-row replay-table-head">
           <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
-          <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
+          {showTargetColumn ? <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} /> : null}
           <SortableHeader label="Correct" column="correctness_class" sort={sort} onSort={setSort} />
           <SortableHeader label="Acceptable" column="acceptability_class" sort={sort} onSort={setSort} />
           <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
@@ -5170,7 +5171,7 @@ function ReplayLayerDecisionLedger({
         {pageRows.length ? pageRows.map((row, index) => (
           <div className="replay-table-row" key={`${String(row.review_id ?? index)}-${String(row.layer_id ?? '')}`}>
             <strong>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not reported'}</strong>
-            <span>{String(row.target_symbol ?? 'Not reported')}</span>
+            {showTargetColumn ? <span>{String(row.target_symbol ?? 'Not reported')}</span> : null}
             <span>{startCase(String(row.correctness_class ?? 'indeterminate'))}</span>
             <span>{startCase(String(row.acceptability_class ?? 'indeterminate'))}</span>
             <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
