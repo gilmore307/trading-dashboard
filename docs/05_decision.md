@@ -770,7 +770,7 @@ Replay Decisions consumes the `review_runs[].replay_decisions_m01_m05` projectio
 ## D035 - Replay pages use layer tabs, focus trends, and replay attribution
 
 Date: 2026-06-30
-Status: Accepted
+Status: Superseded by D040
 
 ### Context
 
@@ -790,6 +790,28 @@ The page formerly named Models is now Model Groups. The page formerly named Even
 - The `temporal_explorer_summary` contract may remain available as an internal/source read model, but it is not the current public Events page contract.
 - Replay Decisions table columns must wrap within fixed-width tracks so long decision, cause, or evidence text does not overflow the page.
 - Future replay-review producers should add event refs to failed replay rows before the dashboard can draw event-linked attribution timelines.
+
+## D040 - Event Families owns event ontology and Replay Attribution owns pure failure attribution
+
+Date: 2026-07-03
+Status: Accepted
+
+### Context
+
+Chentong clarified that event classification should be multi-level: coarse categories support first-pass analysis when an event is new or under-studied, while sufficiently researched events should move toward more specific dossiers. This event ontology is a Historical Models concern because it explains the event universe and M03 event-risk state inputs. Chentong also clarified that Replay Attribution should not be bound to events: replay failures may be caused by events, model mechanism defects, data gaps, execution mechanics, option-expression issues, or other replay/process failures.
+
+### Decision
+
+Add Event Families as a Historical Models page backed by `temporal_explorer_summary`. The page renders a selectable event-family tree from coarse event/source categories down to mechanism, submechanism, and specific event dossiers when fields are published. Selecting any hierarchy level filters the event ledger below it, including event metadata and published risk/impact fields.
+
+Replay Attribution remains backed by `model_group_replay_review_summary`, but it is now pure model/replay failure attribution. It uses the same replay attribution version selector pattern as the other replay pages, then renders failure statistics and all published concrete failure rows. Event-related failures are only one possible cause family, not the organizing principle of the page.
+
+### Consequences
+
+- D035's event-linkage-centered Replay Attribution route is superseded.
+- `temporal_explorer_summary` is again a public dashboard subscription, but its public role is Event Families / event ontology, not the old chart-first Temporal Explorer page.
+- Replay Attribution must not claim event causality or event coverage as a page-level readiness goal.
+- Future M03 producers should populate hierarchy fields and specific dossier identifiers so the Event Families page can refine coarse groups into specific event-analysis files over time.
 
 ## D036 - Replay Operations mirrors Replay Decisions by component
 

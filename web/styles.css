@@ -344,9 +344,21 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-trend-note { display: flex; justify-content: space-between; gap: 12px; color: #7c8ea5; font-size: 12px; font-weight: 800; }
 .replay-trend-chart .low-sample-point { fill: #fbbf24; }
 .replay-attribution-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.replay-event-linkage-panel { border-color: rgba(251, 191, 36, .20); }
-.replay-attribution-table { min-width: 1360px; }
-.replay-attribution-table .replay-table-row { grid-template-columns: minmax(150px, .75fr) minmax(190px, .9fr) minmax(90px, .42fr) minmax(160px, .72fr) minmax(180px, .82fr) minmax(220px, 1fr) minmax(190px, .86fr) minmax(82px, .38fr) minmax(126px, .58fr); align-items: start; }
+.replay-attribution-table { min-width: 1740px; }
+.replay-attribution-table .replay-table-row { grid-template-columns: minmax(160px, .7fr) minmax(180px, .72fr) minmax(90px, .34fr) minmax(160px, .62fr) minmax(180px, .7fr) minmax(210px, .82fr) minmax(190px, .76fr) minmax(82px, .32fr) minmax(82px, .32fr) minmax(300px, 1.08fr); align-items: start; }
+.event-ontology-panel { min-width: 0; }
+.event-ontology-tree { max-height: 520px; overflow: auto; display: grid; align-content: start; gap: 8px; padding: 4px; }
+.event-ontology-node { display: grid; gap: 8px; }
+.event-ontology-children { display: grid; gap: 8px; margin-left: calc(var(--event-node-depth, 0) * 10px + 18px); padding-left: 12px; border-left: 1px solid rgba(148, 163, 184, .14); }
+.event-ontology-button { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, .14); border-radius: 12px; background: rgba(15, 23, 42, .48); color: #dbeafe; text-align: left; cursor: pointer; }
+.event-ontology-button:hover { border-color: rgba(125, 211, 252, .38); background: rgba(14, 165, 233, .10); }
+.event-ontology-button.selected { border-color: rgba(52, 211, 153, .48); background: rgba(6, 78, 59, .20); }
+.event-ontology-button span { min-width: 0; display: grid; gap: 4px; }
+.event-ontology-button strong { overflow-wrap: anywhere; color: #f8fbff; }
+.event-ontology-button small { color: #7c8ea5; font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
+.event-ontology-button em { min-width: 42px; padding: 6px 8px; border-radius: 999px; background: rgba(125, 211, 252, .12); color: #7dd3fc; font-style: normal; font-size: 12px; font-weight: 900; text-align: center; }
+.event-family-ledger-table { min-width: 1500px; }
+.event-family-ledger-table .replay-table-row { grid-template-columns: minmax(180px, .8fr) minmax(320px, 1.35fr) minmax(230px, .92fr) minmax(200px, .78fr) minmax(220px, .86fr) minmax(82px, .32fr) minmax(82px, .32fr); align-items: start; }
 .replay-event-summary-table strong { display: flex; align-items: center; gap: 8px; }
 .replay-event-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
 .replay-event-summary-table { min-width: 1080px; }

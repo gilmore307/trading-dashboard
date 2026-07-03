@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   CandlestickSeries,
   ColorType,
@@ -34,6 +34,9 @@ import type {
   ModelPromotionPostureChartPayload,
   RealtimeSignalChartPayload,
   StageCoveragePayload,
+  TemporalExplorerChartPayload,
+  TemporalExplorerEventFamilyPayload,
+  TemporalExplorerEventPayload,
 } from './types';
 import './styles.css';
 
@@ -43,6 +46,7 @@ const REALTIME_SIGNAL_SUMMARY = 'realtime_signal_summary';
 const MODEL_READINESS = 'model_readiness_summary';
 const MODEL_PROMOTION_POSTURE = 'model_promotion_posture_summary';
 const MODEL_GROUP_REPLAY_REVIEW = 'model_group_replay_review_summary';
+const TEMPORAL_EXPLORER_SUMMARY = 'temporal_explorer_summary';
 const EXECUTION_RUNTIME_STATUS = 'execution_realtime_trading_runtime_status';
 const REPLAY_DECISION_LAYER_ORDER = [
   'model_01_background_context',
@@ -195,7 +199,7 @@ const DASHBOARD_DATA_DISPLAY_ORDER: Record<string, number> = {
   trading_economics_calendar_source_events: 310,
 };
 
-type ViewId = 'status' | 'tasks' | 'data' | 'diagnostics' | 'models' | 'replay' | 'registry' | 'realtime' | 'performance' | 'decisions' | 'events';
+type ViewId = 'status' | 'tasks' | 'data' | 'diagnostics' | 'models' | 'eventFamilies' | 'replay' | 'registry' | 'realtime' | 'performance' | 'decisions' | 'events';
 
 type NavItem = { id: ViewId; label: string };
 
@@ -214,6 +218,7 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
       { id: 'tasks', label: 'Tasks' },
       { id: 'data', label: 'Data' },
       { id: 'models', label: 'Model Groups' },
+      { id: 'eventFamilies', label: 'Event Families' },
       { id: 'performance', label: 'Replay Performance' },
       { id: 'decisions', label: 'Replay Decisions' },
       { id: 'replay', label: 'Replay Operations' },
@@ -245,6 +250,10 @@ function isModelPromotionPostureChart(payload: DashboardReadModel['chart_payload
 }
 
 function isExecutionRuntimeChart(payload: DashboardReadModel['chart_payload']): payload is ExecutionRuntimeStatusChartPayload {
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
+}
+
+function isTemporalExplorerChart(payload: DashboardReadModel['chart_payload']): payload is TemporalExplorerChartPayload {
   return typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 }
 
@@ -5959,10 +5968,275 @@ function ReplayOperationsView({
   );
 }
 
+type EventOntologyLevel = 'root' | 'source' | 'domain' | 'mechanism' | 'submechanism' | 'dossier';
+
+type EventOntologyNode = {
+  id: string;
+  label: string;
+  level: EventOntologyLevel;
+  depth: number;
+  count: number;
+  riskScore: number | null;
+  path: string[];
+  children: EventOntologyNode[];
+};
+
+type EventLedgerRow = TemporalExplorerEventPayload & {
+  sourceCategory: string;
+  domainNode: string;
+  mechanismFamily: string;
+  submechanismFamily: string;
+  dossier: string;
+  riskScore: number | null;
+  impactScore: number | null;
+};
+
+const EVENT_LEVEL_LABELS: Record<EventOntologyLevel, string> = {
+  root: 'Event Universe',
+  source: 'Source',
+  domain: 'Domain',
+  mechanism: 'Mechanism',
+  submechanism: 'Submechanism',
+  dossier: 'Specific Dossier',
+};
+
+function recordString(record: Record<string, unknown>, keys: string[], fallback: string): string {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return fallback;
+}
+
+function recordNumber(record: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = metricNumber(record, key);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function normalizeTreePart(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/gu, '_').replace(/^_+|_+$/gu, '') || 'unknown';
+}
+
+function eventLedgerRows(chart: TemporalExplorerChartPayload): EventLedgerRow[] {
+  return (chart.events ?? []).map((event) => {
+    const record = event as unknown as Record<string, unknown>;
+    const family = recordString(record, ['family_label', 'family_id', 'event_type'], 'Unclassified event family');
+    const sourceCategory = recordString(record, ['source_category', 'source_kind', 'source_name', 'lane'], 'Unclassified source');
+    const domainNode = recordString(record, ['domain_node', 'event_domain', 'topic_domain', 'market_state', 'event_type'], 'General domain');
+    const mechanismFamily = recordString(record, ['mechanism_family', 'family_label', 'family_id', 'event_type'], family);
+    const submechanismFamily = recordString(record, ['submechanism_family', 'event_subtype', 'event_type'], mechanismFamily);
+    const symbol = recordString(record, ['symbol', 'primary_entity', 'target_symbol'], '');
+    const dossierFallback = symbol ? `${symbol} ${mechanismFamily}` : recordString(record, ['title', 'event_id'], 'Specific event dossier');
+    return {
+      ...event,
+      sourceCategory,
+      domainNode,
+      mechanismFamily,
+      submechanismFamily,
+      dossier: recordString(record, ['specific_event_dossier', 'specific_event_dossier_id', 'dossier_id'], dossierFallback),
+      riskScore: recordNumber(record, ['event_risk_score', 'risk_score', 'risk_intensity_score', 'uncertainty_score']),
+      impactScore: recordNumber(record, ['impact_score', 'impact_normalized_severity_score', 'event_impact_score']),
+    };
+  });
+}
+
+function averageNumeric(values: Array<number | null>): number | null {
+  const valid = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  if (!valid.length) return null;
+  return valid.reduce((sum, value) => sum + value, 0) / valid.length;
+}
+
+function nodeMatchesEvent(node: EventOntologyNode, event: EventLedgerRow): boolean {
+  if (node.level === 'root') return true;
+  const eventPath = [
+    event.sourceCategory,
+    event.domainNode,
+    event.mechanismFamily,
+    event.submechanismFamily,
+    event.dossier,
+  ].map(normalizeTreePart);
+  return node.path.every((part, index) => eventPath[index] === part);
+}
+
+function buildEventOntologyTree(events: EventLedgerRow[], families: TemporalExplorerEventFamilyPayload[]): EventOntologyNode {
+  const root: EventOntologyNode = {
+    id: 'root',
+    label: 'Event Universe',
+    level: 'root',
+    depth: 0,
+    count: events.length || families.reduce((sum, family) => sum + (family.occurrence_count ?? 0), 0),
+    riskScore: averageNumeric(events.map((event) => event.riskScore)),
+    path: [],
+    children: [],
+  };
+  const byKey = new Map<string, EventOntologyNode>([['root', root]]);
+  const ensureNode = (parent: EventOntologyNode, label: string, level: EventOntologyLevel): EventOntologyNode => {
+    const path = [...parent.path, normalizeTreePart(label)];
+    const id = path.join('/');
+    const existing = byKey.get(id);
+    if (existing) return existing;
+    const node: EventOntologyNode = {
+      id,
+      label: label || EVENT_LEVEL_LABELS[level],
+      level,
+      depth: parent.depth + 1,
+      count: 0,
+      riskScore: null,
+      path,
+      children: [],
+    };
+    byKey.set(id, node);
+    parent.children.push(node);
+    parent.children.sort((left, right) => right.count - left.count || left.label.localeCompare(right.label));
+    return node;
+  };
+  for (const event of events) {
+    const labels: Array<[string, EventOntologyLevel]> = [
+      [event.sourceCategory, 'source'],
+      [event.domainNode, 'domain'],
+      [event.mechanismFamily, 'mechanism'],
+      [event.submechanismFamily, 'submechanism'],
+      [event.dossier, 'dossier'],
+    ];
+    let parent = root;
+    for (const [label, level] of labels) {
+      parent = ensureNode(parent, label, level);
+      parent.count += 1;
+      parent.riskScore = averageNumeric([parent.riskScore, event.riskScore].filter((value): value is number => value !== null));
+    }
+  }
+  if (!events.length) {
+    for (const family of families) {
+      const type = family.event_type || 'Unclassified source';
+      const source = ensureNode(root, type, 'source');
+      const mechanism = ensureNode(source, family.family_label || family.family_id, 'mechanism');
+      source.count += family.occurrence_count ?? 0;
+      mechanism.count += family.occurrence_count ?? 0;
+    }
+  }
+  return root;
+}
+
+function findEventNode(node: EventOntologyNode, id: string): EventOntologyNode | null {
+  if (node.id === id) return node;
+  for (const child of node.children) {
+    const found = findEventNode(child, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function EventOntologyTree({
+  node,
+  selectedId,
+  onSelect,
+}: {
+  node: EventOntologyNode;
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="event-ontology-node" style={{ '--event-node-depth': node.depth } as CSSProperties}>
+      <button
+        className={selectedId === node.id ? 'event-ontology-button selected' : 'event-ontology-button'}
+        type="button"
+        onClick={() => onSelect(node.id)}
+      >
+        <span>
+          <strong>{node.label}</strong>
+          <small>{EVENT_LEVEL_LABELS[node.level]}</small>
+        </span>
+        <em>{node.count}</em>
+      </button>
+      {node.children.length ? (
+        <div className="event-ontology-children">
+          {node.children.map((child) => (
+            <EventOntologyTree key={child.id} node={child} selectedId={selectedId} onSelect={onSelect} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EventFamilyRowsTable({ rows }: { rows: EventLedgerRow[] }) {
+  const [sort, setSort] = useState<SortState<'event_time' | 'title' | 'mechanismFamily' | 'scope' | 'source_name' | 'riskScore' | 'impactScore'>>({ key: 'event_time', direction: 'desc' });
+  const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
+  return (
+    <div className="replay-table event-family-ledger-table">
+      <div className="replay-table-row replay-table-head">
+        <SortableHeader label="Time" column="event_time" sort={sort} onSort={setSort} />
+        <SortableHeader label="Event" column="title" sort={sort} onSort={setSort} />
+        <SortableHeader label="Mechanism" column="mechanismFamily" sort={sort} onSort={setSort} />
+        <SortableHeader label="Scope" column="scope" sort={sort} onSort={setSort} />
+        <SortableHeader label="Source" column="source_name" sort={sort} onSort={setSort} />
+        <SortableHeader label="Risk" column="riskScore" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Impact" column="impactScore" sort={sort} onSort={setSort} defaultDirection="desc" />
+      </div>
+      {sortedRows.length ? sortedRows.map((row) => (
+        <div className="replay-table-row" key={row.event_id}>
+          <strong>{row.event_time ? formatTimestamp(row.event_time) : 'Not reported'}</strong>
+          <span>{row.title || 'Untitled event'}</span>
+          <span>{row.mechanismFamily}</span>
+          <span>{[row.symbol, row.scope, row.market_state].filter(Boolean).join(' · ') || 'Not reported'}</span>
+          <span>{[row.source_name, row.source_priority, row.status].filter(Boolean).map((item) => startCase(String(item))).join(' · ') || 'Not reported'}</span>
+          <span>{formatMetricValue(row.riskScore, 3)}</span>
+          <span>{formatMetricValue(row.impactScore, 3)}</span>
+        </div>
+      )) : <div className="empty-chart compact">No event rows are published under this ontology node yet.</div>}
+    </div>
+  );
+}
+
+function EventFamiliesView({ temporalChart }: { temporalChart: TemporalExplorerChartPayload }) {
+  const events = eventLedgerRows(temporalChart);
+  const families = temporalChart.event_families ?? [];
+  const tree = useMemo(() => buildEventOntologyTree(events, families), [events, families]);
+  const [selectedId, setSelectedId] = useState('root');
+  const selectedNode = findEventNode(tree, selectedId) ?? tree;
+  const selectedRows = events.filter((event) => nodeMatchesEvent(selectedNode, event));
+  useEffect(() => {
+    if (!findEventNode(tree, selectedId)) setSelectedId('root');
+  }, [selectedId, tree]);
+  return (
+    <section className="replay-view event-families-view">
+      <section className="metric-grid replay-attribution-metrics">
+        <MetricCard label="Event Rows" value={events.length.toFixed(0)} hint="Published point-in-time event rows" />
+        <MetricCard label="Event Families" value={families.length.toFixed(0)} hint="Published event-family summaries" />
+        <MetricCard label="Selected Node" value={selectedNode.label} hint={EVENT_LEVEL_LABELS[selectedNode.level]} />
+        <MetricCard label="Selected Events" value={selectedRows.length.toFixed(0)} hint="Rows covered by the selected hierarchy level" />
+      </section>
+      <section className="panel event-ontology-panel">
+        <div className="panel-heading">Event Family Tree</div>
+        <p className="panel-subtitle">
+          Select a coarse source/domain node or a specific dossier node to inspect the events covered by that ontology level.
+        </p>
+        {tree.children.length ? (
+          <div className="event-ontology-tree">
+            <EventOntologyTree node={tree} selectedId={selectedNode.id} onSelect={setSelectedId} />
+          </div>
+        ) : (
+          <div className="empty-chart compact">No event ontology rows are published yet. The page will populate when the M03 event ledger appears in the read model.</div>
+        )}
+      </section>
+      <section className="panel replay-table-panel">
+        <div className="panel-heading">Events Under {selectedNode.label}</div>
+        <EventFamilyRowsTable rows={selectedRows} />
+      </section>
+    </section>
+  );
+}
+
 function replayAttributionRows(runs: Array<Record<string, unknown>>): ReplayAttributionRow[] {
   return runs.flatMap((run, runIndex) => {
     const decision = replayReviewDecision(run);
-    const sampleRows = nestedArray(decision, 'sample_rows');
+    const failureRows = nestedArray(decision, 'failure_rows');
+    const allFailureRows = nestedArray(decision, 'all_failure_rows');
+    const sampleRows = failureRows.length ? failureRows : allFailureRows.length ? allFailureRows : nestedArray(decision, 'sample_rows');
     return sampleRows.map((row, rowIndex) => ({
       ...row,
       runLabel: replayReviewRunLabel(run, runIndex),
@@ -5971,26 +6245,96 @@ function replayAttributionRows(runs: Array<Record<string, unknown>>): ReplayAttr
   });
 }
 
-function ReplayAttributionView({ replayReviewChart }: { replayReviewChart: ReplayReviewChartPayload }) {
-  const runs = replayReviewRuns(replayReviewChart);
+function ReplayAttributionFailuresTable({ rows }: { rows: ReplayAttributionRow[] }) {
+  const [sort, setSort] = useState<SortState<'runLabel' | 'decision_time' | 'target_symbol' | 'miss_attribution_layer' | 'cause_family' | 'failure_type' | 'first_gap_component' | 'regret_to_best_available' | 'impact_normalized_severity_score'>>({ key: 'decision_time', direction: 'desc' });
+  const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
+  return (
+    <div className="replay-table replay-attribution-table">
+      <div className="replay-table-row replay-table-head">
+        <SortableHeader label="Model Group" column="runLabel" sort={sort} onSort={setSort} />
+        <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
+        <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} />
+        <SortableHeader label="Layer" column="miss_attribution_layer" sort={sort} onSort={setSort} />
+        <SortableHeader label="Cause" column="cause_family" sort={sort} onSort={setSort} />
+        <SortableHeader label="Failure" column="failure_type" sort={sort} onSort={setSort} />
+        <SortableHeader label="First Gap" column="first_gap_component" sort={sort} onSort={setSort} />
+        <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <SortableHeader label="Impact" column="impact_normalized_severity_score" sort={sort} onSort={setSort} defaultDirection="desc" />
+        <span>Details</span>
+      </div>
+      {sortedRows.length ? sortedRows.map((row) => (
+        <div className="replay-table-row" key={String(row.rowKey)}>
+          <strong>{String(row.runLabel)}</strong>
+          <span>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not reported'}</span>
+          <span>{String(row.target_symbol ?? 'Not reported')}</span>
+          <span>{startCase(String(row.miss_attribution_layer ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
+          <span>{startCase(String(row.first_gap_component ?? 'not_reported'))}</span>
+          <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
+          <span>{formatMetricValue(metricNumber(row, 'impact_normalized_severity_score'), 4)}</span>
+          <span>{String(row.failure_detail ?? row.review_note ?? row.reason ?? row.decision_id ?? 'No detail published')}</span>
+        </div>
+      )) : <div className="empty-chart compact">No replay attribution failure rows are published for the selected model groups.</div>}
+    </div>
+  );
+}
+
+function ReplayAttributionView({
+  promotionChart,
+  replayReviewChart,
+}: {
+  promotionChart: ModelPromotionPostureChartPayload;
+  replayReviewChart: ReplayReviewChartPayload;
+}) {
+  const reviewRuns = replayReviewRuns(replayReviewChart);
+  const promotionVersions = groupPromotionVersions({ group_versions: [], layers: [] }, promotionChart);
+  const versions = promotionVersions.length ? promotionVersions : reviewRuns.map(replayReviewRunVersion);
+  const entries = versions.map((version, index) => ({ version, index }));
+  const versionIds = versions.map((version, index) => versionStableId(version, index));
+  const versionKey = versionIds.join('|');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const valid = new Set(versionIds);
+      return current.filter((id) => valid.has(id));
+    });
+  }, [versionKey]);
+  const selectedEntries = entries.filter(({ version, index }) => selectedIds.includes(versionStableId(version, index)));
+  const selectedReviewRuns = selectedEntries
+    .map(({ version }) => replayReviewRunForVersion(version, reviewRuns))
+    .filter((run): run is Record<string, unknown> => Boolean(run));
+  const runs = selectedEntries.length ? selectedReviewRuns : reviewRuns;
+  const focusedRun = selectedEntries.length === 1 ? selectedReviewRuns[0] ?? null : null;
   const causeCounts = aggregateCounts(runs, (run) => countRecord(replayReviewDecision(run), 'cause_family_counts'));
   const failureCounts = aggregateCounts(runs, (run) => countRecord(replayReviewDecision(run), 'failure_type_counts'));
   const layerCounts = aggregateCounts(runs, (run) => countRecord(replayReviewDecision(run), 'miss_attribution_layer_counts'));
   const firstGapCounts = aggregateCounts(runs, (run) => countRecord(replayReviewDecision(run), 'first_gap_component_counts'));
   const totalReviewed = runs.reduce((sum, run) => sum + (metricNumber(replayReviewDecision(run), 'row_count') ?? 0), 0);
-  const eventCandidateCount = runs.reduce((sum, run) => sum + (metricNumber(run, 'event_candidate_count') ?? 0), 0);
-  const sampleRows = replayAttributionRows(runs);
+  const failureRows = replayAttributionRows(runs);
   return (
     <section className="replay-view">
       <ReplaySelectionModePanel
-        mode="summary"
-        summary={`${runs.length} reviewed model groups · ${totalReviewed.toFixed(0)} replay error attribution rows`}
+        mode={focusedRun ? 'focus' : 'summary'}
+        summary={
+          focusedRun
+            ? `Focused on ${compactVersionLabel(selectedEntries[0].version, selectedEntries[0].index)} failure attribution`
+            : selectedEntries.length
+              ? `${selectedEntries.length} selected model groups · ${totalReviewed.toFixed(0)} failure attribution rows`
+              : `${runs.length} reviewed model groups · ${totalReviewed.toFixed(0)} failure attribution rows`
+        }
+        onClear={selectedIds.length ? () => setSelectedIds([]) : undefined}
+      />
+      <ReplayDecisionVersionSelector
+        versions={versions}
+        selectedIds={selectedIds}
+        onChange={setSelectedIds}
       />
       <section className="metric-grid replay-attribution-metrics">
-        <MetricCard label="Reviewed Rows" value={totalReviewed.toFixed(0)} hint="Post-replay error attribution rows" />
-        <MetricCard label="Event Links" value={eventCandidateCount.toFixed(0)} hint={eventCandidateCount ? 'Replay rows with candidate event linkage' : 'No event linkage published yet'} />
-        <MetricCard label="Cause Families" value={Object.keys(causeCounts).length} hint="Distinct replay cause families" />
-        <MetricCard label="Attributed Layers" value={Object.keys(layerCounts).length} hint="Replay miss attribution layers" />
+        <MetricCard label="Failure Rows" value={totalReviewed.toFixed(0)} hint="Post-replay model failure attribution rows" />
+        <MetricCard label="Published Details" value={failureRows.length.toFixed(0)} hint="Concrete failure rows available for inspection" />
+        <MetricCard label="Cause Families" value={Object.keys(causeCounts).length.toFixed(0)} hint="Distinct replay cause families" />
+        <MetricCard label="Attributed Layers" value={Object.keys(layerCounts).length.toFixed(0)} hint="Replay miss attribution layers" />
       </section>
       <div className="replay-chart-grid">
         <MiniMetricBarChart title="Replay Cause Family" series={countSeriesFromRecord(causeCounts)} emptyLabel="No replay cause-family counts published" />
@@ -5998,45 +6342,9 @@ function ReplayAttributionView({ replayReviewChart }: { replayReviewChart: Repla
         <MiniMetricBarChart title="Miss Attribution Layer" series={countSeriesFromRecord(layerCounts)} emptyLabel="No layer-attribution counts published" />
         <MiniMetricBarChart title="First Gap Component" series={countSeriesFromRecord(firstGapCounts)} emptyLabel="No first-gap component counts published" />
       </div>
-      <section className="panel replay-event-linkage-panel">
-        <div className="panel-heading">Event Linkage</div>
-        <p className="panel-subtitle">
-          Replay Attribution is scoped to replay errors. Current review artifacts do not publish event candidate refs, so this page does not claim an event caused any error yet.
-        </p>
-        <div className="metric-grid three">
-          <MetricCard label="Event candidates" value={eventCandidateCount.toFixed(0)} hint="Published on review run metadata" />
-          <MetricCard label="Link status" value={eventCandidateCount ? 'Published' : 'Not published'} hint="Needs event refs on replay review rows" />
-          <MetricCard label="Next evidence" value="Event refs" hint="Attach event candidates to failed replay rows before causal display" />
-        </div>
-      </section>
       <section className="panel replay-table-panel">
-        <div className="panel-heading">Replay Error Samples</div>
-        <div className="replay-table replay-attribution-table">
-          <div className="replay-table-row replay-table-head">
-            <span>Model Group</span>
-            <span>Time</span>
-            <span>Target</span>
-            <span>Layer</span>
-            <span>Cause</span>
-            <span>Failure</span>
-            <span>Gap</span>
-            <span>Regret</span>
-            <span>Event Link</span>
-          </div>
-          {sampleRows.length ? sampleRows.map((row) => (
-            <div className="replay-table-row" key={String(row.rowKey)}>
-              <strong>{String(row.runLabel)}</strong>
-              <span>{String(row.decision_time ?? 'Not reported')}</span>
-              <span>{String(row.target_symbol ?? 'Not reported')}</span>
-              <span>{startCase(String(row.miss_attribution_layer ?? 'not_reported'))}</span>
-              <span>{startCase(String(row.cause_family ?? 'not_reported'))}</span>
-              <span>{startCase(String(row.failure_type ?? 'not_reported'))}</span>
-              <span>{startCase(String(row.first_gap_component ?? 'not_reported'))}</span>
-              <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
-              <span>{row.event_refs || row.event_candidate_count ? 'Published' : 'Not published'}</span>
-            </div>
-          )) : <div className="empty-chart compact">No replay attribution sample rows published.</div>}
-        </div>
+        <div className="panel-heading">All Published Failures</div>
+        <ReplayAttributionFailuresTable rows={failureRows} />
       </section>
     </section>
   );
@@ -7114,6 +7422,7 @@ function PlaceholderView({ title }: { title: string }) {
 function contractForView(view: ViewId): string {
   if (view === 'status' || view === 'data') return CURRENT_SYSTEM_STATUS;
   if (view === 'events') return MODEL_GROUP_REPLAY_REVIEW;
+  if (view === 'eventFamilies') return TEMPORAL_EXPLORER_SUMMARY;
   if (view === 'realtime') return REALTIME_SIGNAL_SUMMARY;
   if (view === 'models') return MODEL_READINESS;
   if (view === 'replay' || view === 'performance' || view === 'decisions') return MODEL_GROUP_REPLAY_REVIEW;
@@ -7127,6 +7436,7 @@ function App() {
   const [modelLayerModel, setModelLayerModel] = useState<DashboardReadModel | null>(null);
   const [modelPromotionModel, setModelPromotionModel] = useState<DashboardReadModel | null>(null);
   const [replayReviewModel, setReplayReviewModel] = useState<DashboardReadModel | null>(null);
+  const [temporalExplorerModel, setTemporalExplorerModel] = useState<DashboardReadModel | null>(null);
   const [executionRuntimeModel, setExecutionRuntimeModel] = useState<DashboardReadModel | null>(null);
   const [readModelErrors, setReadModelErrors] = useState<Record<string, string>>({});
   const [loadingContracts, setLoadingContracts] = useState<Set<string>>(new Set());
@@ -7141,6 +7451,7 @@ function App() {
     if (payload.contract_type === MODEL_READINESS) setModelLayerModel(payload);
     if (payload.contract_type === MODEL_PROMOTION_POSTURE) setModelPromotionModel(payload);
     if (payload.contract_type === MODEL_GROUP_REPLAY_REVIEW) setReplayReviewModel(payload);
+    if (payload.contract_type === TEMPORAL_EXPLORER_SUMMARY) setTemporalExplorerModel(payload);
     if (payload.contract_type === EXECUTION_RUNTIME_STATUS) setExecutionRuntimeModel(payload);
     setReadModelErrors((previous) => {
       const next = { ...previous };
@@ -7191,9 +7502,10 @@ function App() {
     void loadOptionalReadModel(MODEL_READINESS, controller.signal);
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE, controller.signal);
     void loadOptionalReadModel(MODEL_GROUP_REPLAY_REVIEW, controller.signal);
+    void loadOptionalReadModel(TEMPORAL_EXPLORER_SUMMARY, controller.signal);
     const liveContracts = new Set<string>();
     const contracts = [CURRENT_SYSTEM_STATUS, HISTORICAL_TASK_PROGRESS, REALTIME_SIGNAL_SUMMARY, EXECUTION_RUNTIME_STATUS];
-    const optionalContracts = [MODEL_READINESS, MODEL_PROMOTION_POSTURE, MODEL_GROUP_REPLAY_REVIEW];
+    const optionalContracts = [MODEL_READINESS, MODEL_PROMOTION_POSTURE, MODEL_GROUP_REPLAY_REVIEW, TEMPORAL_EXPLORER_SUMMARY];
     const sockets = contracts.map((contractType) => openLatestReadModelSocket(contractType, {
       onSnapshot: (payload) => {
         liveContracts.add(contractType);
@@ -7241,6 +7553,8 @@ function App() {
     ? currentStatusModel
     : activeView === 'events'
       ? replayReviewModel
+    : activeView === 'eventFamilies'
+      ? temporalExplorerModel
     : activeView === 'realtime'
       ? realtimeModel
     : activeView === 'models'
@@ -7279,6 +7593,10 @@ function App() {
     if (!replayReviewModel || !isReplayReviewChart(replayReviewModel.chart_payload)) return {} as ReplayReviewChartPayload;
     return replayReviewModel.chart_payload;
   }, [replayReviewModel]);
+  const temporalExplorerChart = useMemo(() => {
+    if (!temporalExplorerModel || !isTemporalExplorerChart(temporalExplorerModel.chart_payload)) return {} as TemporalExplorerChartPayload;
+    return temporalExplorerModel.chart_payload;
+  }, [temporalExplorerModel]);
 
   const diagnosticItems = useMemo(
     () => collectDiagnosticSummary(currentStatusModel, historicalModel, systemChart, chart),
@@ -7456,7 +7774,8 @@ function App() {
 
   const renderMainView = () => {
     if (activeView === 'status') return renderCurrentStatusView();
-    if (activeView === 'events') return <ReplayAttributionView replayReviewChart={replayReviewChart} />;
+    if (activeView === 'events') return <ReplayAttributionView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
+    if (activeView === 'eventFamilies') return <EventFamiliesView temporalChart={temporalExplorerChart} />;
     if (activeView === 'data') return <DataExplorerView />;
     if (activeView === 'performance') return <ReplayPerformanceView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
     if (activeView === 'decisions') return <ReplayDecisionsView promotionChart={modelPromotionChart} replayReviewChart={replayReviewChart} />;
@@ -7508,8 +7827,8 @@ function App() {
     );
   };
 
-  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'events' ? 'Replay Attribution' : activeView === 'models' ? 'Model Groups' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
-  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'events' ? 'Historical Replay / Attribution' : activeView === 'models' ? 'Historical Models / Model Groups' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
+  const pageTitle = activeView === 'status' ? 'Status' : activeView === 'data' ? 'Data' : activeView === 'events' ? 'Replay Attribution' : activeView === 'eventFamilies' ? 'Event Families' : activeView === 'models' ? 'Model Groups' : activeView === 'performance' ? 'Replay Performance' : activeView === 'decisions' ? 'Replay Decisions' : activeView === 'replay' ? 'Replay Operations' : startCase(activeView);
+  const pageEyebrow = activeView === 'status' ? 'System / Status' : activeView === 'data' ? 'Data + Model Outputs / Dashboard' : activeView === 'events' ? 'Historical Replay / Attribution' : activeView === 'eventFamilies' ? 'Historical Models / Event Ontology' : activeView === 'models' ? 'Historical Models / Model Groups' : activeView === 'performance' ? 'Historical Replay / Performance' : activeView === 'decisions' ? 'Historical Replay / Decisions' : activeView === 'replay' ? 'Historical Replay / Operations' : `${startCase(activeView)} / Dashboard`;
 
   const refreshAll = () => {
     void loadReadModel(CURRENT_SYSTEM_STATUS);
@@ -7519,6 +7838,7 @@ function App() {
     void loadOptionalReadModel(MODEL_READINESS);
     void loadOptionalReadModel(MODEL_PROMOTION_POSTURE);
     void loadOptionalReadModel(MODEL_GROUP_REPLAY_REVIEW);
+    void loadOptionalReadModel(TEMPORAL_EXPLORER_SUMMARY);
   };
 
   return (

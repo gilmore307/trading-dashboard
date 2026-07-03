@@ -20,7 +20,7 @@ It is not an internal maintenance console, artifact explorer, registry editor, o
 The left sidebar is grouped by user intent:
 
 - General — Status, Definitions, and Diagnostics.
-- Historical Models — Tasks, Data, Model Groups, Replay Performance, Replay Decisions, Replay Operations, and Replay Attribution.
+- Historical Models — Tasks, Data, Model Groups, Event Families, Replay Performance, Replay Decisions, Replay Operations, and Replay Attribution.
 - Realtime — Realtime Signals.
 
 ## Page Contracts
@@ -210,6 +210,29 @@ Hidden by default:
 - internal request/control-plane records;
 - implementation logs.
 
+### Event Families
+
+Purpose: answer “How is the event universe organized, and which events live under each event-family hierarchy level?”
+
+Visible content should include:
+
+- a multi-level event-family tree from coarse source/domain nodes down to mechanism, submechanism, and specific event dossiers when published;
+- selectable tree nodes that filter the event ledger to all events covered by that hierarchy level;
+- event rows with time, title, family/mechanism, scope, source/status, and published risk or impact scores;
+- explicit empty states when the event ledger or ontology fields have not been published yet.
+
+Preferred visuals:
+
+- compact selectable hierarchy tree;
+- metric cards for event rows, event families, selected node, and selected-node row count;
+- dense event ledger table under the tree.
+
+Hidden by default:
+
+- raw event payloads;
+- provider credentials or source internals;
+- event-family promotion controls, model mutation controls, or account/trading decisions.
+
 ### Replay Performance
 
 Purpose: answer “How did the historical replay perform economically?”
@@ -295,27 +318,25 @@ Hidden by default:
 
 ### Replay Attribution
 
-Purpose: answer “Which replay errors occurred, where were they attributed in the replay/model stack, and are any of them linked to event evidence?”
+Purpose: answer “Which model or replay failures occurred, and where were they attributed in the replay/model stack?”
 
 Visible content should include:
 
+- replay attribution version selector with the same selector format used by the replay page family;
 - replay error attribution counts by cause family, failure type, miss-attribution layer, and first-gap component;
-- replay error sample rows with model group, decision time, target, layer, cause, failure, gap, regret, and event-link status;
-- event-linkage readiness that clearly separates "event refs published" from "no event refs published";
-- event-candidate counts only when replay review rows publish them.
+- failure statistics for the selected model groups;
+- all published concrete failure rows with model group, decision time, target, layer, cause, failure, first gap, regret, impact, and detail.
 
 Preferred visuals:
 
 - attribution distribution charts;
-- event-link readiness cards;
-- dense replay error sample table;
-- future event-linked error timelines after review rows publish event refs.
+- dense replay failure table.
 
 Hidden by default:
 
-- raw event payloads unless needed for a focused replay-error explanation;
-- event promotion or pool mutation controls;
-- event-timeline exploration that is not tied to replay error attribution.
+- event ontology browsing, which belongs under Event Families;
+- raw event payloads unless needed for a focused diagnostic drilldown;
+- event promotion or pool mutation controls.
 
 ### Realtime Signals
 
