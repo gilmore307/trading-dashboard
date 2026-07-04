@@ -271,7 +271,7 @@ function replayDecisionTrace(row: Record<string, unknown>): Record<string, unkno
     ),
     replayTraceStep(
       'model_05_alpha_confidence',
-      'M05 Alpha Confidence',
+      'M04 Alpha Confidence',
       nestedValue(diagnosticRecord, 'model_05_alpha_confidence', 'alpha_gate_status'),
       recordValue(diagnosticRecord, 'model_05_alpha_confidence') as Record<string, unknown> ?? {},
     ),

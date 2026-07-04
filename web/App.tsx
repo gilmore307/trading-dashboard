@@ -960,6 +960,7 @@ function taskStateOptionRank(value: string): number {
 }
 
 function taskOptionRank(value: string): number {
+  if (value === 'model_05_alpha_confidence') return 45;
   const layerMatch = /^layer_(\d{2})_/u.exec(value);
   if (layerMatch) return Number(layerMatch[1]) * 10;
   const modelMatch = /^model_(\d{2})(?:[_.]|$)/u.exec(value);
