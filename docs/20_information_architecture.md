@@ -168,7 +168,7 @@ Subpages:
 - M02 — Sector Context
 - M02 — Target State Vector
 - M03 event-state — Event Failure Risk
-- M04 decision — Alpha Confidence
+- M04 — Unified Decision, including the alpha-confidence checkpoint
 - M04 risk — Dynamic Risk Policy
 - M04 decision — Position Projection
 - M04 decision — Underlying Action
