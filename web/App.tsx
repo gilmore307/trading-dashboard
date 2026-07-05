@@ -789,15 +789,6 @@ function taskLiveActivityByKind(task: HistoricalTaskTimelineItemPayload): Histor
       activity_details: taskLiveDetails(task, 'Reviews selection, direction, stock path, option expression, execution, and settlement.'),
     };
   }
-  if (taskId === 'model_group.model_06_event_risk_governor') {
-    return {
-      ...base,
-      activity_type: 'event_risk_governor',
-      activity_label: `Event Governor ${status}`,
-      activity_summary: [`Event Governor ${status}`, taskLivePeriod(task), 'checking residual event risk'].join(' · '),
-      activity_details: taskLiveDetails(task, 'Consumes post-replay review evidence before event-risk governance.'),
-    };
-  }
   if (taskId === 'model_group.evaluation' || stageType === 'model_evaluation') {
     return {
       ...base,
@@ -933,7 +924,6 @@ const WORK_TYPE_FILTER_ORDER: Record<string, number> = {
   model_generation: 30,
   replay: 40,
   replay_review: 42,
-  model_06_event_risk_governor: 45,
   model_evaluation: 40,
   promotion_review: 50,
   promotion_review_preparation: 50,
@@ -967,7 +957,6 @@ function taskOptionRank(value: string): number {
   if (modelMatch) return Number(modelMatch[1]) * 10;
   if (value === 'model_group.replay') return 1000;
   if (value === 'model_group.replay_review') return 1010;
-  if (value === 'model_group.model_06_event_risk_governor') return 1020;
   if (value === 'model_group.evaluation') return 1030;
   if (value === 'model_group.promotion') return 1040;
   if (value === 'model_group.maintenance') return 1050;

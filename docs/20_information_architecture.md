@@ -173,7 +173,7 @@ Subpages:
 - M04 decision — Position Projection
 - M04 decision — Underlying Action
 - M05 — Trading Guidance / Option Expression
-- M06 — Event Risk Governor / Event Intelligence Overlay
+- M03 — Event State / Event Effect Model
 
 The model-group page owns:
 
@@ -305,7 +305,7 @@ Visible content should include:
 - effective layer-decision ledger rows with timestamp, target, scoring status, correctness class, acceptability class, regret, impact, cause family, failure type, chosen decision, and best-available post-replay label;
 - paginated focused ledgers so large replay row sets are browsable without truncating the table to the first visible page;
 - current review runs publish one scored M01-M05 layer row per replay decision per layer; `effective_trace_unscored` is retained only as a legacy fallback for older artifacts without dedicated layer review rows;
-- explicit exclusion of M06 residual-event governance from the layer-decision correctness scope;
+- no separate post-replay component-review layer in the model-layer decision correctness scope;
 - clear separation between point-in-time decision evidence and future-return/counterfactual labels.
 
 Hidden by default:

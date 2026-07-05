@@ -101,13 +101,13 @@ The dashboard calendar route is a Temporal Explorer, not a raw event browser. Th
 
 ### Decision
 
-Add a read-only Temporal Explorer page backed by `temporal_explorer_summary` from `trading-storage`. The primary chart is a TradingView-style K-line surface over the current model-group replay window: selected ETF, selected frame, M06 accepted event markers, and visible tick labels all live around the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, symbol/frame selectors, and selected-unit event details. The former narrow event-calendar summary is no longer part of the public dashboard surface.
+Add a read-only Temporal Explorer page backed by `temporal_explorer_summary` from `trading-storage`. The primary chart is a TradingView-style K-line surface over the current model-group replay window: selected ETF, selected frame, M03 event-effect accepted event markers, and visible tick labels all live around the primary chart axis. The page also shows lower subcharts such as volume and accepted-event density, symbol/frame selectors, and selected-unit event details. The former narrow event-calendar summary is no longer part of the public dashboard surface.
 
 ### Consequences
 
 - Dashboard Temporal Explorer reads `/api/read-models/temporal_explorer_summary/latest` and `/ws/read-models/temporal_explorer_summary/latest`.
 - The page performs no provider calls, SQL writes, model activation, broker execution, or account mutation.
-- Early closes, chart bars, replay state, model event markers, and M06 accepted event markers remain visible gaps until accepted source producers populate them. Scheduled events, event results, and news index rows may be populated substrate tables without becoming chart markers.
+- Early closes, chart bars, replay state, model event markers, and M03 event-effect accepted event markers remain visible gaps until accepted source producers populate them. Scheduled events, event results, and news index rows may be populated substrate tables without becoming chart markers.
 
 
 ## D005 - Dashboard is an owner-facing summary, not an internal maintenance console
@@ -355,7 +355,7 @@ Chentong clarified that the Tasks page should answer what work is being performe
 
 ### Decision
 
-The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, model, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model evaluation presentation: tab `0` is the model-group pipeline and owns version comparison, promotion identity, ranking/calibration, decision-variable, and feature-space diagnostics; tabs `M01`-`M06` show individual component models through chart/table-first evidence dossiers covering model claim, required evidence, validity status, model specification, and optimization targets. Historical replay economics move to Replay. Task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
+The left navigation remains fixed. Tasks renders a storage-hosted task timeline listing past, current, and future historical stages with their phase, model, status, timestamps, receipts/blockers, and reason. Each task detail exposes generated, started, ended, and status-updated timestamps when available so the owner can tell whether a task is actively moving or has been sitting unchanged. Models owns model evaluation presentation: tab `0` is the model-group pipeline and owns version comparison, promotion identity, ranking/calibration, decision-variable, and feature-space diagnostics; tabs `M01`-`M05` show individual component models through chart/table-first evidence dossiers covering model claim, required evidence, validity status, model specification, and optimization targets. Historical replay economics move to Replay. Task states, task blockers, workflow progress, safety gates, receipts, and operational debug timelines stay in Tasks/Diagnostics. The generic `Task Progress Summary` card is removed from page content.
 
 ### Consequences
 
@@ -451,7 +451,7 @@ Chentong asked that Status and Task filter choices appear in time/process order 
 
 ### Decision
 
-Task List filter options are ordered by domain sequence. Months sort chronologically, layers sort numerically, statuses sort by task timeline posture (`Past`, terminal exceptions, `Now`, then `Future`), and task choices sort model-numbered work such as M01-M06 before model-group lifecycle work such as replay, evaluation, promotion, and maintenance. Generic workflow task types still sort by historical workflow order after those model-specific choices: data acquisition, feature generation, model generation, model evaluation, promotion review preparation, then maintenance. Unknown future values remain visible after the known sequence.
+Task List filter options are ordered by domain sequence. Months sort chronologically, layers sort numerically, statuses sort by task timeline posture (`Past`, terminal exceptions, `Now`, then `Future`), and task choices sort model-numbered work such as M01-M05 before model-group lifecycle work such as replay, evaluation, promotion, and maintenance. Generic workflow task types still sort by historical workflow order after those model-specific choices: data acquisition, feature generation, model generation, model evaluation, promotion review preparation, then maintenance. Unknown future values remain visible after the known sequence.
 
 ### Consequences
 
@@ -746,7 +746,7 @@ Status: Accepted
 
 ### Context
 
-Chentong clarified that Replay Decisions must show whether each replay-time model-layer decision was correct. The macro view should compare model groups by layer-level statistics, while the micro view should decompose one model group's effective M01-M05 decisions. M06 is a post-replay residual-event governance model and must not be included in this decision-correctness surface.
+Chentong clarified that Replay Decisions must show whether each replay-time model-layer decision was correct. The macro view should compare model groups by layer-level statistics, while the micro view should decompose one model group's effective M01-M05 decisions. Event residual/failure review is component-owned and must not appear as a separate model-layer decision surface.
 
 The existing replay review summary exposed attribution counts such as `miss_attribution_layer_counts` and parameter review classes. That evidence can explain failures, but it cannot by itself prove every M01-M05 layer's effective decision or correctness. `performance.layer_differentiation` is coverage/differentiation context, not correctness evidence.
 
@@ -757,7 +757,6 @@ Replay Decisions consumes the `review_runs[].replay_decisions_m01_m05` projectio
 - macro mode renders five separate layer chapters, one each for M01 through M05; each chapter compares model groups for that layer using effective decision count, scored decision count, coverage count, acceptable rate, harmful-error rate, missed-good rate, mean regret, mean impact, and evidence status;
 - micro mode keeps the same five layer chapters for one model group; each chapter owns its layer cards, charts, summary table, and effective layer-decision ledger with timestamp, target, scoring status, correctness class when published, acceptability class when published, regret when published, impact when published, cause family, failure type, chosen decision or observed state, best-available post-replay label when the layer owns an outcome-labelled action, and candidate scope;
 - current post-replay review runs must publish dedicated M01-M05 `layer_review_rows`; one replay decision expands to one row per included layer, so a complete run has `decision_row_count * 5` layer review rows;
-- M06 is explicitly listed as excluded from the Replay Decisions layer-quality contract;
 - future returns remain post-replay labels only and must not be presented as decision-time inputs;
 - M01 and M03 may publish diagnostic rows without scored correctness when no layer-specific best-available context/event-state alternative is present. They must not be marked correct or incorrect merely because downstream M04/M05 outcomes are known.
 
@@ -864,7 +863,7 @@ Replay Operations publishes C01-C07 rows with component-specific methods:
 - C04 reviews option-expression funnel materialization and selected contract path.
 - C05 reviews sizing, capacity, and order-intent contract evidence.
 - C06 reviews execution gate, selected-path fill, and materialization coverage.
-- C07 reviews operational failure, residual gap, and settlement evidence. C07 is not M06.
+- C07 reviews operational failure, residual gap, and settlement evidence as a component-owned review path.
 
 Consequences:
 
