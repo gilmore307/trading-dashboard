@@ -680,7 +680,7 @@ Status: Accepted
 
 Chentong clarified the replay analysis page family after post-replay review artifacts began publishing. Models should evaluate model groups from a machine-learning structure and statistical-validity perspective, while the replay pages should share the same three interaction dimensions: model-group comparison, individual model-group analysis, and Focus/detail drilldown. The previous D030 component-first rule made Replay Decisions and Replay Operations overlap, and it conflicted with the desired view that Replay Decisions should decompose a model group into the six model layers and judge whether each layer's decision was reasonable with point-in-time evidence.
 
-The manager already runs post-replay review before residual event governance. The artifacts include replay review rows, performance summaries, layer/parameter attribution, and event focus proposals. These are the right semantic source for replay analysis, but they should be projected through a dedicated dashboard read model rather than surfaced as raw artifacts or overloaded into `model_promotion_posture_summary`.
+The manager already runs post-replay review before component-owned event-risk and M03 event-effect feedback. The artifacts include replay review rows, performance summaries, layer/parameter attribution, and event focus proposals. These are the right semantic source for replay analysis, but they should be projected through a dedicated dashboard read model rather than surfaced as raw artifacts or overloaded into `model_promotion_posture_summary`.
 
 ### Decision
 

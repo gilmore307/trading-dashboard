@@ -209,7 +209,8 @@ function replayDecisionReasonCodes(row: Record<string, unknown>): string[] {
   const candidates = [
     row.reason_codes,
     row.decision_reason_codes,
-    nestedValue(row, 'model_layer_diagnostics', 'model_06_residual_event_governance', 'reason_codes'),
+    nestedValue(row, 'model_layer_diagnostics', 'model_03_event_state', 'reason_codes'),
+    nestedValue(row, 'model_layer_diagnostics', 'm03_event_effect_evidence', 'reason_codes'),
   ];
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) return candidate.map((item) => String(item)).filter(Boolean).slice(0, 8);
@@ -288,10 +289,16 @@ function replayDecisionTrace(row: Record<string, unknown>): Record<string, unkno
       recordValue(diagnosticRecord, 'model_04_event_failure_risk') as Record<string, unknown> ?? {},
     ),
     replayTraceStep(
-      'model_06_residual_event_governance',
-      'M06 Event Risk Governor',
-      nestedValue(diagnosticRecord, 'model_06_residual_event_governance', 'decision_status'),
-      recordValue(diagnosticRecord, 'model_06_residual_event_governance') as Record<string, unknown> ?? {},
+      'model_03_event_state',
+      'M03 Event State',
+      nestedValue(diagnosticRecord, 'model_03_event_state', 'decision_status'),
+      recordValue(diagnosticRecord, 'model_03_event_state') as Record<string, unknown> ?? {},
+    ),
+    replayTraceStep(
+      'm03_event_effect_evidence',
+      'M03 Event Effect Evidence',
+      nestedValue(diagnosticRecord, 'm03_event_effect_evidence', 'decision_status'),
+      recordValue(diagnosticRecord, 'm03_event_effect_evidence') as Record<string, unknown> ?? {},
     ),
   ].filter((step): step is Record<string, unknown> => Boolean(step));
   const evidenceChain = Array.isArray(row.model_evidence_chain) ? row.model_evidence_chain.map(String) : [];
