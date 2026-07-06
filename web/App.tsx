@@ -94,7 +94,7 @@ const REPLAY_OPERATION_COMPONENT_ORDER = [
   'component_01_intake',
   'component_02_entry',
   'component_03_lifecycle',
-  'component_04_option_review',
+  'component_04_expression_review',
   'component_05_order_intent',
   'component_06_execution_gate',
   'component_07_failure_review',
@@ -118,7 +118,7 @@ const REPLAY_OPERATION_COMPONENT_NOTES: Record<string, { title: string; role: st
     review: 'Audit whether held/replaced/closed state transitions followed the replay policy.',
     failure: 'Position lifecycle or replacement mechanics created an avoidable path error.',
   },
-  component_04_option_review: {
+  component_04_expression_review: {
     title: 'C04 Expression Review',
     role: 'Checks options-first equity expression, option rolling/replacement, crypto leverage expression, and direct-underlying fallback eligibility.',
     review: 'Audit whether the expression surface preserved the intended thesis with an executable option, crypto leverage, or fallback path.',
@@ -4270,7 +4270,7 @@ function replayOperationComponentIdForText(...values: unknown[]): string {
   if (text.includes('no_gap') || text.includes('no gap')) return 'component_07_failure_review';
   if (text.includes('source') || text.includes('readiness') || text.includes('universe') || text.includes('intake') || text.includes('candidate_scope')) return 'component_01_intake';
   if (text.includes('replacement') || text.includes('lifecycle') || text.includes('held') || text.includes('position_lifecycle')) return 'component_03_lifecycle';
-  if (text.includes('option') || text.includes('contract') || text.includes('expression') || text.includes('model_05')) return 'component_04_option_review';
+  if (text.includes('option') || text.includes('contract') || text.includes('expression') || text.includes('model_05')) return 'component_04_expression_review';
   if (text.includes('order') || text.includes('intent') || text.includes('sizing') || text.includes('notional') || text.includes('allocation') || text.includes('capacity')) return 'component_05_order_intent';
   if (text.includes('execution') || text.includes('fill') || text.includes('path') || text.includes('position_management')) return 'component_06_execution_gate';
   if (text.includes('target') || text.includes('entry') || text.includes('underlying') || text.includes('model_04') || text.includes('decision')) return 'component_02_entry';
@@ -4323,7 +4323,7 @@ function replayOperationMarkerColor(componentId: string, row: Record<string, unk
   const status = searchText(row.operation_status, row.block_reason, row.component_correctness_class);
   if (status.includes('block') || status.includes('reject') || status.includes('incorrect')) return '#f23645';
   if (status.includes('cap') || status.includes('reduce') || status.includes('roll')) return '#f59e0b';
-  if (componentId === 'component_04_option_review') return '#7dd3fc';
+  if (componentId === 'component_04_expression_review') return '#7dd3fc';
   if (componentId === 'component_06_execution_gate') return '#a78bfa';
   return '#22ab94';
 }
@@ -4421,7 +4421,7 @@ function ReplayStandardOperationDiagnostics({
     return counts;
   }, {});
   const showFunnel = ['component_01_intake', 'component_02_entry'].includes(componentId);
-  const showOption = ['component_04_option_review', 'component_05_order_intent', 'component_06_execution_gate'].includes(componentId);
+  const showOption = ['component_04_expression_review', 'component_05_order_intent', 'component_06_execution_gate'].includes(componentId);
   return (
     <div className="replay-chart-grid replay-standard-diagnostics">
       <ReplayFocusMetricCards
