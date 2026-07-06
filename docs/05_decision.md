@@ -728,7 +728,7 @@ Chentong clarified that the Tasks page progress bar must represent the current t
 
 ### Decision
 
-For running Tasks rows, `historical_task_progress_summary` should use active worker progress as the primary progress evidence when concrete units are available. Units may differ by task type: source-month requests for acquisition, feature months for feature generation, model rows or split jobs for model generation, replay timestamps/months for replay, and attribution units for review/governance. Internal-stage aggregate progress may remain as parent context, but it must not replace the active task's real work units.
+For running Tasks rows, `historical_task_progress_summary` should use active worker progress as the primary progress evidence when concrete units are available. Units may differ by task type: source-month requests for acquisition, feature months for feature generation, dataset months for model-generation train/validation/test splits, replay timestamps/months for replay, and attribution units for review/governance. Model-generation row counters are live throughput/activity evidence, not split-completion denominators. Internal-stage aggregate progress may remain as parent context, but it must not replace the active task's real work units.
 
 The expanded row detail shows Live only for the current/running task. Live renders the specific `runtime_activity` summary and details from the manager read model. Tasks does not render a separate Logs section; if progress evidence is too coarse, the producer must improve `runtime_activity` rather than attach partial log streams.
 
