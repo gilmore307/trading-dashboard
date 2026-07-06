@@ -88,33 +88,6 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         default_direction="desc",
     ),
     DataTableSpec(
-        table_id="market_regime_model_output",
-        label="trading_model.model_01_market_regime_model_generation",
-        schema="trading_model",
-        table="model_01_market_regime_model_generation",
-        description="Market-regime model output rows generated from reviewed M01 features.",
-        default_sort="available_time",
-        default_direction="desc",
-    ),
-    DataTableSpec(
-        table_id="sector_context_features",
-        label="trading_data.model_02_sector_context_feature_generation",
-        schema="trading_data",
-        table="model_02_sector_context_feature_generation",
-        description="Generated sector-context feature payloads derived from downloaded source bars.",
-        default_sort="snapshot_time",
-        default_direction="desc",
-    ),
-    DataTableSpec(
-        table_id="sector_context_model_output",
-        label="trading_model.model_02_sector_context_model_generation",
-        schema="trading_model",
-        table="model_02_sector_context_model_generation",
-        description="Sector-context model output rows generated from reviewed M02 features.",
-        default_sort="available_time",
-        default_direction="desc",
-    ),
-    DataTableSpec(
         table_id="target_state_features",
         label="trading_data.model_03_target_state_vector_feature_generation",
         schema="trading_data",
@@ -149,23 +122,6 @@ ALLOWED_TABLES: tuple[DataTableSpec, ...] = (
         default_sort="available_time",
         default_direction="desc",
     ),
-    DataTableSpec(
-        table_id="event_state_features",
-        label="trading_data.model_03_event_state_feature_generation",
-        schema="trading_data",
-        table="model_03_event_state_feature_generation",
-        description="Generated M03 event-state feature payloads derived from downloaded event rows.",
-        default_sort="event_id",
-    ),
-    DataTableSpec(
-        table_id="event_state_model_output",
-        label="trading_model.model_03_event_state",
-        schema="trading_model",
-        table="model_03_event_state",
-        description="M03 event-state model output rows generated from reviewed event feature/context inputs.",
-        default_sort="available_time",
-        default_direction="desc",
-    ),
 )
 
 _TABLE_BY_ID = {table.table_id: table for table in ALLOWED_TABLES}
@@ -175,6 +131,7 @@ _SURFACE_ORDER = {"source": 0, "feature": 1, "model": 2}
 _STAGE_SURFACE_ORDER = {"data_acquisition": 0, "feature_generation": 1, "model_generation": 2}
 MAX_LIMIT = 200
 DEFAULT_LIMIT = 50
+QUERY_STATEMENT_TIMEOUT_MS = 7_000
 
 
 def database_url(explicit: str | None = None) -> str:
@@ -262,6 +219,53 @@ def _column_metadata(connection: Any, table: DataTableSpec) -> list[dict[str, st
     return sorted(metadata, key=lambda column: (order.get(column["name"], len(order)), column["name"]))
 
 
+def _estimated_row_count(connection: Any, table: DataTableSpec) -> int:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT greatest(c.reltuples, 0)::bigint
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = %s AND c.relname = %s
+            """,
+            (table.schema, table.table),
+        )
+        row = cursor.fetchone()
+    return int(row[0]) if row else 0
+
+
+def _set_query_timeout(connection: Any) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(f"SET statement_timeout = {QUERY_STATEMENT_TIMEOUT_MS}")
+
+
+def _is_query_timeout(error: BaseException) -> bool:
+    text = str(error).lower()
+    return "statement timeout" in text or "querycanceled" in type(error).__name__.lower()
+
+
+def _fetch_rows(
+    connection: Any,
+    *,
+    columns: Sequence[str],
+    base_sql: str,
+    where_sql: str,
+    params: Mapping[str, Any],
+    sort_column: str,
+    sort_direction: str,
+    limit_value: int,
+    offset_value: int,
+) -> tuple[list[dict[str, Any]], bool]:
+    select_columns_sql = ", ".join(_quote_identifier(column) for column in columns)
+    query_params = {**params, "limit": limit_value, "offset": offset_value}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT {select_columns_sql} FROM {base_sql}{where_sql} ORDER BY {_quote_identifier(sort_column)} {sort_direction} NULLS LAST LIMIT %(limit)s OFFSET %(offset)s",
+            query_params,
+        )
+        return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()], True
+
+
 def _where_clause(
     *,
     columns: Sequence[str],
@@ -301,7 +305,9 @@ def query_table(
 
     limit_value = _normalize_limit(limit)
     offset_value = _normalize_offset(offset)
+    warnings: list[str] = []
     with psycopg.connect(database_url(database_url_value)) as connection:
+        _set_query_timeout(connection)
         columns_metadata = _column_metadata(connection, table)
         columns = [column["name"] for column in columns_metadata]
         if not columns:
@@ -311,25 +317,73 @@ def query_table(
         selected_direction = direction if sort else table.default_direction
         sort_direction = "DESC" if selected_direction.lower() == "desc" else "ASC"
         base_sql = _table_sql(table)
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT count(*) FROM {base_sql}{where_sql}", params)
-            total = int(cursor.fetchone()[0])
+        total_is_estimated = False
+        if where_sql:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(f"SELECT count(*) FROM {base_sql}{where_sql}", params)
+                    total: int | None = int(cursor.fetchone()[0])
+            except Exception as error:
+                if not _is_query_timeout(error):
+                    raise
+                connection.rollback()
+                _set_query_timeout(connection)
+                total = None
+                total_is_estimated = True
+                warnings.append("Exact filtered row count timed out; page total is estimated from returned rows.")
+        else:
+            total = _estimated_row_count(connection, table)
+            total_is_estimated = True
+        try:
+            rows, ordered = _fetch_rows(
+                connection,
+                columns=columns,
+                base_sql=base_sql,
+                where_sql=where_sql,
+                params=params,
+                sort_column=sort_column,
+                sort_direction=sort_direction,
+                limit_value=limit_value,
+                offset_value=offset_value,
+            )
+        except Exception as error:
+            if not _is_query_timeout(error):
+                raise
+            connection.rollback()
+            _set_query_timeout(connection)
+            ordered = False
+            sorted_warning = "Sorted query timed out; showing an unsorted bounded sample."
             select_columns_sql = ", ".join(_quote_identifier(column) for column in columns)
             query_params = {**params, "limit": limit_value, "offset": offset_value}
-            cursor.execute(
-                f"SELECT {select_columns_sql} FROM {base_sql}{where_sql} ORDER BY {_quote_identifier(sort_column)} {sort_direction} NULLS LAST LIMIT %(limit)s OFFSET %(offset)s",
-                query_params,
-            )
-            rows = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT {select_columns_sql} FROM {base_sql}{where_sql} LIMIT %(limit)s OFFSET %(offset)s",
+                        query_params,
+                    )
+                    rows = [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
+            except Exception as fallback_error:
+                if not _is_query_timeout(fallback_error):
+                    raise
+                connection.rollback()
+                rows = []
+                sorted_warning = "Sorted and sample queries timed out; showing table columns and estimated total only."
+            warnings.append(sorted_warning)
+        if total is None:
+            total = offset_value + len(rows) + (1 if len(rows) == limit_value else 0)
+        total = max(total, offset_value + len(rows))
     return {
         "table": asdict(table),
         "columns": columns_metadata,
         "rows": json.loads(json.dumps(rows, default=_json_default)),
         "total": total,
+        "total_is_estimated": total_is_estimated,
         "limit": limit_value,
         "offset": offset_value,
         "sort": sort_column,
         "direction": sort_direction.lower(),
+        "ordered": ordered,
+        "warnings": warnings,
     }
 
 

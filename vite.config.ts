@@ -14,6 +14,7 @@ const SAFE_TABLE_ID_RE = /^[a-z][a-z0-9_]*$/;
 const SAFE_MONTH_RE = /^\d{4}-\d{2}$/;
 const SAFE_LAYER_ID_RE = /^model_0[1-5]_[a-z0-9_]+$/;
 const DASHBOARD_ROOT = path.dirname(fileURLToPath(import.meta.url));
+const DATA_TABLE_PYTHON = process.env.TRADING_DASHBOARD_DATA_TABLE_PYTHON ?? '/root/projects/trading-manager/.venv/bin/python';
 const REGISTERED_READ_MODELS = new Set([
   'current_system_status_summary',
   'alert_exception_summary',
@@ -504,13 +505,13 @@ function attachReadModelSocket(socket: WebSocket, contractType: string): void {
 
 function runDataTableHelper(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile('python3', ['-m', 'trading_dashboard.data_tables', ...args], {
+    execFile(DATA_TABLE_PYTHON, ['-m', 'trading_dashboard.data_tables', ...args], {
       cwd: DASHBOARD_ROOT,
       env: {
         ...process.env,
         PYTHONPATH: path.join(DASHBOARD_ROOT, 'src'),
       },
-      timeout: 15_000,
+      timeout: 30_000,
       maxBuffer: 1024 * 1024 * 4,
     }, (error, stdout, stderr) => {
       if (error) {

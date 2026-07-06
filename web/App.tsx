@@ -7478,6 +7478,7 @@ function DataExplorerView() {
   const selectedSpec = catalog.find((table) => table.table_id === selectedTable);
   const pageStart = result ? Math.min(result.total, result.offset + 1) : 0;
   const pageEnd = result ? Math.min(result.total, result.offset + result.rows.length) : 0;
+  const totalLabel = result ? `${result.total_is_estimated ? '~' : ''}${result.total}` : '';
   const canPageBack = (result?.offset ?? 0) > 0;
   const canPageForward = result ? result.offset + result.limit < result.total : false;
 
@@ -7531,9 +7532,10 @@ function DataExplorerView() {
       </div>
       {selectedSpec ? <p className="dashboard-data-note">{selectedSpec.label} · {selectedSpec.description}</p> : null}
       {error ? <div className="execution-reason">{error}</div> : null}
+      {result?.warnings?.length ? <div className="execution-reason">{result.warnings.join(' ')}</div> : null}
       <div className="data-table-meta">
-        <span>{loading ? 'Loading…' : result ? `Showing ${pageStart}-${pageEnd} of ${result.total}` : 'No table loaded'}</span>
-        {result ? <span>Sorted by {result.sort} {result.direction.toUpperCase()}</span> : null}
+        <span>{loading ? 'Loading…' : result ? `Showing ${pageStart}-${pageEnd} of ${totalLabel}` : 'No table loaded'}</span>
+        {result ? <span>{result.ordered === false ? 'Unsorted bounded sample' : `Sorted by ${result.sort} ${result.direction.toUpperCase()}`}</span> : null}
       </div>
       {result ? (
         <div className="data-table-wrap">

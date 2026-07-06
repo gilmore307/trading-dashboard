@@ -21,10 +21,13 @@ export type DataTableQueryResult = {
   columns: DataTableColumn[];
   rows: DataTableRow[];
   total: number;
+  total_is_estimated?: boolean;
   limit: number;
   offset: number;
   sort: string;
   direction: 'asc' | 'desc';
+  ordered?: boolean;
+  warnings?: string[];
 };
 
 const API_BASE = '/api/data';

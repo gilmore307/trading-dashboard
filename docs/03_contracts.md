@@ -45,13 +45,17 @@ Implementation changes are acceptable only when they:
 
 Owner-facing dashboard timestamps must be formatted in `America/New_York` and include the calendar year. Source/read-model timestamps may remain UTC, but browser locale or client timezone must not control displayed project times.
 
+### Data Explorer
+
+The Data page is a read-only exception to the storage read-model route. Its allowlist may expose only materialized source, feature, and main model-output tables that match the current accepted route and can load through the dashboard API. Replaced output surfaces and current-route tables that have not landed in SQL yet must stay out of the allowlist until their physical tables exist.
+
 ## Verification Commands
 
 Current implementation verification:
 
 ```bash
-python3 -m compileall -q src scripts tests
-PYTHONPATH=src python3 -m unittest discover -s tests
+PYTHONPATH=src /root/projects/trading-manager/.venv/bin/python -m compileall -q src scripts tests
+PYTHONPATH=src /root/projects/trading-manager/.venv/bin/python -m unittest discover -s tests
 npm run build
 git diff --check
 ```
