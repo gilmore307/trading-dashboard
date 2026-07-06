@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import {
   CandlestickSeries,
   ColorType,
+  createSeriesMarkers,
   createChart,
   CrosshairMode,
   HistogramSeries,
@@ -11,6 +12,8 @@ import {
   type IChartApi,
   type ISeriesApi,
   type MouseEventParams,
+  type SeriesMarker,
+  type SeriesMarkerBarPosition,
 } from 'lightweight-charts';
 import { HistoricalProgressVisual, MetricCard, ProgressBar, StatusPill } from './components';
 import { fetchDataTableCatalog, fetchDataTableRows, type DataTableQueryResult, type DataTableSpec } from './dataTables';
@@ -116,10 +119,10 @@ const REPLAY_OPERATION_COMPONENT_NOTES: Record<string, { title: string; role: st
     failure: 'Position lifecycle or replacement mechanics created an avoidable path error.',
   },
   component_04_option_review: {
-    title: 'C04 Option Review',
-    role: 'Checks option expression, contract availability, selected path materialization, and expression feasibility.',
-    review: 'Audit whether the option surface preserved the intended underlying action with an executable contract path.',
-    failure: 'The option path was unavailable, malformed, too costly, or inconsistent with the accepted thesis.',
+    title: 'C04 Expression Review',
+    role: 'Checks options-first equity expression, option rolling/replacement, crypto leverage expression, and direct-underlying fallback eligibility.',
+    review: 'Audit whether the expression surface preserved the intended thesis with an executable option, crypto leverage, or fallback path.',
+    failure: 'The expression path was unavailable, malformed, too costly, over-levered, or inconsistent with the accepted thesis.',
   },
   component_05_order_intent: {
     title: 'C05 Order Intent',
@@ -2892,6 +2895,21 @@ type ReplayCandle = {
   ohlcSource: 'return_path' | 'endpoint';
 };
 
+type ReplayChartMarker = {
+  id: string;
+  time: string;
+  label: string;
+  color: string;
+  marker: SeriesMarker<string>;
+};
+
+type ReplayOperationMarker = ReplayChartMarker & {
+  componentId: string;
+  rowKey: string;
+  operationAction: string;
+  operationStatus: string;
+};
+
 type ReplayReturnPathOhlc = {
   open: number;
   high: number;
@@ -3670,12 +3688,35 @@ function ReplayPerformanceSummaryTable({
 
 function ReplayNormalizedNavCandles({
   version,
+  title = 'Normalized NAV K-line',
+  markers = [],
+  selectedMarkerId = null,
+  onMarkerSelect,
 }: {
   version: ModelGroupPromotionVersionPayload | null;
+  title?: string;
+  markers?: ReplayChartMarker[];
+  selectedMarkerId?: string | null;
+  onMarkerSelect?: (marker: ReplayChartMarker) => void;
 }) {
   const candles = useMemo(() => replayCandlesForVersion(version), [version]);
   const chartData = useMemo(() => candles.map(toReplayLightweightCandle), [candles]);
   const candleByTime = useMemo(() => new Map(chartData.map((candle) => [chartTimeKey(candle.time), candle])), [chartData]);
+  const markerById = useMemo(() => new Map(markers.map((marker) => [marker.id, marker])), [markers]);
+  const markersByTime = useMemo(() => {
+    const groups = new Map<string, ReplayChartMarker[]>();
+    for (const marker of markers) {
+      const existing = groups.get(marker.time) ?? [];
+      existing.push(marker);
+      groups.set(marker.time, existing);
+    }
+    return groups;
+  }, [markers]);
+  const chartMarkers = useMemo(() => markers.map((marker) => ({
+    ...marker.marker,
+    color: marker.id === selectedMarkerId ? '#fbbf24' : marker.marker.color,
+    size: marker.id === selectedMarkerId ? 1.5 : marker.marker.size,
+  })), [markers, selectedMarkerId]);
   const chartRef = useRef<HTMLDivElement | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const [hoveredCandle, setHoveredCandle] = useState<ReplayLightweightCandle | null>(null);
@@ -3749,6 +3790,7 @@ function ReplayNormalizedNavCandles({
     seriesRef.current = series;
 
     series.setData(chartData);
+    const seriesMarkers = chartMarkers.length ? createSeriesMarkers(series, chartMarkers) : null;
     series.createPriceLine({
       price: 1,
       color: 'rgba(203, 213, 225, .42)',
@@ -3764,7 +3806,20 @@ function ReplayNormalizedNavCandles({
       const timeMatch = event.time === undefined ? null : candleByTime.get(chartTimeKey(event.time));
       setHoveredCandle(timeMatch ?? (isReplayLightweightCandle(item) ? item : null));
     };
+    const handleClick = (event: MouseEventParams) => {
+      if (!onMarkerSelect) return;
+      const hoveredId = typeof event.hoveredObjectId === 'string' ? event.hoveredObjectId : undefined;
+      const hoveredMarker = hoveredId ? markerById.get(hoveredId) : undefined;
+      if (hoveredMarker) {
+        onMarkerSelect(hoveredMarker);
+        return;
+      }
+      if (event.time === undefined) return;
+      const timeMarkers = markersByTime.get(chartTimeKey(event.time));
+      if (timeMarkers?.length) onMarkerSelect(timeMarkers[0]);
+    };
     chart.subscribeCrosshairMove(handleCrosshairMove);
+    chart.subscribeClick(handleClick);
 
     const resizeObserver = new ResizeObserver(() => chart.timeScale().fitContent());
     resizeObserver.observe(container);
@@ -3772,15 +3827,17 @@ function ReplayNormalizedNavCandles({
     return () => {
       resizeObserver.disconnect();
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
+      chart.unsubscribeClick(handleClick);
+      seriesMarkers?.setMarkers([]);
       seriesRef.current = null;
       chart.remove();
     };
-  }, [candleByTime, chartData, version]);
+  }, [candleByTime, chartData, chartMarkers, markerById, markersByTime, onMarkerSelect, version]);
 
   if (!version || !candles.length) {
     return (
       <section className="model-chart-panel replay-wide-chart">
-        <div className="model-chart-title">Normalized NAV K-line</div>
+        <div className="model-chart-title">{title}</div>
         <div className="empty-chart compact">Select a replay version with monthly return slices.</div>
       </section>
     );
@@ -3790,7 +3847,7 @@ function ReplayNormalizedNavCandles({
   return (
     <section className="model-chart-panel replay-wide-chart">
       <div className="model-chart-title-row">
-        <span className="model-chart-title">Normalized NAV K-line · {compactVersionLabel(version, 0)}</span>
+        <span className="model-chart-title">{title} · {compactVersionLabel(version, 0)}</span>
         <strong>{final.label} · {formatMetricValue(final.close, 4)}</strong>
       </div>
       <div className="replay-lightweight-chart-shell">
@@ -4236,6 +4293,82 @@ function replayOperationComponentIdForRow(row: Record<string, unknown>): string 
 
 function replayOperationRowsForComponent(run: Record<string, unknown> | null, componentId: string): Array<Record<string, unknown>> {
   return run ? replayOperationRows(run).filter((row) => replayOperationComponentIdForRow(row) === componentId) : [];
+}
+
+function replayOperationRowKey(row: Record<string, unknown>, index: number): string {
+  const direct = row.operation_action_row_id ?? row.source_decision_id;
+  if (direct !== null && direct !== undefined && String(direct).trim()) return String(direct);
+  return [
+    row.source_decision_index,
+    row.decision_time,
+    row.replay_month,
+    row.target_symbol,
+    row.operation_component_id,
+    row.runtime_component_ref,
+    row.operation_action,
+    row.operation_status,
+  ].map((value) => String(value ?? '').trim()).filter(Boolean).join('|') || `operation-${index}`;
+}
+
+function replayOperationMarkerTime(row: Record<string, unknown>): string | null {
+  const month = String(row.replay_month ?? '').trim();
+  if (/^\d{4}-\d{2}$/.test(month)) return replayMonthToChartTime(month);
+  const decisionTime = String(row.decision_time ?? '').trim();
+  const monthMatch = decisionTime.match(/^(\d{4}-\d{2})/u);
+  if (monthMatch) return replayMonthToChartTime(monthMatch[1]);
+  return null;
+}
+
+function replayOperationMarkerColor(componentId: string, row: Record<string, unknown>): string {
+  const status = searchText(row.operation_status, row.block_reason, row.component_correctness_class);
+  if (status.includes('block') || status.includes('reject') || status.includes('incorrect')) return '#f23645';
+  if (status.includes('cap') || status.includes('reduce') || status.includes('roll')) return '#f59e0b';
+  if (componentId === 'component_04_option_review') return '#7dd3fc';
+  if (componentId === 'component_06_execution_gate') return '#a78bfa';
+  return '#22ab94';
+}
+
+function replayOperationMarkerPosition(row: Record<string, unknown>): SeriesMarkerBarPosition {
+  const status = searchText(row.operation_status, row.block_reason, row.component_correctness_class);
+  return status.includes('block') || status.includes('reject') || status.includes('incorrect') ? 'aboveBar' : 'belowBar';
+}
+
+function replayOperationMarkers(run: Record<string, unknown> | null, selectedComponentId: string | null): ReplayOperationMarker[] {
+  if (!run) return [];
+  return replayOperationRows(run)
+    .map((row, index): ReplayOperationMarker | null => {
+      const time = replayOperationMarkerTime(row);
+      if (!time) return null;
+      const componentId = replayOperationComponentIdForRow(row);
+      const rowKey = replayOperationRowKey(row, index);
+      const label = REPLAY_OPERATION_COMPONENT_NOTES[componentId]?.title ?? startCase(componentId);
+      const operationAction = String(row.operation_action ?? row.chosen_action ?? 'operation');
+      const operationStatus = String(row.operation_status ?? row.component_correctness_class ?? 'reported');
+      const selected = selectedComponentId === null || selectedComponentId === componentId;
+      const color = selected ? replayOperationMarkerColor(componentId, row) : 'rgba(148, 163, 184, .55)';
+      const id = `${componentId}:${rowKey}:${index}`;
+      return {
+        id,
+        time,
+        label,
+        color,
+        componentId,
+        rowKey,
+        operationAction,
+        operationStatus,
+        marker: {
+          id,
+          time,
+          position: replayOperationMarkerPosition(row),
+          shape: 'circle',
+          color,
+          text: label.replace(/^C0?(\d+).*/u, 'C$1'),
+          size: selected ? 1.1 : 0.8,
+        },
+      };
+    })
+    .filter((marker): marker is ReplayOperationMarker => marker !== null)
+    .slice(0, 250);
 }
 
 function replayOperationMetricRowsForComponent(run: Record<string, unknown> | null, componentId: string): Array<Record<string, unknown>> {
@@ -5231,6 +5364,7 @@ function ReplayLayerSection({
         </div>
       ) : null}
       {focusedRun ? <ReplayStandardDecisionDiagnostics run={focusedRun} layerId={layerId} /> : null}
+      {focusedRun ? <ReplayDecisionProbabilityIntervalChart rows={ledgerRows} layerLabel={layerLabel} /> : null}
       {focusedRun ? <ReplayLayerFocusTrendCharts rows={ledgerRows} /> : <ReplayLayerQualityCharts rows={rows} />}
       <div className="replay-table-panel">
         <ReplayLayerQualityTable rows={rows} />
@@ -5539,6 +5673,133 @@ function ReplayDecisionDetailTable({
   );
 }
 
+type ReplayProbabilityIntervalPoint = {
+  label: string;
+  actual: number;
+  lower: number;
+  center: number | null;
+  upper: number;
+};
+
+function firstMetric(row: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = metricNumber(row, key);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+function replayProbabilityIntervalPoints(rows: Array<Record<string, unknown>>): ReplayProbabilityIntervalPoint[] {
+  return rows
+    .map((row): ReplayProbabilityIntervalPoint | null => {
+      const label = String(row.decision_time ?? row.timestamp ?? row.replay_month ?? '').slice(0, 10);
+      if (!label) return null;
+      const actual = firstMetric(row, [
+        'actual_return',
+        'realized_return',
+        'directional_underlying_return',
+        'underlying_return',
+        'actual_close',
+        'actual_price',
+      ]);
+      const lower = firstMetric(row, [
+        'prediction_interval_lower',
+        'probability_interval_lower',
+        'posterior_interval_lower',
+        'distribution_lower',
+        'return_interval_lower',
+        'lower_bound',
+      ]);
+      const upper = firstMetric(row, [
+        'prediction_interval_upper',
+        'probability_interval_upper',
+        'posterior_interval_upper',
+        'distribution_upper',
+        'return_interval_upper',
+        'upper_bound',
+      ]);
+      const center = firstMetric(row, [
+        'prediction_interval_center',
+        'posterior_distribution_center',
+        'distribution_center',
+        'expected_return',
+        'predicted_return',
+        'mean_return',
+      ]);
+      if (actual === null || lower === null || upper === null) return null;
+      return { label, actual, lower: Math.min(lower, upper), center, upper: Math.max(lower, upper) };
+    })
+    .filter((point): point is ReplayProbabilityIntervalPoint => point !== null)
+    .sort((left, right) => left.label.localeCompare(right.label))
+    .slice(-80);
+}
+
+function ReplayDecisionProbabilityIntervalChart({
+  rows,
+  layerLabel,
+}: {
+  rows: Array<Record<string, unknown>>;
+  layerLabel: string;
+}) {
+  const points = replayProbabilityIntervalPoints(rows);
+  if (!points.length) {
+    return (
+      <section className="model-chart-panel replay-probability-interval-panel">
+        <div className="model-chart-title">Actual Path vs Probability Interval · {layerLabel}</div>
+        <div className="empty-chart compact">
+          No comparable actual path plus probability-interval rows are published yet. Replay Decisions will plot actual movement inside the model interval once rows publish actual_return or actual_price with lower/upper distribution bounds.
+        </div>
+      </section>
+    );
+  }
+  const width = 920;
+  const height = 300;
+  const padX = 42;
+  const padY = 28;
+  const values = points.flatMap((point) => [point.actual, point.lower, point.upper, point.center]).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const spread = max - min || 1;
+  const xForIndex = (index: number) => padX + (points.length === 1 ? 0.5 : index / (points.length - 1)) * (width - padX * 2);
+  const yForValue = (value: number) => height - padY - ((value - min) / spread) * (height - padY * 2);
+  const pathFor = (selector: (point: ReplayProbabilityIntervalPoint) => number | null) => points
+    .map((point, index) => {
+      const value = selector(point);
+      return value === null ? '' : `${index === 0 ? 'M' : 'L'} ${xForIndex(index).toFixed(2)} ${yForValue(value).toFixed(2)}`;
+    })
+    .filter(Boolean)
+    .join(' ');
+  const actualPath = pathFor((point) => point.actual);
+  const centerPath = pathFor((point) => point.center);
+  return (
+    <section className="model-chart-panel replay-probability-interval-panel">
+      <div className="model-chart-title-row">
+        <span className="model-chart-title">Actual Path vs Probability Interval · {layerLabel}</span>
+        <strong>{points.length} points</strong>
+      </div>
+      <svg className="replay-probability-interval-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Actual path over model probability interval">
+        <line x1={padX} x2={width - padX} y1={yForValue(0)} y2={yForValue(0)} className="probability-zero-line" />
+        {points.map((point, index) => {
+          const x = xForIndex(index);
+          return (
+            <g key={`${point.label}-${index}`}>
+              <line x1={x} x2={x} y1={yForValue(point.lower)} y2={yForValue(point.upper)} className="probability-interval-stem" />
+              <circle cx={x} cy={yForValue(point.actual)} r={3.6} className={point.actual >= point.lower && point.actual <= point.upper ? 'actual-in-band' : 'actual-out-band'} />
+            </g>
+          );
+        })}
+        {centerPath ? <path d={centerPath} className="probability-center-path" /> : null}
+        <path d={actualPath} className="actual-return-path" />
+      </svg>
+      <div className="replay-probability-legend">
+        <span><i className="legend-line interval" /> predicted interval</span>
+        <span><i className="legend-line center" /> predicted center</span>
+        <span><i className="legend-line actual" /> actual movement</span>
+      </div>
+    </section>
+  );
+}
+
 function ReplayPerformanceView({
   promotionChart,
   replayReviewChart,
@@ -5791,17 +6052,35 @@ function ReplayOperationTrendCharts({ rows }: { rows: Array<Record<string, unkno
   );
 }
 
-function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, unknown>> }) {
+function ReplayOperationComponentLedger({
+  rows,
+  selectedRowKey = null,
+  onClearSelectedRow,
+}: {
+  rows: Array<Record<string, unknown>>;
+  selectedRowKey?: string | null;
+  onClearSelectedRow?: () => void;
+}) {
   const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'operation_action' | 'operation_status' | 'trigger_state' | 'component_correctness_class' | 'input_summary' | 'output_summary' | 'block_reason' | 'realized_return' | 'regret_to_best_available'>>({ key: 'decision_time', direction: 'asc' });
   const [page, setPage] = useState(0);
-  const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
+  const filteredRows = selectedRowKey
+    ? rows.filter((row, index) => replayOperationRowKey(row, index) === selectedRowKey)
+    : rows;
+  const sortedRows = [...filteredRows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   const pageSize = 50;
   const pageCount = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const pageIndex = Math.min(page, pageCount - 1);
   const pageRows = sortedRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
-  useEffect(() => setPage(0), [rows.length, sort.key, sort.direction]);
+  useEffect(() => setPage(0), [rows.length, selectedRowKey, sort.key, sort.direction]);
   return (
     <>
+      {selectedRowKey ? (
+        <div className="replay-operation-filter-banner">
+          <strong>Operation mark selected</strong>
+          <span>Showing the operation row linked to the selected K-line marker.</span>
+          {onClearSelectedRow ? <button className="secondary-button" onClick={onClearSelectedRow} type="button">Clear mark filter</button> : null}
+        </div>
+      ) : null}
       <div className="replay-table replay-operation-ledger-table">
         <div className="replay-table-row replay-table-head">
           <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
@@ -5822,7 +6101,7 @@ function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, u
           <SortableHeader label="Regret" column="regret_to_best_available" sort={sort} onSort={setSort} defaultDirection="desc" />
         </div>
         {pageRows.length ? pageRows.map((row, index) => (
-          <div className="replay-table-row" key={`${String(row.review_id ?? 'row')}-${index}`}>
+          <div className={selectedRowKey ? 'replay-table-row selected-operation-row' : 'replay-table-row'} key={`${String(row.review_id ?? 'row')}-${index}`}>
             <strong>{row.decision_time ? formatTimestamp(String(row.decision_time)) : 'Not recorded'}</strong>
             <span>{String(row.target_symbol ?? 'Not reported')}</span>
             <span>{startCase(String(row.operation_action ?? 'not_reported'))}</span>
@@ -5840,7 +6119,7 @@ function ReplayOperationComponentLedger({ rows }: { rows: Array<Record<string, u
             <span>{formatMetricValue(metricNumber(row, 'realized_return'), 4)}</span>
             <span>{formatMetricValue(metricNumber(row, 'regret_to_best_available'), 4)}</span>
           </div>
-        )) : <div className="empty-chart compact">No concrete operation rows are published for this replay component.</div>}
+        )) : <div className="empty-chart compact">{selectedRowKey ? 'No operation row matches the selected chart marker.' : 'No concrete operation rows are published for this replay component.'}</div>}
       </div>
       {sortedRows.length > pageSize ? (
         <div className="data-pagination">
@@ -5857,10 +6136,14 @@ function ReplayOperationComponentSection({
   runs,
   focusedRun,
   componentId,
+  selectedOperationRowKey = null,
+  onClearSelectedOperation,
 }: {
   runs: Array<Record<string, unknown>>;
   focusedRun: Record<string, unknown> | null;
   componentId: string;
+  selectedOperationRowKey?: string | null;
+  onClearSelectedOperation?: () => void;
 }) {
   const rows = replayOperationComponentRows(runs, componentId);
   const focusedSummary = focusedRun ? replayOperationComponentRows([focusedRun], componentId)[0] ?? null : null;
@@ -5895,7 +6178,11 @@ function ReplayOperationComponentSection({
       {focusedRun ? (
         <div className="replay-table-panel">
           <div className="panel-heading">Concrete Operation Rows</div>
-          <ReplayOperationComponentLedger rows={ledgerRows} />
+          <ReplayOperationComponentLedger
+            rows={ledgerRows}
+            selectedRowKey={selectedOperationRowKey}
+            onClearSelectedRow={onClearSelectedOperation}
+          />
         </div>
       ) : null}
     </section>
@@ -5917,6 +6204,7 @@ function ReplayOperationsView({
   const versionKey = versionIds.join('|');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeComponentId, setActiveComponentId] = useState(REPLAY_OPERATION_COMPONENT_ORDER[0]);
+  const [selectedOperation, setSelectedOperation] = useState<ReplayOperationMarker | null>(null);
   useEffect(() => {
     setSelectedIds((current) => {
       const valid = new Set(versionIds);
@@ -5929,6 +6217,25 @@ function ReplayOperationsView({
     .filter((run): run is Record<string, unknown> => Boolean(run));
   const chartReviewRuns = selectedEntries.length ? selectedReviewRuns : reviewRuns;
   const focusedRun = selectedEntries.length === 1 ? selectedReviewRuns[0] ?? null : null;
+  const focusedEntry = selectedEntries.length === 1 ? selectedEntries[0] : null;
+  const operationMarkers = useMemo(
+    () => replayOperationMarkers(focusedRun, activeComponentId),
+    [activeComponentId, focusedRun],
+  );
+  useEffect(() => {
+    if (!selectedOperation) return;
+    if (!operationMarkers.some((marker) => marker.id === selectedOperation.id)) setSelectedOperation(null);
+  }, [operationMarkers, selectedOperation]);
+  const handleOperationMarkerSelect = (marker: ReplayChartMarker) => {
+    const operationMarker = operationMarkers.find((candidate) => candidate.id === marker.id);
+    if (!operationMarker) return;
+    setActiveComponentId(operationMarker.componentId);
+    setSelectedOperation(operationMarker);
+  };
+  const handleComponentChange = (componentId: string) => {
+    setActiveComponentId(componentId);
+    if (selectedOperation?.componentId !== componentId) setSelectedOperation(null);
+  };
   return (
     <section className="replay-view">
       <ReplaySelectionModePanel
@@ -5947,18 +6254,43 @@ function ReplayOperationsView({
         selectedIds={selectedIds}
         onChange={setSelectedIds}
       />
-      <ReplayOperationComponentTabs activeComponentId={activeComponentId} runs={chartReviewRuns} onChange={setActiveComponentId} />
+      <ReplayNormalizedNavCandles
+        version={focusedEntry?.version ?? null}
+        title="Replay Operations K-line"
+        markers={operationMarkers}
+        selectedMarkerId={selectedOperation?.id ?? null}
+        onMarkerSelect={handleOperationMarkerSelect}
+      />
+      {focusedRun ? (
+        <section className="panel replay-operation-chart-help">
+          <div className="panel-heading">Operation Marks</div>
+          <p className="panel-subtitle">
+            Operation rows are marked on the replay K-line by decision month. Click a mark to switch the component selector and filter the concrete operation rows below.
+          </p>
+          <div className="replay-operation-mark-summary">
+            <span>{operationMarkers.length} operation marks published</span>
+            {selectedOperation ? (
+              <strong>{selectedOperation.label} · {startCase(selectedOperation.operationAction)} · {startCase(selectedOperation.operationStatus)}</strong>
+            ) : (
+              <strong>No operation mark selected</strong>
+            )}
+          </div>
+        </section>
+      ) : null}
+      <ReplayOperationComponentTabs activeComponentId={activeComponentId} runs={chartReviewRuns} onChange={handleComponentChange} />
       <ReplayOperationComponentSection
         key={activeComponentId}
         runs={focusedRun ? [focusedRun] : chartReviewRuns}
         focusedRun={focusedRun}
         componentId={activeComponentId}
+        selectedOperationRowKey={selectedOperation?.componentId === activeComponentId ? selectedOperation.rowKey : null}
+        onClearSelectedOperation={() => setSelectedOperation(null)}
       />
     </section>
   );
 }
 
-type EventOntologyLevel = 'root' | 'source' | 'domain' | 'mechanism' | 'submechanism' | 'dossier';
+type EventOntologyLevel = 'root' | 'domain' | 'kingdom' | 'phylum' | 'class' | 'order' | 'family' | 'genus' | 'species';
 
 type EventOntologyNode = {
   id: string;
@@ -5972,22 +6304,28 @@ type EventOntologyNode = {
 };
 
 type EventLedgerRow = TemporalExplorerEventPayload & {
-  sourceCategory: string;
   domainNode: string;
-  mechanismFamily: string;
-  submechanismFamily: string;
-  dossier: string;
+  kingdomNode: string;
+  phylumNode: string;
+  classNode: string;
+  orderNode: string;
+  familyNode: string;
+  genusNode: string;
+  speciesNode: string;
   riskScore: number | null;
   impactScore: number | null;
 };
 
 const EVENT_LEVEL_LABELS: Record<EventOntologyLevel, string> = {
   root: 'Event Universe',
-  source: 'Source',
   domain: 'Domain',
-  mechanism: 'Mechanism',
-  submechanism: 'Submechanism',
-  dossier: 'Specific Dossier',
+  kingdom: 'Kingdom',
+  phylum: 'Phylum',
+  class: 'Class',
+  order: 'Order',
+  family: 'Family',
+  genus: 'Genus',
+  species: 'Species',
 };
 
 function recordString(record: Record<string, unknown>, keys: string[], fallback: string): string {
@@ -6015,19 +6353,25 @@ function eventLedgerRows(chart: TemporalExplorerChartPayload): EventLedgerRow[] 
   return (chart.events ?? []).map((event) => {
     const record = event as unknown as Record<string, unknown>;
     const family = recordString(record, ['family_label', 'family_id', 'event_type'], 'Unclassified event family');
-    const sourceCategory = recordString(record, ['source_category', 'source_kind', 'source_name', 'lane'], 'Unclassified source');
-    const domainNode = recordString(record, ['domain_node', 'event_domain', 'topic_domain', 'market_state', 'event_type'], 'General domain');
-    const mechanismFamily = recordString(record, ['mechanism_family', 'family_label', 'family_id', 'event_type'], family);
-    const submechanismFamily = recordString(record, ['submechanism_family', 'event_subtype', 'event_type'], mechanismFamily);
+    const domainNode = recordString(record, ['taxonomy_domain', 'domain_node', 'event_domain'], 'market_event');
+    const kingdomNode = recordString(record, ['taxonomy_kingdom', 'kingdom_node', 'topic_domain', 'market_state'], 'unclassified_kingdom');
+    const phylumNode = recordString(record, ['taxonomy_phylum', 'phylum_node', 'source_category', 'source_kind', 'source_name', 'lane'], 'unclassified_phylum');
+    const classNode = recordString(record, ['taxonomy_class', 'class_node', 'affected_scope', 'scope'], 'unclassified_class');
+    const orderNode = recordString(record, ['taxonomy_order', 'order_node', 'mechanism_family', 'event_type'], 'unclassified_order');
+    const familyNode = recordString(record, ['taxonomy_family', 'family_node', 'family_label', 'family_id', 'event_type'], family);
+    const genusNode = recordString(record, ['taxonomy_genus', 'genus_node', 'submechanism_family', 'event_subtype'], familyNode);
     const symbol = recordString(record, ['symbol', 'primary_entity', 'target_symbol'], '');
-    const dossierFallback = symbol ? `${symbol} ${mechanismFamily}` : recordString(record, ['title', 'event_id'], 'Specific event dossier');
+    const speciesFallback = symbol ? `${symbol} ${genusNode}` : recordString(record, ['title', 'event_id'], 'specific_event_pattern');
     return {
       ...event,
-      sourceCategory,
       domainNode,
-      mechanismFamily,
-      submechanismFamily,
-      dossier: recordString(record, ['specific_event_dossier', 'specific_event_dossier_id', 'dossier_id'], dossierFallback),
+      kingdomNode,
+      phylumNode,
+      classNode,
+      orderNode,
+      familyNode,
+      genusNode,
+      speciesNode: recordString(record, ['taxonomy_species', 'species_node', 'specific_event_dossier', 'specific_event_dossier_id', 'dossier_id'], speciesFallback),
       riskScore: recordNumber(record, ['event_risk_score', 'risk_score', 'risk_intensity_score', 'uncertainty_score']),
       impactScore: recordNumber(record, ['impact_score', 'impact_normalized_severity_score', 'event_impact_score']),
     };
@@ -6043,11 +6387,14 @@ function averageNumeric(values: Array<number | null>): number | null {
 function nodeMatchesEvent(node: EventOntologyNode, event: EventLedgerRow): boolean {
   if (node.level === 'root') return true;
   const eventPath = [
-    event.sourceCategory,
     event.domainNode,
-    event.mechanismFamily,
-    event.submechanismFamily,
-    event.dossier,
+    event.kingdomNode,
+    event.phylumNode,
+    event.classNode,
+    event.orderNode,
+    event.familyNode,
+    event.genusNode,
+    event.speciesNode,
   ].map(normalizeTreePart);
   return node.path.every((part, index) => eventPath[index] === part);
 }
@@ -6086,11 +6433,14 @@ function buildEventOntologyTree(events: EventLedgerRow[], families: TemporalExpl
   };
   for (const event of events) {
     const labels: Array<[string, EventOntologyLevel]> = [
-      [event.sourceCategory, 'source'],
       [event.domainNode, 'domain'],
-      [event.mechanismFamily, 'mechanism'],
-      [event.submechanismFamily, 'submechanism'],
-      [event.dossier, 'dossier'],
+      [event.kingdomNode, 'kingdom'],
+      [event.phylumNode, 'phylum'],
+      [event.classNode, 'class'],
+      [event.orderNode, 'order'],
+      [event.familyNode, 'family'],
+      [event.genusNode, 'genus'],
+      [event.speciesNode, 'species'],
     ];
     let parent = root;
     for (const [label, level] of labels) {
@@ -6101,11 +6451,12 @@ function buildEventOntologyTree(events: EventLedgerRow[], families: TemporalExpl
   }
   if (!events.length) {
     for (const family of families) {
-      const type = family.event_type || 'Unclassified source';
-      const source = ensureNode(root, type, 'source');
-      const mechanism = ensureNode(source, family.family_label || family.family_id, 'mechanism');
-      source.count += family.occurrence_count ?? 0;
-      mechanism.count += family.occurrence_count ?? 0;
+      const domain = ensureNode(root, 'market_event', 'domain');
+      const kingdom = ensureNode(domain, family.event_type || 'unclassified_kingdom', 'kingdom');
+      const familyNode = ensureNode(kingdom, family.family_label || family.family_id, 'family');
+      domain.count += family.occurrence_count ?? 0;
+      kingdom.count += family.occurrence_count ?? 0;
+      familyNode.count += family.occurrence_count ?? 0;
     }
   }
   return root;
@@ -6154,14 +6505,15 @@ function EventOntologyTree({
 }
 
 function EventFamilyRowsTable({ rows }: { rows: EventLedgerRow[] }) {
-  const [sort, setSort] = useState<SortState<'event_time' | 'title' | 'mechanismFamily' | 'scope' | 'source_name' | 'riskScore' | 'impactScore'>>({ key: 'event_time', direction: 'desc' });
+  const [sort, setSort] = useState<SortState<'event_time' | 'title' | 'familyNode' | 'genusNode' | 'scope' | 'source_name' | 'riskScore' | 'impactScore'>>({ key: 'event_time', direction: 'desc' });
   const sortedRows = [...rows].sort((left, right) => compareSortValues(comparableTableValue(left[sort.key]), comparableTableValue(right[sort.key]), sort.direction));
   return (
     <div className="replay-table event-family-ledger-table">
       <div className="replay-table-row replay-table-head">
         <SortableHeader label="Time" column="event_time" sort={sort} onSort={setSort} />
         <SortableHeader label="Event" column="title" sort={sort} onSort={setSort} />
-        <SortableHeader label="Mechanism" column="mechanismFamily" sort={sort} onSort={setSort} />
+        <SortableHeader label="Family" column="familyNode" sort={sort} onSort={setSort} />
+        <SortableHeader label="Genus" column="genusNode" sort={sort} onSort={setSort} />
         <SortableHeader label="Scope" column="scope" sort={sort} onSort={setSort} />
         <SortableHeader label="Source" column="source_name" sort={sort} onSort={setSort} />
         <SortableHeader label="Risk" column="riskScore" sort={sort} onSort={setSort} defaultDirection="desc" />
@@ -6171,7 +6523,8 @@ function EventFamilyRowsTable({ rows }: { rows: EventLedgerRow[] }) {
         <div className="replay-table-row" key={row.event_id}>
           <strong>{row.event_time ? formatTimestamp(row.event_time) : 'Not reported'}</strong>
           <span>{row.title || 'Untitled event'}</span>
-          <span>{row.mechanismFamily}</span>
+          <span>{row.familyNode}</span>
+          <span>{row.genusNode}</span>
           <span>{[row.symbol, row.scope, row.market_state].filter(Boolean).join(' · ') || 'Not reported'}</span>
           <span>{[row.source_name, row.source_priority, row.status].filter(Boolean).map((item) => startCase(String(item))).join(' · ') || 'Not reported'}</span>
           <span>{formatMetricValue(row.riskScore, 3)}</span>
@@ -6340,77 +6693,14 @@ function ReplayAttributionView({
   );
 }
 
-function ModelGroupReplayIntegrityPanel({
-  replayReviewChart,
-  selectedVersion,
-  versions,
-}: {
-  replayReviewChart: ReplayReviewChartPayload;
-  selectedVersion: ModelGroupPromotionVersionPayload | null;
-  versions: ModelGroupPromotionVersionPayload[];
-}) {
-  const runs = replayReviewRuns(replayReviewChart);
-  const selectedRun = selectedVersion ? replayReviewRunForVersion(selectedVersion, runs) : null;
-  const crossDiagnostics = replayCrossModelDiagnostics(replayReviewChart);
-  const duplicateGroups = replayDuplicateTraceGroups(replayReviewChart);
-  const selectedDiagnostics = standardReviewDiagnostics(selectedRun);
-  const option = replayOptionExpressionBreakdown(selectedRun);
-  const contracts = replayMechanismContracts(selectedRun);
-  const gapCodes = selectedDiagnostics
-    ? (Array.isArray(selectedDiagnostics.source_gap_codes) ? selectedDiagnostics.source_gap_codes.map((item) => String(item)) : [])
-    : [];
-  return (
-    <ModelScorecardSection
-      title={selectedVersion ? 'Replay Integrity For Selected Group' : 'Replay Integrity Summary'}
-      subtitle="Model-group validity checks derived from standard replay review diagnostics; trading returns stay under Replay Performance."
-    >
-      <ReplayFocusMetricCards
-        title={selectedVersion ? 'Selected Group Review Completeness' : 'Cross-Group Independence Risk'}
-        items={selectedVersion ? [
-          { label: 'Review status', value: startCase(String(selectedDiagnostics?.status ?? 'not_reported')), hint: gapCodes.length ? gapCodes.map(startCase).join(' | ') : 'Standard replay diagnostics available' },
-          { label: 'M05 states', value: formatMetricValue(metricNumber(option, 'm05_selection_state_count'), 0), hint: 'Option-expression mechanics states reviewed' },
-          { label: 'Filled bad', value: formatMetricValue(metricNumber(option, 'filled_bad_count'), 0), hint: 'Bad filled M05 states; impact is detailed in Replay Decisions/Performance' },
-          { label: 'Mechanism breaches', value: formatMetricValue(metricNumber(contracts, 'breached_count'), 0), hint: 'Contract breaches requiring mechanism review' },
-        ] : [
-          { label: 'Model groups', value: formatMetricValue(versions.length, 0), hint: 'Published model groups in Model Groups selector' },
-          { label: 'Replay reviews', value: formatMetricValue(runs.length, 0), hint: 'Matched standard post-replay reviews' },
-          { label: 'Trace signatures', value: formatMetricValue(metricNumber(crossDiagnostics, 'signature_count'), 0), hint: 'Distinct normalized operation traces' },
-          { label: 'Duplicate groups', value: formatMetricValue(metricNumber(crossDiagnostics, 'duplicate_trace_group_count'), 0), hint: 'Groups whose replay operation traces are indistinguishable' },
-        ]}
-      />
-      {!selectedVersion ? (
-        <MiniMetricBarChart
-          title="Duplicate Trace Group Size"
-          series={duplicateGroups.map((group) => ({
-            label: String(group.duplicate_trace_group_id ?? 'duplicate'),
-            value: metricNumber(group, 'member_count') ?? 0,
-            status: 'blocked',
-            tooltip: `${String(group.duplicate_trace_group_id ?? 'duplicate')}: ${formatMetricValue(metricNumber(group, 'member_count'), 0)} model groups · ${String(group.risk ?? '')}`,
-          }))}
-          emptyLabel="No duplicate replay operation traces detected"
-        />
-      ) : null}
-      {selectedVersion ? (
-        <MiniMetricBarChart
-          title="M05 Filter Reason Counts"
-          series={countBarSeries(nestedRecord(option, 'primary_filter_reason_counts'))}
-          emptyLabel="No M05 filter reason counts published for this model group"
-        />
-      ) : null}
-    </ModelScorecardSection>
-  );
-}
-
 function ModelGroupDetail({
   layerChart,
   runtimeChart,
   promotionChart,
-  replayReviewChart,
 }: {
   layerChart: ModelLayerReadinessChartPayload;
   runtimeChart: ExecutionRuntimeStatusChartPayload;
   promotionChart: ModelPromotionPostureChartPayload;
-  replayReviewChart: ReplayReviewChartPayload;
 }) {
   const versions = groupPromotionVersions(layerChart, promotionChart);
   const exclusions = groupPromotionExclusions(promotionChart);
@@ -6455,7 +6745,6 @@ function ModelGroupDetail({
       <ModelVersionTable versions={versions} selectedVersionId={selectedVersionId} onSelectVersion={setSelectedVersionId} />
       <ExcludedPromotionEvidencePanel exclusions={exclusions} />
       <IdentityDistribution versions={versions} />
-      <ModelGroupReplayIntegrityPanel replayReviewChart={replayReviewChart} selectedVersion={selectedVersion} versions={versions} />
       {selectedVersion ? (
         <>
           <EvaluationDisagreementPanel version={selectedVersion} />
@@ -6465,7 +6754,7 @@ function ModelGroupDetail({
             <AdaptiveDiagnosticChart title="Calibration" globalSeries={[]} selectedVersion={selectedVersion} selectedKind="calibration" emptyLabel="Calibration series not published" />
             <BrierDecompositionChart version={selectedVersion} />
           </ModelScorecardSection>
-          <ModelScorecardSection title="Selection Diagnostics" subtitle="Decision-variable schema and label coverage used for model review; trading-distribution slices live under Replay Operations.">
+          <ModelScorecardSection title="Selection Diagnostics" subtitle="Decision-variable schema and label coverage used for model review; trade outcome and operation slices live under Replay Performance and Replay Operations.">
             <DecisionVariableAuditPanel version={selectedVersion} />
           </ModelScorecardSection>
           <ModelScorecardSection title="Feature Space" subtitle="Feature-space separation views for the selected model.">
@@ -7782,7 +8071,6 @@ function App() {
         <ModelGroupDetail
           layerChart={modelLayerChart}
           promotionChart={modelPromotionChart}
-          replayReviewChart={replayReviewChart}
           runtimeChart={executionRuntimeChart}
         />
       );

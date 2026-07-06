@@ -357,8 +357,8 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .event-ontology-button strong { overflow-wrap: anywhere; color: #f8fbff; }
 .event-ontology-button small { color: #7c8ea5; font-size: 11px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
 .event-ontology-button em { min-width: 42px; padding: 6px 8px; border-radius: 999px; background: rgba(125, 211, 252, .12); color: #7dd3fc; font-style: normal; font-size: 12px; font-weight: 900; text-align: center; }
-.event-family-ledger-table { min-width: 1500px; }
-.event-family-ledger-table .replay-table-row { grid-template-columns: minmax(180px, .8fr) minmax(320px, 1.35fr) minmax(230px, .92fr) minmax(200px, .78fr) minmax(220px, .86fr) minmax(82px, .32fr) minmax(82px, .32fr); align-items: start; }
+.event-family-ledger-table { min-width: 1660px; }
+.event-family-ledger-table .replay-table-row { grid-template-columns: minmax(180px, .8fr) minmax(320px, 1.35fr) minmax(220px, .84fr) minmax(220px, .84fr) minmax(200px, .78fr) minmax(220px, .86fr) minmax(82px, .32fr) minmax(82px, .32fr); align-items: start; }
 .replay-event-summary-table strong { display: flex; align-items: center; gap: 8px; }
 .replay-event-summary-table i { width: 10px; height: 10px; border-radius: 999px; flex: 0 0 10px; }
 .replay-event-summary-table { min-width: 1080px; }
@@ -418,6 +418,25 @@ button.replay-table-row:hover { border-color: rgba(125, 211, 252, .38); backgrou
 .replay-lightweight-legend span { color: #9fb1c7; }
 .replay-lightweight-legend .positive { color: #22ab94; }
 .replay-lightweight-legend .negative { color: #f23645; }
+.replay-operation-chart-help { display: grid; gap: 8px; }
+.replay-operation-mark-summary { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: #9fb1c7; font-size: 12px; font-weight: 850; }
+.replay-operation-mark-summary strong { color: #f8fbff; }
+.replay-operation-filter-banner { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(251, 191, 36, .32); background: rgba(113, 63, 18, .24); color: #f9e7ba; font-size: 12px; font-weight: 850; }
+.replay-operation-filter-banner span { color: #d8c18f; }
+.selected-operation-row { background: rgba(251, 191, 36, .10); outline: 1px solid rgba(251, 191, 36, .28); }
+.replay-probability-interval-panel { display: grid; gap: 10px; }
+.replay-probability-interval-chart { width: 100%; min-height: 300px; border-radius: 8px; border: 1px solid rgba(148, 163, 184, .12); background: #0f1720; }
+.probability-zero-line { stroke: rgba(203, 213, 225, .24); stroke-dasharray: 5 5; }
+.probability-interval-stem { stroke: rgba(125, 211, 252, .32); stroke-width: 4; stroke-linecap: round; }
+.probability-center-path { fill: none; stroke: #fbbf24; stroke-width: 2; stroke-dasharray: 6 4; }
+.actual-return-path { fill: none; stroke: #22ab94; stroke-width: 2.5; }
+.actual-in-band { fill: #22ab94; stroke: rgba(248, 251, 255, .82); stroke-width: 1; }
+.actual-out-band { fill: #f23645; stroke: rgba(248, 251, 255, .82); stroke-width: 1; }
+.replay-probability-legend { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; color: #9fb1c7; font-size: 12px; font-weight: 850; }
+.legend-line { display: inline-block; width: 22px; height: 3px; margin-right: 5px; border-radius: 999px; vertical-align: middle; }
+.legend-line.interval { background: rgba(125, 211, 252, .5); }
+.legend-line.center { background: #fbbf24; }
+.legend-line.actual { background: #22ab94; }
 
 @media (max-width: 1220px) {
   .model-chart-grid, .replay-chart-grid { grid-template-columns: 1fr; }

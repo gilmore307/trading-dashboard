@@ -709,7 +709,7 @@ Chentong clarified that the intended Events page is the current time-axis event 
 
 ### Decision
 
-Events is the single public event page. It uses `temporal_explorer_summary` as the primary page contract for chart controls, event density, selected-unit certified event-family markers, and the certified event-family to market-state relationship. Events does not expose substrate cards and does not consume replay residual-event governance.
+Events is the single public event page. It uses `temporal_explorer_summary` as the primary page contract for chart controls, event density, selected-unit certified event-family markers, and the certified event-family to market-state relationship. Events does not expose substrate cards and does not consume replay M03 attribution/effect-model evidence; that evidence belongs to Event Families or Replay Attribution depending on whether the user is reviewing taxonomy/modelability or post-replay causality.
 
 ### Consequences
 
@@ -801,7 +801,7 @@ Chentong clarified that event classification should be multi-level: coarse categ
 
 ### Decision
 
-Add Event Families as a Historical Models page backed by `temporal_explorer_summary`. The page renders a selectable event-family tree from coarse event/source categories down to mechanism, submechanism, and specific event dossiers when fields are published. Selecting any hierarchy level filters the event ledger below it, including event metadata and published risk/impact fields.
+Add Event Families as a Historical Models page backed by `temporal_explorer_summary`. The page renders a selectable event taxonomy tree from Domain through Kingdom, Phylum, Class, Order, Family, Genus, and Species when fields are published, with legacy event/source/mechanism fields used only as fallback display inputs. Selecting any hierarchy level filters the event ledger below it, including event metadata and published risk/impact fields.
 
 Replay Attribution remains backed by `model_group_replay_review_summary`, but it is now pure model/replay failure attribution. It uses the same replay attribution version selector pattern as the other replay pages, then renders failure statistics and all published concrete failure rows. Event-related failures are only one possible cause family, not the organizing principle of the page.
 
@@ -828,12 +828,12 @@ Replay Operations renders C01-C07 through an in-page component tab control:
 - C01 Intake
 - C02 Entry
 - C03 Lifecycle
-- C04 Option Review
+- C04 Expression Review
 - C05 Order Intent
 - C06 Execution Gate
 - C07 Failure Review
 
-Each component tab owns that component's short role explanation, operation cards, charts, summary table, and focused concrete operation ledger. Summary mode compares the selected component across model groups. Focus mode uses the selected model group's published operation action rows as the primary evidence, with component metrics only as supporting diagnostics.
+Each component tab owns that component's short role explanation, operation cards, charts, summary table, and focused concrete operation ledger. Summary mode compares the selected component across model groups. Focus mode uses the selected model group's replay K-line as the primary chart, overlays published operation action rows as marks, lets mark selection switch the active component and filter the concrete operation ledger, and uses component metrics only as supporting diagnostics.
 
 The current projection is bounded by `model_group_replay_review_summary` evidence. It uses `replay_operations_c01_c07` component summaries and concrete action rows produced from `operation_component_action_rows.csv`; `operation_component_flow.csv`, `operation_component_review_packet.csv`, and `operation_component_metrics.csv` provide summary and supporting metric context. The page should distinguish true zeros and explicit lifecycle evidence gaps from missing fields. `decision_review.first_gap_component_counts` and `decision_review.sample_rows` are attribution evidence only and must not backfill the Operations concrete ledger. It must not fabricate operations that the review artifact has not published.
 
@@ -860,7 +860,7 @@ Replay Operations publishes C01-C07 rows with component-specific methods:
 - C01 reviews source, candidate, context, and sector/intake readiness.
 - C02 reviews entry gate, candidate rank, signal, and action-surface quality.
 - C03 reviews portfolio lifecycle continuity, held-position state, and replacement policy.
-- C04 reviews option-expression funnel materialization and selected contract path.
+- C04 reviews options-first equity expression, option rolling/replacement, crypto leverage expression, selected path materialization, and direct-underlying fallback eligibility.
 - C05 reviews sizing, capacity, and order-intent contract evidence.
 - C06 reviews execution gate, selected-path fill, and materialization coverage.
 - C07 reviews operational failure, residual gap, and settlement evidence as a component-owned review path.
