@@ -1209,6 +1209,21 @@ function progressCountLabel(value: number): string {
   return Math.trunc(value).toLocaleString('en-US');
 }
 
+function numberFromRecord(record: Record<string, unknown> | null | undefined, key: string): number | null {
+  const value = record?.[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function stringFromRecord(record: Record<string, unknown> | null | undefined, key: string): string | null {
+  const value = record?.[key];
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function activeWorkerMonthProgress(progress: StageCoveragePayload | undefined | null): Record<string, unknown> | null {
+  const monthProgress = progress?.extra?.month_progress;
+  return monthProgress && typeof monthProgress === 'object' && !Array.isArray(monthProgress) ? monthProgress as Record<string, unknown> : null;
+}
+
 function progressPayloadView(
   progress: StageCoveragePayload | undefined | null,
   statusValue: string | undefined | null,
@@ -1251,6 +1266,10 @@ function progressPayloadView(
   const activeWorkerUnit = String(activeWorkerProgress?.unit_label || '').toLowerCase();
   if (activeWorkerProgress && ['rows', 'model rows'].includes(activeWorkerUnit)) {
     const rowCount = progressNodeCount(activeWorkerProgress) ?? activeWorkerProgress.processed_count ?? activeWorkerProgress.ready_count ?? 0;
+    const monthProgress = activeWorkerMonthProgress(activeWorkerProgress);
+    const currentMonth = stringFromRecord(monthProgress, 'current_month');
+    const completedMonths = numberFromRecord(monthProgress, 'completed_months');
+    const expectedMonths = numberFromRecord(monthProgress, 'expected_months');
     const parentExpected = Math.max(0, progress.expected_count ?? 0);
     const parentReady = Math.max(0, progress.ready_count ?? 0);
     const failedCount = Math.max(0, progress.failed_count ?? 0);
@@ -1260,7 +1279,9 @@ function progressPayloadView(
     const updated = activeWorkerProgress.updated_at_utc ? ` · Updated ${formatTimestamp(activeWorkerProgress.updated_at_utc)}` : '';
     const source = activeWorkerProgress.progress_source ? ` · ${startCase(activeWorkerProgress.progress_source)}` : '';
     const basis = progress.progress_basis ? ` · ${progress.progress_basis}` : '';
-    const monthLabel = parentExpected ? `Month completion ${parentReady}/${parentExpected} ${progress.unit_label || 'dataset months'}` : 'Month completion pending';
+    const monthLabel = expectedMonths
+      ? `Month completion ${completedMonths ?? 0}/${expectedMonths} dataset months${currentMonth ? ` · Current ${currentMonth}` : ''}`
+      : parentExpected ? `Month completion ${parentReady}/${parentExpected} ${progress.unit_label || 'dataset months'}` : 'Month completion pending';
     const activity = activeWorkerProgress.current_activity ? `${activeWorkerProgress.current_activity} · ` : '';
     return {
       percent: Math.max(0, Math.min(100, percent)),
