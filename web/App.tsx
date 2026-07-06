@@ -1198,6 +1198,17 @@ function taskProgressFallback(task: HistoricalTaskTimelineItemPayload): { percen
 
 type ProgressView = { percent: number; label: string; hint: string; hasEvidence: boolean; failed: boolean; hasBar: boolean };
 
+function progressNodeCount(progress: StageCoveragePayload | undefined | null): number | null {
+  const node = Array.isArray(progress?.nodes) ? progress.nodes[progress.nodes.length - 1] : null;
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return null;
+  const value = (node as { processed_count?: unknown }).processed_count;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function progressCountLabel(value: number): string {
+  return Math.trunc(value).toLocaleString('en-US');
+}
+
 function progressPayloadView(
   progress: StageCoveragePayload | undefined | null,
   statusValue: string | undefined | null,
@@ -1231,6 +1242,30 @@ function progressPayloadView(
       percent,
       label: formatPercent(percent),
       hint: `Failed ${failedCount} · Accepted skips ${acceptedSkipCount}${source}${updated}${basis}`,
+      hasEvidence: true,
+      hasBar: true,
+      failed: failedCount > 0 || String(progress.status || statusValue || '').toLowerCase() === 'failed',
+    };
+  }
+  const activeWorkerProgress = progress.active_worker_progress;
+  const activeWorkerUnit = String(activeWorkerProgress?.unit_label || '').toLowerCase();
+  if (activeWorkerProgress && ['rows', 'model rows'].includes(activeWorkerUnit)) {
+    const rowCount = progressNodeCount(activeWorkerProgress) ?? activeWorkerProgress.processed_count ?? activeWorkerProgress.ready_count ?? 0;
+    const parentExpected = Math.max(0, progress.expected_count ?? 0);
+    const parentReady = Math.max(0, progress.ready_count ?? 0);
+    const failedCount = Math.max(0, progress.failed_count ?? 0);
+    const acceptedSkipCount = Math.max(0, progress.accepted_failed_count ?? 0);
+    const pendingCount = Math.max(0, progress.pending_count ?? 0);
+    const percent = parentExpected > 0 ? (Math.min(parentReady, parentExpected) / parentExpected) * 100 : 0;
+    const updated = activeWorkerProgress.updated_at_utc ? ` · Updated ${formatTimestamp(activeWorkerProgress.updated_at_utc)}` : '';
+    const source = activeWorkerProgress.progress_source ? ` · ${startCase(activeWorkerProgress.progress_source)}` : '';
+    const basis = progress.progress_basis ? ` · ${progress.progress_basis}` : '';
+    const monthLabel = parentExpected ? `Month completion ${parentReady}/${parentExpected} ${progress.unit_label || 'dataset months'}` : 'Month completion pending';
+    const activity = activeWorkerProgress.current_activity ? `${activeWorkerProgress.current_activity} · ` : '';
+    return {
+      percent: Math.max(0, Math.min(100, percent)),
+      label: `${activity}${progressCountLabel(rowCount)} ${activeWorkerProgress.unit_label || 'rows'}`,
+      hint: `${monthLabel}; dataset-month count updates when the split/month closes. Pending ${pendingCount} · Failed ${failedCount} · Accepted skips ${acceptedSkipCount}${source}${updated}${basis}`,
       hasEvidence: true,
       hasBar: true,
       failed: failedCount > 0 || String(progress.status || statusValue || '').toLowerCase() === 'failed',

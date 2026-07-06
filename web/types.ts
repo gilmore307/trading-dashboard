@@ -131,6 +131,7 @@ export interface StageCoveragePayload {
   status?: string | null;
   unit_label?: string | null;
   expected_count?: number;
+  processed_count?: number;
   ready_count?: number;
   active_count?: number;
   current_count?: number;
@@ -156,6 +157,8 @@ export interface StageCoveragePayload {
   current_activity?: string | null;
   activity_details?: string[];
   nodes?: unknown[];
+  active_worker_progress?: StageCoveragePayload | null;
+  parent_task_progress?: StageCoveragePayload | null;
 }
 
 export interface StageExecutionPayload {
