@@ -6627,7 +6627,7 @@ type EventLedgerRow = TemporalExplorerEventPayload & {
   orderNode: string;
   familyNode: string;
   genusNode: string;
-  speciesNode: string;
+  speciesNode: string | null;
   riskScore: number | null;
   impactScore: number | null;
 };
@@ -6653,6 +6653,15 @@ function recordString(record: Record<string, unknown>, keys: string[], fallback:
   return fallback;
 }
 
+function recordOptionalString(record: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return null;
+}
+
 function recordNumber(record: Record<string, unknown>, keys: string[]): number | null {
   for (const key of keys) {
     const value = metricNumber(record, key);
@@ -6676,8 +6685,6 @@ function eventLedgerRows(chart: TemporalExplorerChartPayload): EventLedgerRow[] 
     const orderNode = recordString(record, ['taxonomy_order', 'order_node', 'mechanism_family', 'event_type'], 'unclassified_order');
     const familyNode = recordString(record, ['taxonomy_family', 'family_node', 'family_label', 'family_id', 'event_type'], family);
     const genusNode = recordString(record, ['taxonomy_genus', 'genus_node', 'submechanism_family', 'event_subtype'], familyNode);
-    const symbol = recordString(record, ['symbol', 'primary_entity', 'target_symbol'], '');
-    const speciesFallback = symbol ? `${symbol} ${genusNode}` : recordString(record, ['title', 'event_id'], 'specific_event_pattern');
     return {
       ...event,
       domainNode,
@@ -6687,7 +6694,7 @@ function eventLedgerRows(chart: TemporalExplorerChartPayload): EventLedgerRow[] 
       orderNode,
       familyNode,
       genusNode,
-      speciesNode: recordString(record, ['taxonomy_species', 'species_node', 'specific_event_dossier', 'specific_event_dossier_id', 'dossier_id'], speciesFallback),
+      speciesNode: recordOptionalString(record, ['taxonomy_species', 'species_node', 'specific_event_dossier', 'specific_event_dossier_id', 'dossier_id']),
       riskScore: recordNumber(record, ['event_risk_score', 'risk_score', 'risk_intensity_score', 'uncertainty_score']),
       impactScore: recordNumber(record, ['impact_score', 'impact_normalized_severity_score', 'event_impact_score']),
     };
@@ -6710,7 +6717,7 @@ function nodeMatchesEvent(node: EventOntologyNode, event: EventLedgerRow): boole
     event.orderNode,
     event.familyNode,
     event.genusNode,
-    event.speciesNode,
+    ...(event.speciesNode ? [event.speciesNode] : []),
   ].map(normalizeTreePart);
   return node.path.every((part, index) => eventPath[index] === part);
 }
@@ -6756,7 +6763,7 @@ function buildEventOntologyTree(events: EventLedgerRow[], families: TemporalExpl
       [event.orderNode, 'order'],
       [event.familyNode, 'family'],
       [event.genusNode, 'genus'],
-      [event.speciesNode, 'species'],
+      ...(event.speciesNode ? [[event.speciesNode, 'species'] as [string, EventOntologyLevel]] : []),
     ];
     let parent = root;
     for (const [label, level] of labels) {
