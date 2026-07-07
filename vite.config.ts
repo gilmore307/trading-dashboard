@@ -382,6 +382,19 @@ function comparableValue(value: unknown): string | number {
   return String(value ?? '');
 }
 
+function comparableRowValue(row: Record<string, unknown>, key: string): string | number {
+  const direct = row[key];
+  if (direct !== undefined && direct !== null) return comparableValue(direct);
+  for (const sectionName of ['trace_evidence', 'layer_diagnostics']) {
+    const section = row[sectionName];
+    if (section && typeof section === 'object' && !Array.isArray(section)) {
+      const value = (section as Record<string, unknown>)[key];
+      if (value !== undefined && value !== null) return comparableValue(value);
+    }
+  }
+  return comparableValue(null);
+}
+
 async function replayLayerDecisionRows(query: {
   reviewRunId: string;
   layerId: string;
@@ -415,8 +428,8 @@ async function replayLayerDecisionRows(query: {
   const sortKey = /^[a-zA-Z0-9_]+$/.test(query.sort) ? query.sort : 'decision_time';
   const direction = query.direction === 'desc' ? 'desc' : 'asc';
   rows.sort((left, right) => {
-    const leftValue = comparableValue(left[sortKey]);
-    const rightValue = comparableValue(right[sortKey]);
+    const leftValue = comparableRowValue(left, sortKey);
+    const rightValue = comparableRowValue(right, sortKey);
     const result = typeof leftValue === 'number' && typeof rightValue === 'number'
       ? leftValue - rightValue
       : String(leftValue).localeCompare(String(rightValue));
