@@ -81,9 +81,9 @@ const REPLAY_DECISION_LAYER_NOTES: Record<string, { title: string; role: string;
   },
   model_03_event_state: {
     title: 'M03 Event State',
-    role: 'Reviews point-in-time event-pool observations, one event per row.',
-    review: 'Audit whether each event-state observation should have allowed, blocked, or downweighted later paths.',
-    failure: 'Event risk was underweighted, overblocked, or missing from the event-state pool.',
+    role: 'Reviews point-in-time interpreted event/effect rows, one event effect per row.',
+    review: 'Audit each event effect disposition: no impact, context only, risk shape, directional effect, or unresolved.',
+    failure: 'Event impact was unresolved, misclassified, overblocked, underweighted, or missing from the event-state ledger.',
   },
   model_04_unified_decision: {
     title: 'M04 Unified Decision',
@@ -4133,6 +4133,11 @@ function replayLayerComparisonRows(runs: Array<Record<string, unknown>>) {
     expectedReturnScoreMean: metricNumber(summary, 'expected_return_score_mean'),
     actionDirectionScoreMean: metricNumber(summary, 'action_direction_score_mean'),
     tradeIntensityScoreMean: metricNumber(summary, 'trade_intensity_score_mean'),
+    eventNoImpactCount: metricNumber(summary, 'event_no_impact_count'),
+    eventContextOnlyCount: metricNumber(summary, 'event_context_only_count'),
+    eventRiskShapeCount: metricNumber(summary, 'event_risk_shape_count'),
+    eventDirectionalEffectCount: metricNumber(summary, 'event_directional_effect_count'),
+    eventUnresolvedCount: metricNumber(summary, 'event_unresolved_count'),
     sourceGapCodes: Array.isArray(summary.source_gap_codes) ? summary.source_gap_codes.map((item) => String(item)) : [],
   })));
 }
@@ -4181,7 +4186,7 @@ function ReplayLayerTabs({
 
 function replayLayerMetricSeries(
   rows: ReplayLayerComparisonRow[],
-  key: 'coverageRowCount' | 'effectiveDecisionCount' | 'correctRate' | 'acceptableRate' | 'incorrectRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact' | 'candidateRankMean' | 'candidateTop10Rate' | 'candidateTop25Rate' | 'selectedCandidateRate',
+  key: 'coverageRowCount' | 'effectiveDecisionCount' | 'correctRate' | 'acceptableRate' | 'incorrectRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact' | 'candidateRankMean' | 'candidateTop10Rate' | 'candidateTop25Rate' | 'selectedCandidateRate' | 'eventNoImpactCount' | 'eventContextOnlyCount' | 'eventRiskShapeCount' | 'eventDirectionalEffectCount' | 'eventUnresolvedCount',
 ) {
   const isRate = key === 'correctRate' || key === 'acceptableRate' || key === 'incorrectRate' || key === 'harmfulErrorRate' || key === 'missedGoodRate' || key === 'candidateTop10Rate' || key === 'candidateTop25Rate' || key === 'selectedCandidateRate';
   return rows
@@ -5198,14 +5203,24 @@ function ReplayReviewFocusPanel({
 
 function ReplayLayerQualityTable({ rows, layerId }: { rows: ReplayLayerComparisonRow[]; layerId: string }) {
   const mode = replayDecisionLayerMode(layerId);
-  const [sort, setSort] = useState<SortState<'runLabel' | 'layerLabel' | 'evidenceStatus' | 'effectiveDecisionCount' | 'coverageRowCount' | 'correctRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact' | 'candidateRankMean' | 'candidateTop10Rate' | 'candidateTop25Rate' | 'selectedCandidateRate'>>({ key: 'runLabel', direction: 'asc' });
+  const isM03 = layerId === 'model_03_event_state';
+  const [sort, setSort] = useState<SortState<'runLabel' | 'layerLabel' | 'evidenceStatus' | 'effectiveDecisionCount' | 'coverageRowCount' | 'correctRate' | 'harmfulErrorRate' | 'missedGoodRate' | 'meanRegret' | 'meanImpact' | 'candidateRankMean' | 'candidateTop10Rate' | 'candidateTop25Rate' | 'selectedCandidateRate' | 'eventNoImpactCount' | 'eventContextOnlyCount' | 'eventRiskShapeCount' | 'eventDirectionalEffectCount' | 'eventUnresolvedCount'>>({ key: 'runLabel', direction: 'asc' });
   const sortedRows = [...rows].sort((left, right) => compareSortValues(left[sort.key], right[sort.key], sort.direction) || left.runLabel.localeCompare(right.runLabel) || left.layerId.localeCompare(right.layerId));
   return (
-    <div className={`replay-table replay-layer-quality-table ${mode}-quality-table`}>
+    <div className={`replay-table replay-layer-quality-table ${mode}-quality-table${isM03 ? ' m03-effect-quality-table' : ''}`}>
       <div className="replay-table-row replay-table-head">
         <SortableHeader label="Model Group" column="runLabel" sort={sort} onSort={setSort} />
         <SortableHeader label="Evidence" column="evidenceStatus" sort={sort} onSort={setSort} />
-        {mode === 'diagnostic' ? (
+        {isM03 ? (
+          <>
+            <SortableHeader label="Event Rows" column="coverageRowCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+            <SortableHeader label="No Impact" column="eventNoImpactCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+            <SortableHeader label="Context" column="eventContextOnlyCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+            <SortableHeader label="Risk Shape" column="eventRiskShapeCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+            <SortableHeader label="Directional" column="eventDirectionalEffectCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+            <SortableHeader label="Unresolved" column="eventUnresolvedCount" sort={sort} onSort={setSort} defaultDirection="desc" />
+          </>
+        ) : mode === 'diagnostic' ? (
           <>
             <SortableHeader label="Diagnostic Rows" column="effectiveDecisionCount" sort={sort} onSort={setSort} defaultDirection="desc" />
             <SortableHeader label="Triggered" column="coverageRowCount" sort={sort} onSort={setSort} defaultDirection="desc" />
@@ -5235,7 +5250,16 @@ function ReplayLayerQualityTable({ rows, layerId }: { rows: ReplayLayerCompariso
         <div className="replay-table-row" key={row.id}>
           <strong>{row.runLabel}</strong>
           <span><StatusPill status={startCase(row.evidenceStatus)} severity={replayLayerEvidenceSeverity(row.evidenceStatus)} /></span>
-          {mode === 'diagnostic' ? (
+          {isM03 ? (
+            <>
+              <span>{formatMetricValue(row.coverageRowCount, 0)}</span>
+              <span>{formatMetricValue(row.eventNoImpactCount, 0)}</span>
+              <span>{formatMetricValue(row.eventContextOnlyCount, 0)}</span>
+              <span>{formatMetricValue(row.eventRiskShapeCount, 0)}</span>
+              <span>{formatMetricValue(row.eventDirectionalEffectCount, 0)}</span>
+              <span>{formatMetricValue(row.eventUnresolvedCount, 0)}</span>
+            </>
+          ) : mode === 'diagnostic' ? (
             <>
               <span>{formatMetricValue(row.effectiveDecisionCount, 0)}</span>
               <span>{formatMetricValue(row.coverageRowCount, 0)}</span>
@@ -5268,6 +5292,18 @@ function ReplayLayerQualityTable({ rows, layerId }: { rows: ReplayLayerCompariso
 
 function ReplayLayerQualityCharts({ rows, layerId }: { rows: ReplayLayerComparisonRow[]; layerId: string }) {
   const mode = replayDecisionLayerMode(layerId);
+  if (layerId === 'model_03_event_state') {
+    return (
+      <div className="replay-chart-grid">
+        <MiniMetricBarChart title="Event Effect Rows" series={replayLayerMetricSeries(rows, 'coverageRowCount')} emptyLabel="No M03 event effect rows published" />
+        <MiniMetricBarChart title="No Impact" series={replayLayerMetricSeries(rows, 'eventNoImpactCount')} emptyLabel="No no-impact event rows published" />
+        <MiniMetricBarChart title="Context Only" series={replayLayerMetricSeries(rows, 'eventContextOnlyCount')} emptyLabel="No context-only event rows published" />
+        <MiniMetricBarChart title="Risk Shape" series={replayLayerMetricSeries(rows, 'eventRiskShapeCount')} emptyLabel="No risk-shape event rows published" />
+        <MiniMetricBarChart title="Directional" series={replayLayerMetricSeries(rows, 'eventDirectionalEffectCount')} emptyLabel="No directional event rows published" />
+        <MiniMetricBarChart title="Unresolved" series={replayLayerMetricSeries(rows, 'eventUnresolvedCount')} emptyLabel="No unresolved event rows published" />
+      </div>
+    );
+  }
   if (mode === 'diagnostic') {
     return (
       <div className="replay-chart-grid">
@@ -5423,7 +5459,8 @@ function ReplayLayerDecisionLedger({
   layerId: string;
 }) {
   const layerMode = replayDecisionLayerMode(layerId);
-  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type' | 'model_rank_within_timestamp' | 'selected_by_replay' | 'alpha_score' | 'expected_return_score' | 'action_direction_score' | 'trade_intensity_score' | 'normalized_event_type' | 'event_ref'>>({ key: 'decision_time', direction: 'asc' });
+  const isM03 = layerId === 'model_03_event_state';
+  const [sort, setSort] = useState<SortState<'decision_time' | 'target_symbol' | 'layer_label' | 'correctness_class' | 'acceptability_class' | 'regret_to_best_available' | 'impact_normalized_severity_score' | 'cause_family' | 'failure_type' | 'model_rank_within_timestamp' | 'selected_by_replay' | 'alpha_score' | 'expected_return_score' | 'action_direction_score' | 'trade_intensity_score' | 'normalized_event_type' | 'event_ref' | 'event_impact_disposition' | 'effect_model_node' | 'impact_evidence_status'>>({ key: 'decision_time', direction: 'asc' });
   const [page, setPage] = useState(0);
   const pageSize = 50;
   const [payload, setPayload] = useState<ReplayLayerDecisionPagePayload | null>(null);
@@ -5469,12 +5506,12 @@ function ReplayLayerDecisionLedger({
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
   const pageIndex = Math.min(page, pageCount - 1);
   const pageRows = serverRows ?? fallbackSortedRows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
-  const showTargetColumn = layerId !== 'model_01_background_context' && layerId !== 'model_03_event_state';
+  const showTargetColumn = layerId !== 'model_01_background_context' && !isM03;
   return (
     <>
       {loading ? <div className="empty-chart compact">Loading full layer rows</div> : null}
       {error ? <div className="empty-chart compact">{error}</div> : null}
-      <div className={`replay-table replay-layer-ledger-table ${layerMode}-ledger-table${showTargetColumn ? '' : ' m01-context-ledger-table'}`}>
+      <div className={`replay-table replay-layer-ledger-table ${layerMode}-ledger-table${showTargetColumn ? '' : isM03 ? ' m03-effect-ledger-table' : ' m01-context-ledger-table'}`}>
         <div className="replay-table-row replay-table-head">
           <SortableHeader label="Time" column="decision_time" sort={sort} onSort={setSort} />
           {showTargetColumn ? <SortableHeader label="Target" column="target_symbol" sort={sort} onSort={setSort} /> : null}
@@ -5493,9 +5530,9 @@ function ReplayLayerDecisionLedger({
               {layerId === 'model_03_event_state' ? (
                 <>
                   <SortableHeader label="Event Type" column="normalized_event_type" sort={sort} onSort={setSort} />
-                  <SortableHeader label="Event Ref" column="event_ref" sort={sort} onSort={setSort} />
-                  <span>Uncertainty</span>
-                  <span>Block</span>
+                  <SortableHeader label="Disposition" column="event_impact_disposition" sort={sort} onSort={setSort} />
+                  <SortableHeader label="Effect Node" column="effect_model_node" sort={sort} onSort={setSort} />
+                  <SortableHeader label="Impact Status" column="impact_evidence_status" sort={sort} onSort={setSort} />
                   <span>Path Risk</span>
                 </>
               ) : (
@@ -5537,9 +5574,9 @@ function ReplayLayerDecisionLedger({
                 {layerId === 'model_03_event_state' ? (
                   <>
                     <span>{nestedText(row, 'layer_diagnostics', 'normalized_event_type')}</span>
-                    <span>{nestedText(row, 'layer_diagnostics', 'event_ref')}</span>
-                    <span>{formatMetricValue(nestedMetricNumber(row, 'layer_diagnostics', 'event_uncertainty_score_1D'), 4)}</span>
-                    <span>{formatMetricValue(nestedMetricNumber(row, 'layer_diagnostics', 'event_entry_block_pressure_score_1D'), 4)}</span>
+                    <span>{startCase(nestedText(row, 'layer_diagnostics', 'event_impact_disposition'))}</span>
+                    <span>{nestedText(row, 'layer_diagnostics', 'effect_model_node')}</span>
+                    <span>{startCase(nestedText(row, 'layer_diagnostics', 'impact_evidence_status'))}</span>
                     <span>{formatMetricValue(nestedMetricNumber(row, 'layer_diagnostics', 'event_path_risk_score_1D'), 4)}</span>
                   </>
                 ) : (
@@ -5603,12 +5640,23 @@ function ReplayLayerSection({
       {focusedSummary ? (
         <div className="metric-grid replay-layer-metrics">
           {layerMode === 'diagnostic' ? (
-            <>
-              <MetricCard label="Triggered" value={formatMetricValue(focusedSummary.coverageRowCount, 0)} hint="Point-in-time layer coverage where published" />
-              <MetricCard label="Diagnostic Rows" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint="Rows in this layer's diagnostic denominator" />
-              <MetricCard label="Label State" value={focusedSummary.evidenceStatus === 'published' ? 'Scored' : 'Pending'} hint={startCase(focusedSummary.evidenceStatus)} />
-              <MetricCard label="Evidence Gaps" value={focusedSummary.sourceGapCodes.length.toFixed(0)} hint={layerSummaryGapLabel(focusedSummary)} />
-            </>
+            layerId === 'model_03_event_state' ? (
+              <>
+                <MetricCard label="Event Rows" value={formatMetricValue(focusedSummary.coverageRowCount, 0)} hint="Interpreted event/effect rows visible in the M03 ledger" />
+                <MetricCard label="No Impact" value={formatMetricValue(focusedSummary.eventNoImpactCount, 0)} hint="Events explicitly marked as no market impact" />
+                <MetricCard label="Context" value={formatMetricValue(focusedSummary.eventContextOnlyCount, 0)} hint="Events retained as context only" />
+                <MetricCard label="Risk Shape" value={formatMetricValue(focusedSummary.eventRiskShapeCount, 0)} hint="Events accepted as risk-shape evidence" />
+                <MetricCard label="Directional" value={formatMetricValue(focusedSummary.eventDirectionalEffectCount, 0)} hint="Events accepted as directional-effect evidence" />
+                <MetricCard label="Unresolved" value={formatMetricValue(focusedSummary.eventUnresolvedCount, 0)} hint="Events awaiting enough impact evidence" />
+              </>
+            ) : (
+              <>
+                <MetricCard label="Triggered" value={formatMetricValue(focusedSummary.coverageRowCount, 0)} hint="Point-in-time layer coverage where published" />
+                <MetricCard label="Diagnostic Rows" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint="Rows in this layer's diagnostic denominator" />
+                <MetricCard label="Label State" value={focusedSummary.evidenceStatus === 'published' ? 'Scored' : 'Pending'} hint={startCase(focusedSummary.evidenceStatus)} />
+                <MetricCard label="Evidence Gaps" value={focusedSummary.sourceGapCodes.length.toFixed(0)} hint={layerSummaryGapLabel(focusedSummary)} />
+              </>
+            )
           ) : layerMode === 'ranking' ? (
             <>
               <MetricCard label="Candidate Rows" value={formatMetricValue(focusedSummary.effectiveDecisionCount, 0)} hint="Point-in-time target candidates visible to M02" />
