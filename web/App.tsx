@@ -6787,35 +6787,158 @@ function findEventNode(node: EventOntologyNode, id: string): EventOntologyNode |
   return null;
 }
 
-function EventOntologyTree({
-  node,
+type EventOntologyDiagramLayoutNode = {
+  node: EventOntologyNode;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type EventOntologyDiagramEdge = {
+  id: string;
+  from: EventOntologyDiagramLayoutNode;
+  to: EventOntologyDiagramLayoutNode;
+};
+
+const EVENT_DIAGRAM_NODE_WIDTH = 230;
+const EVENT_DIAGRAM_NODE_HEIGHT = 74;
+const EVENT_DIAGRAM_COLUMN_GAP = 88;
+const EVENT_DIAGRAM_ROW_GAP = 16;
+
+function eventDiagramLabelLines(label: string): string[] {
+  const words = label.replace(/_/gu, ' ').split(/\s+/u).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > 26 && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+    if (lines.length === 2) break;
+  }
+  if (lines.length < 2 && current) lines.push(current);
+  if (!lines.length) lines.push(label || 'Unknown');
+  return lines.slice(0, 2).map((line) => (line.length > 30 ? `${line.slice(0, 27)}...` : line));
+}
+
+function buildEventDiagramLayout(root: EventOntologyNode): {
+  nodes: EventOntologyDiagramLayoutNode[];
+  edges: EventOntologyDiagramEdge[];
+  width: number;
+  height: number;
+} {
+  const ordered: EventOntologyNode[] = [];
+  const walk = (node: EventOntologyNode) => {
+    ordered.push(node);
+    node.children.forEach(walk);
+  };
+  walk(root);
+  const depthCounts = new Map<number, number>();
+  const nodes = ordered.map((node) => {
+    const index = depthCounts.get(node.depth) ?? 0;
+    depthCounts.set(node.depth, index + 1);
+    return {
+      node,
+      x: node.depth * (EVENT_DIAGRAM_NODE_WIDTH + EVENT_DIAGRAM_COLUMN_GAP),
+      y: index * (EVENT_DIAGRAM_NODE_HEIGHT + EVENT_DIAGRAM_ROW_GAP),
+      width: EVENT_DIAGRAM_NODE_WIDTH,
+      height: EVENT_DIAGRAM_NODE_HEIGHT,
+    };
+  });
+  const byId = new Map(nodes.map((item) => [item.node.id, item]));
+  const edges: EventOntologyDiagramEdge[] = [];
+  const collectEdges = (node: EventOntologyNode) => {
+    const from = byId.get(node.id);
+    if (!from) return;
+    for (const child of node.children) {
+      const to = byId.get(child.id);
+      if (to) edges.push({ id: `${node.id}->${child.id}`, from, to });
+      collectEdges(child);
+    }
+  };
+  collectEdges(root);
+  const maxDepth = Math.max(...nodes.map((item) => item.node.depth), 0);
+  const maxRows = Math.max(...depthCounts.values(), 1);
+  return {
+    nodes,
+    edges,
+    width: maxDepth * (EVENT_DIAGRAM_NODE_WIDTH + EVENT_DIAGRAM_COLUMN_GAP) + EVENT_DIAGRAM_NODE_WIDTH + 32,
+    height: Math.max(maxRows * (EVENT_DIAGRAM_NODE_HEIGHT + EVENT_DIAGRAM_ROW_GAP) - EVENT_DIAGRAM_ROW_GAP + 24, EVENT_DIAGRAM_NODE_HEIGHT + 24),
+  };
+}
+
+function EventOntologyDiagram({
+  tree,
   selectedId,
   onSelect,
 }: {
-  node: EventOntologyNode;
+  tree: EventOntologyNode;
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
+  const layout = useMemo(() => buildEventDiagramLayout(tree), [tree]);
+  const activateNode = (node: EventOntologyNode) => onSelect(node.id);
   return (
-    <div className="event-ontology-node" style={{ '--event-node-depth': node.depth } as CSSProperties}>
-      <button
-        className={selectedId === node.id ? 'event-ontology-button selected' : 'event-ontology-button'}
-        type="button"
-        onClick={() => onSelect(node.id)}
+    <div className="event-ontology-diagram-scroll">
+      <svg
+        className="event-ontology-diagram"
+        role="tree"
+        viewBox={`0 0 ${layout.width} ${layout.height}`}
+        style={{ minWidth: layout.width, minHeight: layout.height } as CSSProperties}
       >
-        <span>
-          <strong>{node.label}</strong>
-          <small>{EVENT_LEVEL_LABELS[node.level]}</small>
-        </span>
-        <em>{node.count}</em>
-      </button>
-      {node.children.length ? (
-        <div className="event-ontology-children">
-          {node.children.map((child) => (
-            <EventOntologyTree key={child.id} node={child} selectedId={selectedId} onSelect={onSelect} />
-          ))}
-        </div>
-      ) : null}
+        <g className="event-ontology-diagram-edges">
+          {layout.edges.map((edge) => {
+            const startX = edge.from.x + edge.from.width;
+            const startY = edge.from.y + edge.from.height / 2;
+            const endX = edge.to.x;
+            const endY = edge.to.y + edge.to.height / 2;
+            const midX = startX + (endX - startX) / 2;
+            return (
+              <path
+                d={`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`}
+                key={edge.id}
+              />
+            );
+          })}
+        </g>
+        <g className="event-ontology-diagram-nodes">
+          {layout.nodes.map(({ node, x, y, width, height }) => {
+            const selected = selectedId === node.id;
+            const lines = eventDiagramLabelLines(node.label);
+            return (
+              <g
+                aria-label={`${node.label}, ${EVENT_LEVEL_LABELS[node.level]}, ${node.count} events`}
+                aria-selected={selected}
+                className={`event-ontology-diagram-node level-${node.level}${selected ? ' selected' : ''}`}
+                key={node.id}
+                onClick={() => activateNode(node)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    activateNode(node);
+                  }
+                }}
+                role="treeitem"
+                tabIndex={0}
+              >
+                <title>{`${node.label} · ${EVENT_LEVEL_LABELS[node.level]} · ${node.count}`}</title>
+                <rect height={height} rx="10" width={width} x={x} y={y} />
+                <text className="event-ontology-diagram-level" x={x + 14} y={y + 20}>{EVENT_LEVEL_LABELS[node.level]}</text>
+                {lines.map((line, index) => (
+                  <text className="event-ontology-diagram-label" key={line + index} x={x + 14} y={y + 41 + index * 15}>
+                    {line}
+                  </text>
+                ))}
+                <text className="event-ontology-diagram-count" textAnchor="end" x={x + width - 14} y={y + 22}>{node.count}</text>
+              </g>
+            );
+          })}
+        </g>
+      </svg>
     </div>
   );
 }
@@ -6875,9 +6998,7 @@ function EventFamiliesView({ temporalChart }: { temporalChart: TemporalExplorerC
           Select a coarse source/domain node or a specific dossier node to inspect the events covered by that ontology level.
         </p>
         {tree.children.length ? (
-          <div className="event-ontology-tree">
-            <EventOntologyTree node={tree} selectedId={selectedNode.id} onSelect={setSelectedId} />
-          </div>
+          <EventOntologyDiagram tree={tree} selectedId={selectedNode.id} onSelect={setSelectedId} />
         ) : (
           <div className="empty-chart compact">No event ontology rows are published yet. The page will populate when the M03 event ledger appears in the read model.</div>
         )}
